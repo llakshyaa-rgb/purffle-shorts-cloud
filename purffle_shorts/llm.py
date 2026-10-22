@@ -134,25 +134,6 @@ def resolve_provider_name(settings: Settings) -> str:
     )
 
 
-def extract_json(text: str) -> dict[str, Any]:
-    """Parse a JSON object out of a model reply that may include code fences or chatter."""
-    t = text.strip()
-    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t, flags=re.I | re.S).strip()
-    try:
-        val = json.loads(t)
-        if isinstance(val, dict):
-            return val
-    except json.JSONDecodeError:
-        pass
-    start, end = t.find("{"), t.rfind("}")
-    if start != -1 and end > start:
-        chunk = t[start:end + 1]
-        try:
-            return json.loads(chunk)
-        except json.JSONDecodeError:
-            # Trailing commas are the most common model mistake.
-            return json.loads(re.sub(r",\s*([}\]])", r"\1", chunk))
-    raise LLMError(f"Model did not return JSON: {text[:200]!r}")
 
 
 class Provider:
@@ -166,6 +147,46 @@ class Provider:
     def __str__(self) -> str:
         return f"{self.name}:{self.model}"
 
+
+def extract_json(text: str) -> dict[str, Any]:
+    """Parse a JSON object from a model reply, including fenced or wrapped JSON."""
+    t = text.strip()
+    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t, flags=re.I | re.S).strip()
+
+    # First, try parsing the complete response.
+    try:
+        val = json.loads(t)
+        if isinstance(val, dict):
+            return val
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting the JSON object if the model added extra text.
+    start = t.find("{")
+    end = t.rfind("}")
+    if start != -1 and end > start:
+        chunk = t[start:end + 1]
+        try:
+            val = json.loads(chunk)
+            if isinstance(val, dict):
+                return val
+        except json.JSONDecodeError:
+            # Retry after removing common trailing commas.
+            try:
+                cleaned = re.sub(r",\s*([}\]])", r"\1", chunk)
+                val = json.loads(cleaned)
+                if isinstance(val, dict):
+                    return val
+            except json.JSONDecodeError:
+                pass
+
+    # Report the failure without dumping a potentially huge response.
+    preview = t[:500]
+    raise LLMError(
+        f"Model returned invalid or incomplete JSON. "
+        f"Response preview: {preview!r}"
+    )
+    
 
 class OpenAICompatible(Provider):
     def __init__(self, preset: Preset, model: str, api_key: str, base_url: str):
