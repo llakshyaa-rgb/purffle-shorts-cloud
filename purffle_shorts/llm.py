@@ -203,11 +203,14 @@ class OpenAICompatible(Provider):
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
+      
         if self._is_reasoning_model():
-            payload["max_completion_tokens"] = max(max_tokens, 8000)  # room for hidden reasoning tokens
+            payload["max_completion_tokens"] = max(max_tokens, 8000)
         else:
             payload["temperature"] = temperature
-            payload["max_tokens"] = max_tokens
+            payload["max_tokens"] = max(max_tokens, 12000)
+            
+        
         if schema and self._schema_mode:
             # Strict structured output: the reply is guaranteed to have exactly the keys and types asked for.
             payload["response_format"] = {"type": "json_schema",
