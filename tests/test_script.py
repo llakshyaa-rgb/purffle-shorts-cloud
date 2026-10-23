@@ -89,3 +89,13 @@ def test_narration_cleanup_turns_dashes_into_clean_pauses():
     assert clean_narration("blue–green , really ?") == "blue, green, really?"
     assert clean_narration("It ends here —.") == "It ends here."
     assert clean_narration("[Hook] Wow! #facts 🐙") == "Wow!"
+
+
+def test_prompt_includes_creator_creative_direction():
+    _, user = build_prompt(
+        "Lake Natron", "story", Settings(), [],
+        creative_brief="Use a cinematic cold open, build a mystery, and prioritize real close-up footage.",
+    )
+    assert "CREATOR CREATIVE DIRECTION" in user
+    assert "cinematic cold open" in user
+    assert "prioritize real close-up footage" in user
