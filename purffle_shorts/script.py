@@ -222,7 +222,7 @@ def _format_rules(style: str) -> str:
 
 
 def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str], context: str = "",
-                 insights: str = "", keywords: str = "") -> tuple[str, str]:
+                 insights: str = "", keywords: str = "", creative_brief: str = "") -> tuple[str, str]:
     lang = LANGUAGES.get(settings.language, settings.language)
     words, n_scenes = scene_plan(style, settings.target_seconds)
     system = (
@@ -235,6 +235,7 @@ def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str],
     ctx = f"Background information (use it, don't invent beyond it):\n{context.strip()}\n\n" if context else ""
     ins = f"{insights.strip()}\n\n" if insights else ""
     ins += f"{keywords.strip()}\n\n" if keywords else ""
+    brief = (f"CREATOR CREATIVE DIRECTION (follow unless it conflicts with factual accuracy or safety):\n{creative_brief.strip()[:1000]}\n\n" if creative_brief.strip() else "")
     user = f"""Write one YouTube Short.
 
 Subject: {subject}
@@ -243,7 +244,7 @@ Format: {STYLES[style]}
 Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
-{ctx}{ins}{avoid_block}Rules:
+{ctx}{ins}{brief}{avoid_block}Rules:
 - Total narration about {words} words (~{settings.target_seconds} seconds spoken), split into about {n_scenes} scenes.
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - Give this video its own creative identity. Do not narrate a list of disconnected facts unless the selected format is explicitly a listicle/facts format. Build a clear progression: hook -> develop the curiosity -> reveal specific evidence/details -> satisfying payoff. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, and announcing what the video will explain.
@@ -417,11 +418,11 @@ def word_count(text: str, language: str = "en") -> int:
 
 def write_script(llm, subject: str, settings: Settings, *, source: str = "niche",
                  avoid: list[str] | None = None, context: str = "", style: str | None = None,
-                 insights: str = "", keywords: str = "") -> Script:
+                 insights: str = "", keywords: str = "", creative_brief: str = "") -> Script:
     style = style if style in STYLES else pick_style(settings, source)
     if llm is None:
         return offline_script(subject, settings, style)
-    system, user = build_prompt(subject, style, settings, avoid or [], context, insights, keywords)
+    system, user = build_prompt(subject, style, settings, avoid or [], context, insights, keywords, creative_brief)
     data = llm.complete_json(system, user, SCRIPT_SCHEMA)
     script = normalize(data, subject, style, settings.language)
     log.info("Script (%s, %d words, %d scenes): %s", style, word_count(script.narration, settings.language),
