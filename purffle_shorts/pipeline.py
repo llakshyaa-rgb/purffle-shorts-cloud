@@ -499,6 +499,18 @@ class Studio:
                     raise
                 except Exception as e:  # a nicety: never fail the video over it
                     log.warning("Localising the title and description failed: %s", redact(e))
+            # Record actual visual coverage, not just the number of requested scenes. This makes
+            # fallback-heavy renders visible in the library and gives the next quality pass real data.
+            visual_total = len(media)
+            visual_real = sum(1 for m in media
+                              if m.source != "generated" and m.path is not None and m.path.is_file())
+            visual_coverage = round(100 * visual_real / visual_total) if visual_total else 0
+            if visual_coverage < 80:
+                log.warning("Visual coverage is only %d%% (%d/%d shots have real media)",
+                            visual_coverage, visual_real, visual_total)
+            else:
+                log.info("Visual coverage: %d%% (%d/%d shots have real media)",
+                         visual_coverage, visual_real, visual_total)
             meta = {
                 "title": title, "description": description, "tags": script.tags,
                 "category_id": script.category_id, "language": s.language,
@@ -508,6 +520,8 @@ class Studio:
                 "search_keywords": pick.keywords, "localizations": localizations, "cover_at": round(cover_at, 2),
                 "cast": script.cast,
                 "voice": f"{speech.engine}:{speech.voice}", "timing": speech.timing,
+                "visual_coverage_percent": visual_coverage,
+                "visual_real_shots": visual_real, "visual_total_shots": visual_total,
                 "visuals": [{"source": m.source, "id": m.id, "kind": m.kind, "query": m.query}
                             for m in media + ([background] if split else [])],
                 "parent_id": parent_id, "created_at": now_iso(),
