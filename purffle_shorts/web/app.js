@@ -161,7 +161,7 @@ async function boot() {
   }
   const i = S.info;
   S.form = Object.assign({
-    mode: "topic", topic: "", url: "", style: i.style || "auto", language: i.language, duration: i.duration,
+    mode: "topic", topic: "", url: "", creative_brief: "", style: i.style || "auto", language: i.language, duration: i.duration,
     aspect: ["9:16", "16:9", "1:1", "4:5"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
     caption_position: i.caption_position, grade: i.grade, transition: i.transition, review: i.review, tts: i.tts,
     voice: "", voice_b: "", provider: "", model: "", also_langs: (i.also_languages || []).join(", "), music: true,
@@ -307,6 +307,7 @@ function payload(extra = {}) {
     emphasis: f.emphasis !== false, emoji: f.emoji !== false,
   };
   if (f.mode === "topic") p.topic = f.topic.trim();
+  if (f.creative_brief && f.creative_brief.trim()) p.creative_brief = f.creative_brief.trim().slice(0, 1000);
   if (f.mode === "url") p.url = f.url.trim();
   if (f.mode === "queue") p.source = "queue";
   return Object.assign(p, extra);
@@ -362,6 +363,7 @@ function drawForm() {
     : f.mode === "url" ? `<div class="field big"><input type="url" data-f="url" value="${esc(f.url)}" placeholder="https://… an article, a blog post or a Reddit post" aria-label="Web page"><p class="hint">The page's text becomes the script's source material.</p></div>`
     : f.mode === "queue" ? `<p class="hint">Uses the oldest idea in your queue (${i_ideas()} waiting). Plan more on the <a href="#ideas">Ideas</a> page.</p>`
     : `<p class="hint">Picks a fresh topic from your niches and topic sources in .env.</p>`}
+    <div class="field"><label>Creative direction <span class="hint">(optional)</span></label><textarea data-f="creative_brief" rows="3" maxlength="1000" placeholder="e.g. Open with a cinematic scene, build a mystery, use real close-up footage and a map, avoid listicle pacing.">${esc(f.creative_brief || "")}</textarea><p class="hint">Steers the story, pacing and visual approach for this video. Leave blank for the AI to decide.</p></div>
   </section>
 
   <section class="card">
