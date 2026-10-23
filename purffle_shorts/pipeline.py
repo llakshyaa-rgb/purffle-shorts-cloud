@@ -284,7 +284,8 @@ class Studio:
 
     # ------------------------------------------------------------------ script only
     def draft(self, topic: str | None = None, *, source: str | None = None, style: str | None = None,
-              url: str | None = None, document: str | Path | None = None) -> tuple[Script, Topic, str]:
+              url: str | None = None, document: str | Path | None = None,
+              creative_brief: str = "") -> tuple[Script, Topic, str]:
         """Pick a topic, write the script and let the Script Doctor improve it. Nothing is rendered."""
         s = self.s
         standalone = not self._plan  # a draft on its own (Studio "Draft"), not the first half of make()
@@ -316,7 +317,7 @@ class Studio:
                     log.info("YouTube searches: %s", "; ".join(pick.keywords[:4]))
             script = write_script(self.llm, pick.subject, s, source=pick.source, avoid=self.history.recent_titles(),
                                   context=pick.context, style=style, insights=insights,
-                                  keywords=seo.keywords_block(pick.keywords))
+                                  keywords=seo.keywords_block(pick.keywords), creative_brief=creative_brief)
             if self.llm is not None and s.script_review != "off":
                 self._step("review", "Script Doctor")
                 script = review_script(self.llm, script, s)
@@ -332,7 +333,7 @@ class Studio:
     def make(self, topic: str | None = None, *, source: str | None = None, upload: bool | None = None,
              style: str | None = None, script_file: str | Path | None = None, script: Script | None = None,
              url: str | None = None, document: str | Path | None = None,
-             languages: list[str] | None = None) -> Result:
+             languages: list[str] | None = None, creative_brief: str = "") -> Result:
         t0 = time.time()
         s = self.s
         upload = s.upload if upload is None else upload
@@ -351,7 +352,8 @@ class Studio:
                 pick, writer = Topic(script.topic, "script"), ("script file" if script_file else "editor")
                 log.info("Script from %s (%d scenes): %s", script_file or "editor", len(script.scenes), script.title)
             else:
-                script, pick, writer = self.draft(topic, source=source, style=style, url=url, document=document)
+                script, pick, writer = self.draft(topic, source=source, style=style, url=url, document=document,
+                                                creative_brief=creative_brief)
             return self.produce(script, pick, writer, upload=upload, t0=t0, languages=languages, state=state)
         except (youtube.NotAuthorized, LLMConfigError, KeyboardInterrupt):
             raise  # setup problems stop the run instead of failing every video the same way
