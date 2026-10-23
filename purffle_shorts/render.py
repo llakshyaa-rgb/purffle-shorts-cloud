@@ -53,7 +53,7 @@ def _encode_args(settings: Settings, final: bool) -> list[str]:
         return ["-c:v", enc, "-preset", "p5", "-rc", "vbr", "-cq", str(settings.crf), "-b:v", "0",
                 "-profile:v", "high", "-pix_fmt", "yuv420p"]
     return ["-c:v", "libx264", "-preset", settings.preset, "-crf", str(settings.crf), "-profile:v", "high",
-            "-pix_fmt", "yuv420p", "-g", str(settings.fps * 2)]
+            "-pix_fmt", "yuv420p", "-g", str(settings.fps * 2), "-threads", "2"]
 
 
 def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Settings, work: Path) -> Path:
@@ -364,7 +364,7 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
     f.append(f"[{last}]format=yuv420p[vout]")
 
     def args(encode: list[str]) -> list[str]:
-        return [*inputs, "-filter_complex", ";".join(f), "-map", "[vout]", "-map", f"{audio_i}:a",
+        return ["-filter_complex_threads", "1", *inputs, "-filter_complex", ";".join(f), "-map", "[vout]", "-map", f"{audio_i}:a",
                 *encode, "-r", str(F), "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
                 "-t", f"{total:.3f}", "-movflags", "+faststart", str(out.resolve())]
     encode = _encode_args(settings, final=True)
@@ -397,7 +397,7 @@ def render_video(settings: Settings, media: list[MediaItem], scene_durations: li
     top = settings
     if background is not None:
         top = replace(settings, resolution=split_sizes(settings)[0])
-    workers = max(1, min(8, max(2, (os.cpu_count() or 4) // 3), len(media)))  # each ffmpeg is multithreaded
+    workers = max(1, min(2, len(media)))  # mobile-safe: concurrent FFmpeg processes can exhaust native memory and crash
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
         futs = [ex.submit(prepare_segment, m, L, i, top, work) for i, (m, L) in enumerate(zip(media, lengths))]
         bg_fut = None
