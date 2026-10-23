@@ -525,6 +525,11 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
 the same JSON structure and about {words} words in about {n_scenes} scenes. Fix every issue you listed and every
 automatic finding: sharpen the hook, cut filler, make vague lines concrete, remove any claim that may not be true,
 keep the payoff for the end, end with a short call to action. Put the rewritten script in "script".
+Creative-quality requirements:
+- Do not default to "Did you know?" or any repeated stock opening. Keep the opening specific to this topic and distinct from recent titles/context.
+- Ensure the narration progresses logically rather than listing disconnected facts, unless the chosen format is explicitly a facts/list format.
+- Each scene must have a concrete, searchable visual directly matching its narration. Avoid vague/repeated adjacent search queries; vary the actual subject or shot when the narration changes.
+- Do not claim a visual is secured just because a search query exists; use specific search_query and a concrete image_prompt that describes a plausible shot.
 Format rules to keep:
 {_format_rules(script.style)}""" if rewrite else 'Return only "rubric" and "issues".')
     user = f"""Review this YouTube Short script ({STYLES[script.style]}).
