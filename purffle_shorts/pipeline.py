@@ -425,6 +425,21 @@ class Studio:
                 got = dict(zip(((st.index, st.part) for st in wanted),
                                visuals.for_scenes(jobs, script.topic, work / "media", progress=self._sub)))
                 media = [got.get((st.index, st.part)) or got[(st.index, 0)] for st in shots]
+                # Do not accept a gradient for a scene when this same video has real media available.
+                # Reuse the nearest successful visual with a fresh camera move rather than showing a blank
+                # abstract background; the renderer makes a separate segment for each shot.
+                usable = [(i, item) for i, item in enumerate(media)
+                          if item.source != "generated" and item.path is not None and item.path.is_file()]
+                if usable:
+                    replaced = 0
+                    for i, item in enumerate(media):
+                        if item.source != "generated":
+                            continue
+                        _, fallback = min(usable, key=lambda pair: abs(pair[0] - i))
+                        media[i] = replace(fallback, id=f"{fallback.id}-reuse-{i}", query=script.scenes[shots[i].index].search_query)
+                        replaced += 1
+                    if replaced:
+                        log.warning("Visual coverage: reused nearby real media for %d scene(s) with no search result", replaced)
                 credits = visuals.credits
             by_scene = {(st.index, st.part): m for st, m in zip(shots, media)}
 
