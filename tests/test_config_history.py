@@ -4,6 +4,7 @@ from purffle_shorts.utils import redact
 
 
 def test_legacy_env_names_still_work(monkeypatch):
+    monkeypatch.delenv("BATCH_SIZE", raising=False)
     monkeypatch.setenv("SHORTS_RESOLUTION", "721x1281")
     monkeypatch.setenv("SHORTS_FPS", "60")
     monkeypatch.setenv("SHORTS_BATCH_SIZE", "5")

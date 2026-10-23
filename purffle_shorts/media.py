@@ -21,7 +21,7 @@ log = logging.getLogger("purffle")
 
 VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
-STOP_WORDS = {"the", "a", "an", "of", "and", "in", "on", "with", "for", "to", "at", "by", "from", "closeup"}
+STOP_WORDS = {"the", "a", "an", "of", "and", "in", "on", "with", "for", "to", "at", "by", "from", "closeup", "how", "what", "why", "when", "where", "who", "show", "explain", "describe", "tell", "make", "create", "communicate", "communicates", "communicating", "communicated"}
 
 
 @dataclass
@@ -128,6 +128,97 @@ def pexels_photos(query: str, key: str, orientation: str = "portrait") -> list[M
     return items
 
 
+
+
+# ------------------------------------------------------------------------------------------ Wikimedia Commons
+def commons_search(query: str, orientation: str = "portrait") -> list[MediaItem]:
+    """Search Commons for media with suitable reuse licences."""
+    params = {
+        "action": "query",
+        "format": "json",
+        "generator": "search",
+        "gsrsearch": query,
+        "gsrnamespace": 6,
+        "gsrlimit": 25,
+        "prop": "imageinfo|categories",
+        "iiprop": "url|size|mime|extmetadata",
+        "cllimit": "max",
+    }
+    r = http().get(
+        "https://commons.wikimedia.org/w/api.php",
+        params=params,
+        timeout=30,
+    )
+    raise_for_status(r, "Wikimedia Commons search")
+    pages = (r.json().get("query") or {}).get("pages") or {}
+    items = []
+
+    def metadata_value(metadata, name):
+        value = (metadata.get(name) or {}).get("value", "")
+        return re.sub(r"<[^>]*>", "", str(value)).strip()
+
+    for rank, page in enumerate(pages.values()):
+        infos = page.get("imageinfo") or []
+        if not infos:
+            continue
+        info = infos[0]
+        mime = str(info.get("mime") or "").lower()
+        is_video = mime in {"video/webm", "video/ogg", "video/mp4"}
+        is_image = mime in {"image/jpeg", "image/png"}
+        if not (is_video or is_image) or not info.get("url"):
+            continue
+
+        metadata = info.get("extmetadata") or {}
+        license_name = metadata_value(metadata, "LicenseShortName")
+        terms = metadata_value(metadata, "UsageTerms")
+        license_text = (license_name + " " + terms).lower()
+
+        # Conservative first pass: exclude non-commercial and no-derivatives files.
+        if not license_name or "non-commercial" in license_text:
+            continue
+        if "no-derivatives" in license_text or "cc by-nd" in license_text or "cc-by-nd" in license_text:
+            continue
+        if not any(x in license_text for x in (
+            "cc0", "public domain", "cc by", "cc-by", "cc by-sa", "cc-by-sa"
+        )):
+            continue
+
+        title = str(page.get("title") or "")
+        width = int(info.get("width") or 0)
+        height = int(info.get("height") or 0)
+        if orientation == "portrait" and width and height and width > height * 2:
+            continue
+
+        artist = metadata_value(metadata, "Artist")
+        description = metadata_value(metadata, "ImageDescription")
+        categories = " ".join(
+            str(category.get("title", "")).replace("Category:", "")
+            for category in page.get("categories", [])
+        )
+        page_url = "https://commons.wikimedia.org/wiki/" + quote(title.replace(" ", "_"))
+        filename = title.removeprefix("File:").replace("_", " ")
+        searchable_text = " ".join(
+            part for part in (filename, description, categories) if part
+        )
+        items.append(MediaItem(
+            "commons", title.removeprefix("File:"),
+            "video" if is_video else "image",
+            info["url"], width, height,
+            float(info.get("duration") or 0),
+            credit=artist, query=query, rank=rank,
+            text=searchable_text,
+            extra={
+                "license": license_name,
+                "license_url": metadata_value(metadata, "LicenseUrl"),
+                "artist": artist,
+                "source_page": page_url,
+                "mime": mime,
+                "description": description,
+                "categories": categories,
+            },
+        ))
+    return items
+
 # ------------------------------------------------------------------------------------------ Pixabay
 def pixabay_videos(query: str, key: str, prefer_4k: bool = False) -> list[MediaItem]:
     r = http().get("https://pixabay.com/api/videos/", timeout=30, params={
@@ -201,6 +292,59 @@ def simplify_query(query: str) -> str:
     return " ".join(words[:2])
 
 
+
+def expand_commons_queries(query: str) -> list[str]:
+    """Generate focused alternative searches for scientific visuals."""
+    q = query.lower()
+    alternatives = []
+
+    if any(w in q for w in ("astrocyte", "neuron", "microscopy")):
+        alternatives.extend([
+            "astrocytes neurons microscopy",
+            "astrocyte immunofluorescence",
+            "neurons glial cells microscopy",
+            "brain cells fluorescence microscopy",
+        ])
+
+    if any(w in q for w in ("myelin", "myelinated", "nerve fiber", "nerve fibers")):
+        alternatives.extend([
+            "myelinated nerve fibers microscopy",
+            "myelin immunofluorescence",
+            "nerve fiber microscopy",
+        ])
+
+    if "brain" in q and any(w in q for w in ("glowing", "neon", "light", "illustration", "visual")):
+        alternatives.extend([
+            "brain neural network illustration",
+            "human brain MRI scan",
+            "brain scientific illustration",
+        ])
+
+    if "brain" in q and any(w in q for w in ("sagittal", "anatomy", "section", "mri")):
+        alternatives.extend([
+            "human brain sagittal section",
+            "brain sagittal MRI",
+            "brain anatomy medical illustration",
+        ])
+
+    if "black hole" in q or "black holes" in q:
+        alternatives.extend([
+            "black hole accretion disk",
+            "black hole space astronomy",
+            "black hole illustration",
+        ])
+
+    result = []
+    seen = set()
+    for candidate in [query, *alternatives]:
+        candidate = " ".join(candidate.split())
+        key = candidate.casefold()
+        if candidate and key not in seen:
+            seen.add(key)
+            result.append(candidate)
+    return result
+
+
 def _slug_words(url: str) -> str:
     """'https://www.pexels.com/video/octopus-swimming-in-the-sea-2169880/' -> 'octopus swimming in the sea'."""
     slug = url.rstrip("/").rsplit("/", 1)[-1]
@@ -235,13 +379,66 @@ def _terms(text: str) -> set[str]:
 
 
 def relevance(item: MediaItem, query: str) -> float:
-    """0..1: how much of the scene's search query the clip's own description covers. Clips without a
-    description (local files, AI images) count as neutral."""
+    """Conservative subject match; reject incidental metadata matches."""
     want = _terms(query)
-    if not want or not item.text:
+    if not want:
+        return 0.0
+
+    presentation = _terms(
+        "beautiful amazing surprising photo picture photograph image images "
+        "illustration video clip"
+    )
+    subject = want - presentation
+    if not subject:
+        return 0.0
+
+    # Preserve neutral scoring for media without searchable descriptive text.
+    # Commons still requires strict subject evidence from its filename/categories.
+    if item.source != "commons" and not (
+        item.text or item.extra.get("description") or item.extra.get("categories")
+    ):
         return 0.5
-    have = _terms(item.text)
-    return len(want & have) / len(want)
+
+    if item.source == "commons":
+        filename = _terms(item.id)
+        description = _terms(str(item.extra.get("description", "") or ""))
+        categories = _terms(str(item.extra.get("categories", "") or ""))
+
+        filename_hits = subject & filename
+        category_hits = subject & categories
+        description_hits = subject & description
+        strong_hits = filename_hits | category_hits
+
+        # Require a filename match and enough independent subject evidence.
+        # Place names such as Antarctica must match the filename/categories;
+        # description-only keyword coincidences cannot rescue a bad result.
+        if not filename_hits:
+            return 0.0
+
+        missing = subject - strong_hits
+        place_terms = {"antarctica", "arctic", "moon", "mars", "earth"}
+        if missing & place_terms:
+            return 0.0
+
+        if len(subject) >= 3 and len(strong_hits) < 2:
+            return 0.0
+
+        filename_score = len(filename_hits) / len(subject)
+        category_score = len(category_hits) / len(subject)
+        description_score = len(description_hits) / len(subject)
+
+        score = (
+            0.70 * filename_score
+            + 0.20 * category_score
+            + 0.10 * description_score
+        )
+        return min(1.0, score)
+
+    evidence = _terms(item.text)
+    hits = subject & evidence
+    if not hits:
+        return 0.0
+    return len(hits) / len(subject)
 
 
 def _shape(item: MediaItem) -> str:
@@ -297,6 +494,8 @@ class Visuals:
                          or pixabay_photos(query, s.pixabay_api_key, orientation=o))
             elif source == "pixabay-photos" and s.pixabay_api_key:
                 items = pixabay_photos(query, s.pixabay_api_key, orientation=o)
+            elif source == "commons":
+                items = commons_search(query, orientation=o)
             elif source == "local":
                 items = self._local(query)
             seen: set[str] = set()
@@ -348,7 +547,16 @@ class Visuals:
     def _fetch(self, item: MediaItem, dest_dir: Path, idx: int) -> MediaItem:
         if item.source == "local":
             return item
-        ext = ".mp4" if item.kind == "video" else ".jpg"
+        if item.source == "commons":
+            ext = {
+                "video/webm": ".webm",
+                "video/ogg": ".ogv",
+                "video/mp4": ".mp4",
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+            }.get(item.extra.get("mime", ""), ".jpg")
+        else:
+            ext = ".mp4" if item.kind == "video" else ".jpg"
         item.path = download(item.url, dest_dir / f"scene{idx:02d}_{item.source}_{item.id}{ext}")
         return item
 
@@ -393,22 +601,82 @@ class Visuals:
                 if item:
                     return item
                 continue
-            for q in queries:
-                cand = self._search(source, q)
-                item = self._claim(cand, need, query)  # always judged against the scene's own query
+            if source == "commons":
+                search_queries = expand_commons_queries(query or topic)
+                seen_queries = {q.casefold() for q in search_queries}
+                for extra_query in queries:
+                    if extra_query and extra_query.casefold() not in seen_queries:
+                        search_queries.append(extra_query)
+                        seen_queries.add(extra_query.casefold())
+
+                combined = {}
+                for search_query in search_queries:
+                    try:
+                        for candidate in self._search(source, search_query):
+                            combined.setdefault(candidate.key, candidate)
+                    except Exception as e:
+                        log.warning(
+                            "Commons search failed for %r: %s",
+                            search_query, redact(e)
+                        )
+
+                candidates = list(combined.values())
+                ranked = sorted(
+                    candidates,
+                    key=lambda candidate: relevance(candidate, query),
+                    reverse=True,
+                )
+                cand = [
+                    candidate for candidate in ranked
+                    if relevance(candidate, query) >= 0.45
+                ]
+                q = query
+                item = self._claim(cand, need, query)
                 if not item:
                     continue
-                try:
-                    self._fetch(item, dest_dir, idx)
-                except Exception as e:
-                    log.warning("Download failed for %s: %s", item.key, redact(e))
+            else:
+                combined = {}
+                for q in queries:
+                    try:
+                        for candidate in self._search(source, q):
+                            combined.setdefault(candidate.key, candidate)
+                    except Exception as e:
+                        log.warning(
+                            "%s search failed for %r: %s",
+                            source, q, redact(e)
+                        )
+
+                cand = [
+                    candidate for candidate in combined.values()
+                    if candidate.source == "local"
+                    or relevance(candidate, query) > 0
+                ]
+                item = self._claim(cand, need, query)
+                if not item:
                     continue
-                if item.source.startswith("pexels"):
-                    self.credits.add("Pexels")
-                elif item.source.startswith("pixabay"):
-                    self.credits.add("Pixabay")
-                log.info("Scene %d: %s %s (%r)", idx + 1, item.source, item.kind, q)
-                return item
+
+            try:
+                self._fetch(item, dest_dir, idx)
+            except Exception as e:
+                log.warning("Download failed for %s: %s", item.key, redact(e))
+                continue
+
+            if item.source.startswith("pexels"):
+                self.credits.add("Pexels")
+            elif item.source.startswith("pixabay"):
+                self.credits.add("Pixabay")
+            elif item.source == "commons":
+                license_name = item.extra.get("license", "Licence not listed")
+                artist = item.extra.get("artist") or item.credit or "Creator not listed"
+                source_page = item.extra.get("source_page", "")
+                license_url = item.extra.get("license_url", "")
+                self.credits.add(
+                    f"{item.text} — {artist} — {license_name}"
+                    f" — {source_page} — {license_url}"
+                )
+
+            log.info("Scene %d: %s %s (%r)", idx + 1, item.source, item.kind, q)
+            return item
         log.info("Scene %d: no footage found for %r — using an animated background", idx + 1, query)
         return MediaItem("generated", f"gradient-{idx}", "generated", query=query)
 

@@ -249,8 +249,8 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - Every line earns its place: concrete details, numbers, names. Only well-established facts; no made-up statistics.
 - The last scene lands the payoff, then a short call to action (max 8 words), e.g. asking viewers to comment or follow.
 - Narration is spoken by a voice: no emojis, hashtags, labels, brackets or stage directions.
-- search_query: 1-4 English words describing concrete, filmable stock footage for that scene (e.g. "octopus underwater", "old library books"). No abstract words.
-- image_prompt: one vivid English sentence for an AI image of that scene, no text or letters in the image.
+- search_query: 2-5 specific English words describing the exact visible subject of the scene. Prefer concrete objects, organisms, scientific structures, actions, or locations. For science topics, use specific terms such as "astrocytes neurons microscopy", "myelin nerve fibers", or "human brain sagittal anatomy". Avoid vague phrases such as "hidden roles", "glowing brain", "amazing science", or "brain facts". Match the actual narration; never invent visual subjects.
+- image_prompt: one vivid English sentence depicting the same specific subject and action as search_query. No text, labels, or letters in the image.
 - emphasis: the 1-2 words of that scene's narration that carry it (a number, a name, the surprising word), copied exactly as written there. They are highlighted on screen; use [] when nothing stands out.
 - emoji: ONE emoji that fits that scene, popped up on screen above the captions (e.g. 🐙 for an octopus, 🤯 for a twist), or "" when none fits. Never put emoji in the narration.
 - title: max 60 characters, curiosity-driven but honest, no hashtags, no quotes.

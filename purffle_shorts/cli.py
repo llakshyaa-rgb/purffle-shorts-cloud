@@ -130,7 +130,7 @@ def _common(p: argparse.ArgumentParser) -> None:
     g.add_argument("--voice-b", dest="tts_voice_b", help="second speaker's voice (dialogue and chat formats)")
     g.add_argument("--no-review", action="store_true", help="skip the Script Doctor's second pass")
     g.add_argument("--also-lang", help="also make translated copies, e.g. es,hi (same footage)")
-    g.add_argument("--visuals", help="comma list: pexels,pixabay,local,openai-images,pollinations")
+    g.add_argument("--visuals", help="comma list: pexels,pixabay,commons,local,openai-images,pollinations")
     r = p.add_argument_group("look & output")
     r.add_argument("--caption-style", help="bold|boxed|neon|clean|karaoke|minimal")
     r.add_argument("--caption-position", help="upper|center|lower")

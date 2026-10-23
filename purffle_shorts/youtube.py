@@ -112,30 +112,47 @@ def _tz(settings: Settings):
 
 
 def next_publish_slot(settings: Settings, taken: list[str], now: datetime | None = None) -> datetime | None:
-    """Next free PUBLISH_TIMES slot (local time) at least 15 minutes from now, skipping taken ones."""
+    """Choose the next configured publishing slot, or None if scheduling is disabled."""
     if not settings.publish_times:
         return None
+
     tz = _tz(settings)
     now = (now or datetime.now(timezone.utc)).astimezone(tz)
     slots = []
-    for t in settings.publish_times:
-        try:
-            hh, mm = (int(x) for x in t.split(":"))
-            slots.append(dtime(hh, mm))
-        except ValueError:
-            log.warning("Ignoring bad PUBLISH_TIMES entry %r (use HH:MM)", t)
-    taken_set = {x for x in taken if x}
-    for day in range(0, 60):
-        date = (now + timedelta(days=day)).date()
-        for slot in sorted(slots):
-            cand = datetime.combine(date, slot, tzinfo=tz)
-            if cand < now + timedelta(minutes=15):
-                continue
-            iso = to_rfc3339(cand)
-            if iso not in taken_set:
-                return cand
-    return None
 
+    for value in settings.publish_times:
+        try:
+            hh, mm = map(int, value.split(":"))
+            if 0 <= hh <= 23 and 0 <= mm <= 59:
+                slots.append(dtime(hh, mm))
+        except (ValueError, TypeError):
+            log.warning("Ignoring invalid publishing slot %r", value)
+
+    for offset in range(60):
+        day = (now + timedelta(days=offset)).date()
+        for slot in sorted(set(slots)):
+            candidate = datetime.combine(day, slot, tzinfo=tz)
+            if candidate < now + timedelta(minutes=15):
+                continue
+
+            is_taken = False
+            for value in taken:
+                if not value:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=tz)
+                    if dt.astimezone(tz) == candidate:
+                        is_taken = True
+                        break
+                except (ValueError, TypeError):
+                    log.warning("Ignoring invalid scheduled timestamp %r", value)
+
+            if not is_taken:
+                return candidate
+
+    return None
 
 def to_rfc3339(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

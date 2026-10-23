@@ -190,6 +190,37 @@ class StudioServer:
             ov["resolution"] = aspect_resolution(p["aspect"])
         if isinstance(p.get("visuals"), list) and p["visuals"]:
             ov["visual_sources"] = [str(v).lower() for v in p["visuals"]][:6]
+
+        # Prioritize enabled sources; never enable unchecked sources.
+        visual_mode = str(p.get("visual_mode") or "match").strip().lower()
+        if visual_mode not in ("match", "ai", "local", "mixed"):
+            visual_mode = "match"
+
+        selected_sources = list(ov.get("visual_sources", s.visual_sources))
+        priorities = {
+            "match": [
+                "pexels", "pixabay", "commons", "pexels-photos",
+                "pixabay-photos", "local", "pollinations", "openai-images",
+            ],
+            "ai": [
+                "pollinations", "openai-images", "ai", "dalle",
+                "gpt-image", "pexels", "pixabay", "commons", "local",
+            ],
+            "local": [
+                "local", "pexels", "pixabay", "commons",
+                "pollinations", "openai-images",
+            ],
+            "mixed": [
+                "pexels", "pixabay", "commons", "pollinations",
+                "openai-images", "local",
+            ],
+        }
+        rank = {name: index for index, name in enumerate(priorities[visual_mode])}
+        ov["visual_sources"] = sorted(
+            selected_sources,
+            key=lambda name: rank.get(name, len(rank)),
+        )
+
         if p.get("music") is False:
             ov["music_volume"] = 0.0
         if "background" in p:
@@ -376,7 +407,7 @@ class StudioServer:
                 "providers": [{"name": n, "label": p.label, "ready": n in ready or p.local}
                               for n, p in PRESETS.items()],
                 "tts": ["edge", "openai", "elevenlabs", "kokoro", "coqui", "system"],
-                "visuals": ["pexels", "pixabay", "local", "pollinations", "openai-images"],
+                "visuals": ["pexels", "pixabay", "commons", "local", "pollinations", "openai-images"],
                 "backgrounds": self.backgrounds()}
 
     def backgrounds(self) -> list[dict]:
@@ -388,7 +419,12 @@ class StudioServer:
         if s.background_video:
             out.append({"path": s.background_video, "name": Path(s.background_video).name + (
                 " (random)" if Path(s.background_video).expanduser().is_dir() else "")})
-        for root in [Path(s.background_video).expanduser(), Path(s.media_dir) / "backgrounds"]:
+        roots = []
+        if s.background_video:
+            roots.append(Path(s.background_video).expanduser())
+        roots.append(Path(s.media_dir) / "backgrounds")
+
+        for root in roots:
             if not root.is_dir():
                 continue
             for f in sorted(root.rglob("*")):

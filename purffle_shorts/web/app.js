@@ -165,7 +165,7 @@ async function boot() {
     aspect: ["9:16", "16:9", "1:1", "4:5"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
     caption_position: i.caption_position, grade: i.grade, transition: i.transition, review: i.review, tts: i.tts,
     voice: "", voice_b: "", provider: "", model: "", also_langs: (i.also_languages || []).join(", "), music: true,
-    upload: false, offline: !i.llm_ok, visuals: i.visuals, background: "", layout: "full", sfx: true, emphasis: true,
+    upload: false, offline: !i.llm_ok, visual_mode: "match", visuals: i.visuals, background: "", layout: "full", sfx: true, emphasis: true,
     emoji: true,
   }, S.form);
   if (!i.llm_ok) S.form.offline = true;
@@ -303,7 +303,7 @@ function payload(extra = {}) {
     caption_style: f.caption_style, caption_position: f.caption_position, grade: f.grade, transition: f.transition,
     tts: f.tts, voice: f.voice, voice_b: f.voice_b, provider: f.provider, model: f.model, review: f.review,
     also_langs: f.also_langs, music: f.music, upload: f.upload && S.info.upload && !f.offline, offline: f.offline,
-    visuals: f.visuals, background: f.background || "", layout: f.layout, sfx: f.sfx !== false,
+    visual_mode: f.visual_mode || "match", visuals: f.visuals, background: f.background || "", layout: f.layout, sfx: f.sfx !== false,
     emphasis: f.emphasis !== false, emoji: f.emoji !== false,
   };
   if (f.mode === "topic") p.topic = f.topic.trim();
@@ -393,7 +393,8 @@ function drawForm() {
       <div class="field"><label>Colour grade</label>${sel("grade", o.grades.map(g => [g, g]), f.grade)}</div>
       <div class="field"><label>Transitions</label>${sel("transition", o.transitions.map(t => [t, t]), f.transition)}</div>
     </div>
-    <div class="field"><label>Footage & images</label><div class="checks-inline">${o.visuals.map(v => `<label><input type="checkbox" data-visual="${v}"${(f.visuals || []).includes(v) ? " checked" : ""}>${{ pexels: "Pexels", pixabay: "Pixabay", local: "My media folder", pollinations: "AI images (Pollinations, key advised)", "openai-images": "OpenAI images" }[v] || v}</label>`).join("")}</div></div>
+    <div class="field"><label>Scene visuals mode</label>${sel("visual_mode", [["match", "Match each scene (recommended)"], ["ai", "AI-generated scenes (AI sources first)"], ["local", "My media first"], ["mixed", "Mixed: stock first, AI fallback"]], f.visual_mode || "match")}</div>
+<div class="field"><label>Footage & images</label><div class="checks-inline">${o.visuals.map(v => `<label><input type="checkbox" data-visual="${v}"${(f.visuals || []).includes(v) ? " checked" : ""}>${{ pexels: "Pexels", pixabay: "Pixabay", commons: "Wikimedia Commons", local: "My media folder", pollinations: "AI images (Pollinations, key advised)", "openai-images": "OpenAI images" }[v] || v}</label>`).join("")}</div></div>
     <div class="field"><label>Background video</label>${(o.backgrounds || []).length
       ? sel("background", [["", "None: footage for every scene"], ...o.backgrounds.map(b => [b.path, b.name])], f.background)
       : `<p class="hint">Put gameplay or other videos you may reuse in <span class="mono">media/backgrounds/</span> (or set BACKGROUND_VIDEO) to play one under stories.</p>`}</div>
