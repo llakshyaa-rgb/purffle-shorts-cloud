@@ -280,7 +280,8 @@ class StudioServer:
         if job.kind == "draft":
             script, pick, writer = studio.draft(p.get("topic") or None, source=p.get("source") or None,
                                                 style=s.style if s.style != "auto" else None,
-                                                url=p.get("url") or None)
+                                                url=p.get("url") or None,
+                                                creative_brief=str(p.get("creative_brief") or "")[:1000])
             job.result = {"script": script.to_dict(), "source": pick.source, "llm": writer}
             job.stage, job.pct = "done", 100
             return True
@@ -307,7 +308,8 @@ class StudioServer:
         r = studio.make(p.get("topic") or None, source=p.get("source") or None,
                         upload=bool(p.get("upload")) and s.upload,
                         style=s.style if s.style != "auto" else None, script=script, url=p.get("url") or None,
-                        languages=[str(x)[:8] for x in (langs or [])][:6])
+                        languages=[str(x)[:8] for x in (langs or [])][:6],
+                        creative_brief=str(p.get("creative_brief") or "")[:1000])
         job.result = _result(r)
         return r.ok
 
