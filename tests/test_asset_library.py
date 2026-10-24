@@ -3,6 +3,7 @@ from pathlib import Path
 from PIL import Image
 
 from purffle_shorts.asset_library import asset_path, ensure_character_collection, get_or_create_asset, list_assets
+from purffle_shorts.visual_library import make_visual
 
 
 def test_scene_art_is_persisted_and_reused(tmp_path: Path):
@@ -39,3 +40,16 @@ def test_character_collection_seeds_canonical_cast_once(tmp_path: Path):
         "hooded_narrator", "detective", "scientist", "explorer", "mysterious_figure"
     }
     assert len(list_assets(root)) == 5
+
+
+def test_reusable_cast_has_distinct_visual_identities(tmp_path: Path):
+    keys = ["purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery"]
+    fingerprints = []
+    for key in keys:
+        target = tmp_path / f"{key}.png"
+        make_visual(key, f"REUSABLE CHARACTER: {key}", target, 360, 640,
+                    mode="character", style_key=key)
+        with Image.open(target) as image:
+            assert image.size == (360, 640)
+            fingerprints.append(image.convert("RGB").tobytes())
+    assert len(set(fingerprints)) == len(keys)
