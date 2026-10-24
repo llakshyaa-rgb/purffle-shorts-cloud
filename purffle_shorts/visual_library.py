@@ -354,7 +354,7 @@ def _symbol(draw, kind, cx, cy, s, ink, accent, second):
                 _line(draw,[(x,y),(cx+r,y)],accent,lw)
                 _line(draw,[(x,y),(x,y-r*.28)],second,lw)
         elif kind=="city":
-            for i,(dx,bh) in enumerate([(-.85,.55),(-.48,.9),(-.08,.68),(.32,1),(.68,.62)]):
+            for dx,bh in [(-.85,.55),(-.48,.9),(-.08,.68),(.32,1),(.68,.62)]:
                 x=cx+dx*r; bw=r*.29; top=cy+r*.55-bh*r
                 draw.rectangle((x,top,x+bw,cy+r*.55),fill=(20,28,46),outline=accent,width=max(2,lw//2))
                 for wy in range(3):
