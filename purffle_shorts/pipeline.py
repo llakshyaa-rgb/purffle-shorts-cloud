@@ -505,6 +505,13 @@ class Studio:
                         break
 
                 credits = visuals.credits
+            # Carry director choices with each shot so the renderer can use them.
+            for st, item in zip(shots, media):
+                if 0 <= st.index < len(director_plan):
+                    beat = director_plan[st.index]
+                    item.extra["director_camera"] = beat.get("camera", "push_in")
+                    item.extra["director_visual_mode"] = beat.get("visual_mode", "illustration")
+                    item.extra["director_transition"] = beat.get("transition", "cut")
             by_scene = {(st.index, st.part): m for st, m in zip(shots, media)}
 
             self._step("captions")
