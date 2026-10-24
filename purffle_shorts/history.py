@@ -47,6 +47,9 @@ VIDEO_COLUMNS = {
     "views": "INTEGER", "likes": "INTEGER", "comments": "INTEGER", "stats_at": "TEXT",
     "approval_status": "TEXT NOT NULL DEFAULT 'pending'",
     "approved_at": "TEXT",
+    "average_view_duration": "REAL",
+    "average_view_percentage": "REAL",
+    "estimated_minutes_watched": "REAL",
 }
 
 
@@ -156,6 +159,17 @@ class History:
     def set_stats(self, youtube_id: str, views: int, likes: int, comments: int) -> None:
         self._exec("UPDATE videos SET views = ?, likes = ?, comments = ?, stats_at = ? WHERE youtube_id = ?",
                    (views, likes, comments, now_iso(), youtube_id))
+
+    def set_retention(
+        self, youtube_id: str, average_view_duration: float | None,
+        average_view_percentage: float | None, estimated_minutes_watched: float | None,
+    ) -> None:
+        """Store official YouTube Analytics average-view metrics when the account permits them."""
+        self._exec(
+            "UPDATE videos SET average_view_duration = ?, average_view_percentage = ?, "
+            "estimated_minutes_watched = ? WHERE youtube_id = ?",
+            (average_view_duration, average_view_percentage, estimated_minutes_watched, youtube_id),
+        )
 
     def performers(self, n: int = 5, *, best: bool = True, min_age_hours: int = 48) -> list[dict]:
         """Most (or least) viewed videos that have been public long enough for the numbers to mean something."""
