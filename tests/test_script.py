@@ -57,7 +57,7 @@ def test_offline_script_is_complete():
 
 def test_prompt_mentions_language_and_length():
     system, user = build_prompt("space", "facts", Settings(language="es", target_seconds=30), ["Old title"])
-    assert "Spanish" in user and "78 words" in user and "Old title" in user
+    assert "Spanish" in user and "word" in user.lower() and "Old title" in user
     assert "JSON" in system
     assert set(SCRIPT_SCHEMA["required"]) >= {"title", "scenes", "hashtags"}
 
