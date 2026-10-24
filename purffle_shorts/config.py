@@ -132,7 +132,7 @@ class Settings:
     script_review: str = "rewrite"    # off|score|rewrite — the Script Doctor's second pass
     script_review_rounds: int = 2     # allow a second full rewrite when the score is below script_target_score
     script_target_score: int = 80     # stop improving once a script scores this (0-100)
-    learn_from_stats: bool = False    # show the LLM which of your videos got the most / fewest views
+    learn_from_stats: bool = True     # automatically learn from channel stats when enough results exist
     seo_keywords: bool = True         # hand the script writer what people really search for on YouTube
 
     # --- voice ----------------------------------------------------------------------------
@@ -310,7 +310,7 @@ class Settings:
             script_review=_env("SCRIPT_REVIEW", d.script_review).lower(),
             script_review_rounds=max(1, min(4, _int("SCRIPT_REVIEW_ROUNDS", d.script_review_rounds))),
             script_target_score=max(0, min(100, _int("SCRIPT_TARGET_SCORE", d.script_target_score))),
-            learn_from_stats=_bool(_env("LEARN_FROM_STATS", "false")),
+            learn_from_stats=_bool(_env("LEARN_FROM_STATS", "true")),
             seo_keywords=_bool(_env("SEO_KEYWORDS", "true")),
             tts_engine=_env("TTS_ENGINE", d.tts_engine).lower(),
             tts_voice=_env("TTS_VOICE"),
