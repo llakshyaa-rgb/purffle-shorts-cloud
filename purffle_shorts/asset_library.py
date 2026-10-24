@@ -41,11 +41,13 @@ def _write_index(root: Path, index: dict[str, dict[str, Any]]) -> None:
 
 def asset_key(query: str, prompt: str, width: int, height: int, variation: int,
               mode: str, style_key: str) -> str:
-    payload = json.dumps(
-        [query.strip().casefold(), prompt.strip().casefold(), int(width), int(height),
-         int(variation), mode, style_key.strip().casefold()],
-        ensure_ascii=False, separators=(",", ":"),
-    )
+    if mode == "character":
+        # One canonical asset per named character and canvas size, independent of scene wording.
+        parts = ["character", style_key.strip().casefold(), int(width), int(height)]
+    else:
+        parts = [query.strip().casefold(), prompt.strip().casefold(), int(width), int(height),
+                 int(variation), mode, style_key.strip().casefold()]
+    payload = json.dumps(parts, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
