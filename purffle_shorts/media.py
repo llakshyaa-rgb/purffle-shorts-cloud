@@ -8,6 +8,7 @@ import base64
 import concurrent.futures
 import logging
 import random
+import shutil
 import re
 import threading
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from urllib.parse import quote
 from .config import Settings
 from .utils import PermanentError, download, http, raise_for_status, redact, with_retries
 from .visual_library import make_visual, visual_type
+from .asset_library import get_or_create_asset
 
 log = logging.getLogger("purffle")
 
@@ -612,22 +614,33 @@ class Visuals:
         # Explicit director choices override the usual library/stock balance; otherwise keep variety.
         use_library = (directed_mode in ("diagram", "illustration", "symbolic")
                        or (not directed_mode and (visual_kind == "diagram" or stable % 100 < 78)))
+        character_marker = "REUSABLE CHARACTER:"
+        character_mode = character_marker in (image_prompt or "").upper()
+        style_key = ""
+        if character_mode:
+            style_key = (image_prompt or "").split(character_marker, 1)[-1].splitlines()[0].strip()[:160]
+            directed_mode = "character"
+            use_library = True
         if use_library:
             try:
-                library_path = dest_dir / f"scene{idx:02d}_library.png"
-                make_visual(
-                    query or topic, image_prompt, library_path,
-                    self.s.width, self.s.height, variation=idx,
+                library_root = Path(self.s.media_dir) / ".purffle_assets"
+                asset = get_or_create_asset(
+                    library_root, query or topic, image_prompt, self.s.width, self.s.height,
+                    variation=0 if character_mode else idx, mode=directed_mode or visual_kind,
+                    style_key=style_key or self.s.visual_style,
                 )
-                log.info("Scene %d: built-in %s visual library", idx + 1, visual_kind)
+                library_path = dest_dir / f"scene{idx:02d}_library.png"
+                shutil.copy2(asset["path"], library_path)
+                log.info("Scene %d: persistent %s asset (%s)", idx + 1, asset["visual_type"], asset["id"])
                 return MediaItem(
                     "library", library_path.name, "image", path=library_path,
                     width=self.s.width, height=self.s.height, query=query or topic,
-                    text=f"built-in {visual_kind} illustration",
-                    extra={"visual_type": visual_kind},
+                    text=f"reusable {asset['visual_type']} artwork",
+                    extra={"visual_type": asset["visual_type"], "asset_id": asset["id"],
+                           "character": asset.get("character")},
                 )
             except Exception as e:
-                log.warning("Built-in visual library failed for scene %d: %s", idx + 1, redact(e))
+                log.warning("Persistent visual library failed for scene %d: %s", idx + 1, redact(e))
         queries = []
         for q in (query, simplify_query(query), simplify_query(topic), topic):
             q = (q or "").strip()
