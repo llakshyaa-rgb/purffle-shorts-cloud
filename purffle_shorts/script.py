@@ -253,6 +253,10 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - Give this video its own creative identity. Build a clear progression suited to its format: opening -> development -> meaningful detail or complication -> payoff. Even facts/list formats need a clear thread, not a pile of unrelated trivia. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, generic AI phrasing, and announcing what the video will explain.
+- STORYTELLING DETAIL (without copying any creator or reference video): narrate like a vivid, tightly edited animated story. Make the viewer feel present through concrete actions, visible reactions, specific objects/places, small decisions, and consequences. Replace summaries such as "he got scared" with the observable thing that happens and how the character reacts. Let details carry emotion; do not over-explain what the visuals already show.
+- Every video is a COMPLETE STANDALONE PIECE, not an episode in a series. Give it a clear beginning, development, and ending/payoff within the chosen duration. Do not use "part 2", "follow for the next part", or leave the main question unresolved just to bait another view. Do not invent continuity from previous videos unless the topic explicitly asks for it.
+- Avoid repetitive engagement bait. Never automatically end with "What do you think?", "Would you have done it?", or "Follow for part 2". End on the story's consequence, reveal, emotional beat, or useful takeaway. Add a brief CTA only when it feels natural and does not weaken the ending; vary it and omit it when the payoff is stronger alone.
+- For fictional or dramatized stories, make the chain of events concrete and believable: establish what the character wants, introduce a specific obstacle, show the character making a choice, and show the consequence. Use meaningful details and reactions rather than vague suspense. For factual stories, keep real-world claims accurate and distinguish documented facts from invented dialogue or reconstruction.
 - Edit every line before returning it: replace vague wording with a concrete detail; remove repeated ideas; simplify awkward sentences; check that pronouns clearly refer to something; and make transitions sound natural when spoken aloud.
 - Avoid canned AI phrases such as "little did they know", "but here's the twist", "what happened next changed everything", "you won't believe", and "and that's when things got interesting" unless the specific story genuinely earns that wording. Do not use dramatic language as a substitute for information.
 - Do not force every sentence to be a hook. Use rhythm: a few short punchy lines, then a clear explanatory line when needed, then move forward. The script should sound natural at normal speaking speed, not like every line is a trailer voice-over.
@@ -274,7 +278,7 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - search_query: 2-5 specific English words describing the exact visible subject of the scene. Prefer concrete objects, organisms, scientific structures, actions, or locations. For science topics, use specific terms such as "Lake Natron flamingos", "sodium carbonate lake shore", or "flamingo feet alkaline water". Avoid vague phrases such as "hidden roles", "glowing brain", "amazing science", or "brain facts". Match the actual narration; never invent visual subjects.
 - image_prompt: one vivid English sentence describing a distinct shot for that scene, including subject, action, setting, and camera framing when helpful. No text, labels, or letters in the image.
 - Do not make a scene visually generic just because the narration is abstract: use a relevant close-up, real-world example, map, diagram, archival image, or process visualization that communicates the exact point.
-- The last scene lands the payoff, then a short call to action (max 8 words), e.g. asking viewers to comment or follow.
+- The last scene lands a clear payoff or final consequence. A call to action is optional, never automatic; omit it if it would dilute the ending. Never default to a question or "follow for part 2".
 - Narration is spoken by a voice: no emojis, hashtags, labels, brackets or stage directions.
 - image_prompt: one vivid English sentence depicting the same specific subject and action as search_query. No text, labels, or letters in the image.
 - emphasis: the 1-2 words of that scene's narration that carry it (a number, a name, the surprising word), copied exactly as written there. They are highlighted on screen; use [] when nothing stands out.
@@ -518,7 +522,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
     if target and abs(n - target) > 0.25 * target:
         out.append(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
     ending = " ".join(sc.narration for sc in script.scenes[-2:])
-    if english and script.scenes and not (_CTA.search(ending) or "?" in ending):
+    if False and english and script.scenes and not (_CTA.search(ending) or "?" in ending):
         out.append("The ending has no call to action (comment, follow or a question).")
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
@@ -608,6 +612,9 @@ Creative-quality requirements:
 - Use punctuation to support natural TTS pauses, but do not add ellipses or commas everywhere. Do not include stage directions in narration.
 - Keep transitions between scenes logical: each line should connect to the previous thought or set up the next, not feel like disconnected facts.
 - Do not pad the target length with filler. If a script is short, add a meaningful example, mechanism, or consequence instead.
+- For story-driven scripts, increase specificity rather than merely adding words: show the exact action, physical detail, reaction, choice, and consequence that make the event feel real. The audience should be able to picture each important beat. A 20-second story still needs a complete mini-arc, not just a hook and a teaser.
+- Treat every video as self-contained. Do not write a serial episode, cliffhanger designed only to force a sequel, or recurring-character continuity unless explicitly requested. Do not append "What do you think?" by habit; prioritize a natural final line that pays off the story. CTA is optional.
+- Do not imitate a named creator's exact wording, characters, plot, or signature phrases. Learn only broad craft principles: visual specificity, clear cause-and-effect, emotional reactions, and satisfying standalone payoffs.
 Format rules to keep:
 {_format_rules(script.style)}""" if rewrite else 'Return only "rubric" and "issues".')
     user = f"""Review this YouTube Short script ({STYLES[script.style]}).
