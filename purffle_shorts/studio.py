@@ -574,7 +574,7 @@ class StudioServer:
                 "by_style": sorted(({"style": k, "videos": len(v), "avg_views": round(sum(v) / len(v))}
                                     for k, v in by_style.items()), key=lambda x: -x["avg_views"]),
                 "synced": max((r.get("stats_at") or "" for r in rows), default=""),
-                "calibration": calibration(self.studio.history)}
+                "calibration": calibration(self.studio.history, self.settings.timezone)}
 
 
 def _result(r) -> dict:
