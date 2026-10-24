@@ -128,7 +128,8 @@ def _bedroom(draw, w, h, ink, accent, second):
 
 def _illustration(im, draw, text, ink, accent, second, seed):
     w,h=im.size; words=_words(text)
-    obj=next((v for k,v in OBJECTS.items() if k in words), "person" if words & {"someone","stranger","figure","waiting","knocked"} else "eye")
+    ordered_words=re.findall(r"[a-z]+", text.lower())
+    obj=next((OBJECTS[token] for token in ordered_words if token in OBJECTS), "person" if words & {"someone","stranger","figure","waiting","knocked"} else "eye")
     horror=bool(words & HORROR)
     # Narrative-aware compositions.
     if obj in ("wardrobe","door","bedroom","room") or (horror and words & {"behind","knock","sealed","opened"}):
