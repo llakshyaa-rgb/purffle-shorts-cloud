@@ -116,14 +116,15 @@ class StudioServer:
     def _persist_jobs(self) -> None:
         """Persist a bounded queue snapshot so queued work survives Studio restarts."""
         try:
-            rows = []
-            for job in sorted(self.jobs.values(), key=lambda item: item.id)[-100:]:
-                rows.append({
-                    "id": job.id, "kind": job.kind, "params": job.params, "label": job.label,
-                    "status": job.status, "stage": job.stage, "pct": job.pct, "message": job.message,
-                    "log": job.log[-80:], "result": job.result, "created": job.created,
-                    "started": job.started, "finished": job.finished,
-                })
+            with self._lock:
+                rows = []
+                for job in sorted(self.jobs.values(), key=lambda item: item.id)[-100:]:
+                    rows.append({
+                        "id": job.id, "kind": job.kind, "params": job.params, "label": job.label,
+                        "status": job.status, "stage": job.stage, "pct": job.pct, "message": job.message,
+                        "log": job.log[-80:], "result": job.result, "created": job.created,
+                        "started": job.started, "finished": job.finished,
+                    })
             self.studio.history.set_meta(self.JOBS_META_KEY, json.dumps(rows, ensure_ascii=False, default=str))
         except Exception:
             log.warning("Could not persist Studio queue snapshot", exc_info=True)
