@@ -182,25 +182,49 @@ def _local_hour(iso: str | None) -> int | None:
 
 
 def calibration(history: History) -> dict:
-    """How well the predictions hold up against real views: the Script Doctor's score vs. views (Spearman),
-    median views per format, and the publish hours that did best."""
+    """Calibrate script scores and summarise mature-video performance by format, topic and publish hour."""
     rows = history.results()
     scored = [r for r in rows if r.get("score") is not None]
     rho = spearman([r["score"] for r in scored], [r["views"] for r in scored]) if len(scored) >= 5 else None
-    styles: dict[str, list[int]] = {}
+    styles: dict[str, list[dict]] = {}
+    topics: dict[str, list[dict]] = {}
     hours: dict[int, list[int]] = {}
     for r in rows:
-        styles.setdefault(r.get("style") or "other", []).append(r["views"])
+        styles.setdefault(r.get("style") or "other", []).append(r)
+        topic = (r.get("topic") or r.get("subject") or "").strip()
+        if topic:
+            topics.setdefault(topic.casefold(), []).append(r)
         h = _local_hour(r.get("publish_at") or r.get("uploaded_at"))
         if h is not None:
             hours.setdefault(h, []).append(r["views"])
+    style_rows = []
+    for name, items in styles.items():
+        rates = [100 * ((r.get("likes") or 0) + (r.get("comments") or 0)) / r["views"]
+                 for r in items if (r.get("views") or 0) > 0]
+        style_rows.append({
+            "style": name, "videos": len(items),
+            "median_views": int(median([r["views"] for r in items])),
+            "median_engagement_percent": round(median(rates), 2) if rates else None,
+        })
+    topic_rows = []
+    for name, items in topics.items():
+        if len(items) < 2:
+            continue
+        topic_rows.append({
+            "topic": name, "videos": len(items),
+            "median_views": int(median([r["views"] for r in items])),
+            "median_engagement_percent": round(median([
+                100 * ((r.get("likes") or 0) + (r.get("comments") or 0)) / r["views"]
+                for r in items if (r.get("views") or 0) > 0
+            ]), 2) if any((r.get("views") or 0) > 0 for r in items) else None,
+        })
     return {
         "videos": len(rows),
         "scored": len(scored),
         "score_vs_views": rho,
         "verdict": _verdict(rho, len(scored)),
-        "styles": sorted(({"style": k, "videos": len(v), "median_views": int(median(v))} for k, v in styles.items()),
-                         key=lambda x: -x["median_views"]),
+        "styles": sorted(style_rows, key=lambda x: -x["median_views"]),
+        "topics": sorted(topic_rows, key=lambda x: (-x["median_views"], -x["videos"]))[:8],
         "hours": sorted(({"hour": h, "videos": len(v), "median_views": int(median(v))}
                          for h, v in hours.items() if len(v) >= 2), key=lambda x: -x["median_views"])[:5],
     }
