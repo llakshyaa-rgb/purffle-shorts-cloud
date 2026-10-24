@@ -183,7 +183,7 @@ def is_emphasised(word: str, keys: set[str] | frozenset[str]) -> bool:
 SPEAKER_B = {"active": "#4FC3F7", "box": "#0EA5E9", "tag": "#4FC3F7"}
 SPEAKER_A_TAG = "#FFE11A"
 POP_SCALES = (0.78, 1.07)
-CENTER_Y = {"upper": 0.30, "center": 0.56, "lower": 0.68}
+CENTER_Y = {"upper": 0.30, "center": 0.56, "lower": 0.68, "bottom": 0.84}
 
 
 def _rgba(hex_color: str, alpha: int = 255) -> tuple[int, int, int, int]:
