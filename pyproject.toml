@@ -82,5 +82,9 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["E501", "B008", "B905"]
 
+[tool.ruff.lint.per-file-ignores]
+# The offline vector renderer groups tiny drawing primitives inline to keep each illustration readable as a single composition.
+"purffle_shorts/visual_library.py" = ["E701", "E702"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
