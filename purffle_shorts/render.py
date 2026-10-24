@@ -36,7 +36,7 @@ MUSIC_EXT = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
 
 
 def _grade(settings: Settings) -> str:
-    g = GRADES.get(settings.color_grade, "")
+    g = random.choice([v for k, v in GRADES.items() if k != "none"]) if settings.color_grade == "random" else GRADES.get(settings.color_grade, "")
     return f",{g}" if g else ""
 
 
