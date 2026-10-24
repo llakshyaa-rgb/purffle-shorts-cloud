@@ -135,8 +135,16 @@ def _engagement(v: dict) -> float:
 
 
 def _performance_signal(v: dict) -> float:
-    # Views remain the main signal; engagement can break ties and discourage empty reach.
-    return _log_views(v) + _engagement(v)
+    # Views remain the main signal. Engagement and actual average-view percentage are capped
+    # tie-breakers so a small or noisy retention report cannot dominate reach.
+    signal = _log_views(v) + _engagement(v)
+    try:
+        retention = float(v.get("average_view_percentage"))
+    except (TypeError, ValueError):
+        retention = None
+    if retention is not None:
+        signal += (max(0.0, min(110.0, retention)) - 50.0) / 100.0
+    return signal
 
 
 def insights(history: History, n: int = 5) -> str:
@@ -154,11 +162,18 @@ def insights(history: History, n: int = 5) -> str:
         comments = max(0, int(v.get("comments") or 0))
         rate = 100 * (likes + comments) / views if views else 0.0
         topic = (v.get("topic") or v.get("subject") or "topic not recorded").strip()
+        retention = v.get("average_view_percentage")
+        duration = v.get("average_view_duration")
+        retention_text = (f" | avg viewed: {float(retention):.1f}%"
+                          f" | avg view duration: {float(duration):.1f}s"
+                          if retention is not None and duration is not None
+                          else " | avg-view metrics unavailable")
         return (f'- "{v["title"]}" | topic: {topic[:100]} | format: {v["style"] or "?"} | '
                 f'{views:,} views | {likes:,} likes | {comments:,} comments | '
-                f'{rate:.2f}% likes+comments per view')
-    text = ("Channel evidence (videos at least 48 hours old; rank combines log views with a capped "
-            "engagement bonus, not true audience retention):\nVideos that performed best by views/engagement signal:\n" +
+                f'{rate:.2f}% likes+comments per view{retention_text}')
+    text = ("Channel evidence (videos at least 48 hours old; rank combines log views, capped engagement, "
+            "and average-view percentage when available; public view/like/comment proxies alone are not true audience retention):\n"
+            "Videos that performed best by the available performance signal:\n" +
             "\n".join(row(v) for v in best))
     if worst:
         text += "\nLower performers:\n" + "\n".join(row(v) for v in worst)
@@ -258,6 +273,10 @@ def calibration(history: History, timezone_name: str | None = None) -> dict:
     rows = history.results()
     scored = [r for r in rows if r.get("score") is not None]
     rho = spearman([r["score"] for r in scored], [r["views"] for r in scored]) if len(scored) >= 5 else None
+    retention_scored = [r for r in scored if r.get("average_view_percentage") is not None]
+    retention_rho = (spearman([r["score"] for r in retention_scored],
+                              [float(r["average_view_percentage"]) for r in retention_scored])
+                     if len(retention_scored) >= 5 else None)
     styles: dict[str, list[dict]] = {}
     topics: dict[str, list[dict]] = {}
     hours: dict[int, list[int]] = {}
@@ -277,6 +296,10 @@ def calibration(history: History, timezone_name: str | None = None) -> dict:
             "style": name, "videos": len(items),
             "median_views": int(median([r["views"] for r in items])),
             "median_engagement_percent": round(median(rates), 2) if rates else None,
+            "median_average_view_percentage": round(median([
+                float(r["average_view_percentage"]) for r in items
+                if r.get("average_view_percentage") is not None
+            ]), 2) if any(r.get("average_view_percentage") is not None for r in items) else None,
         })
     topic_rows = []
     for name, items in topics.items():
@@ -289,12 +312,18 @@ def calibration(history: History, timezone_name: str | None = None) -> dict:
                 100 * ((r.get("likes") or 0) + (r.get("comments") or 0)) / r["views"]
                 for r in items if (r.get("views") or 0) > 0
             ]), 2) if any((r.get("views") or 0) > 0 for r in items) else None,
+            "median_average_view_percentage": round(median([
+                float(r["average_view_percentage"]) for r in items
+                if r.get("average_view_percentage") is not None
+            ]), 2) if any(r.get("average_view_percentage") is not None for r in items) else None,
         })
     return {
         "videos": len(rows),
         "scored": len(scored),
+        "retention_scored": len(retention_scored),
         "timezone": timezone_name or "server local time",
         "score_vs_views": rho,
+        "score_vs_retention": retention_rho,
         "verdict": _verdict(rho, len(scored)),
         "styles": sorted(style_rows, key=lambda x: -x["median_views"]),
         "topics": sorted(topic_rows, key=lambda x: (-x["median_views"], -x["videos"]))[:8],
