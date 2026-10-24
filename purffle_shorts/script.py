@@ -121,7 +121,9 @@ SCORE_SCHEMA = {
 }
 REVIEW_TEMPERATURE = 0.2  # grading should be repeatable; writing stays creative
 
-WORDS_PER_SECOND = 2.6
+# Slightly above typical narration pace so generated scripts have enough spoken material;
+# the final runtime still follows measured TTS duration rather than silently padding audio.
+WORDS_PER_SECOND = 2.85
 
 
 @dataclass
@@ -256,7 +258,7 @@ Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
 {ctx}{ins}{brief}{avoid_block}Rules:
-- Total narration about {words} words (~{settings.target_seconds} seconds spoken). Aim for {n_scenes} scenes; acceptable range is {scene_count_bounds(style, settings.target_seconds)[0]}–{scene_count_bounds(style, settings.target_seconds)[1]}. Scene count is a real visual-editing requirement, not a suggestion to ignore. For a 30–60 second Short, do NOT compress the entire script into 3–5 oversized scene boxes. Use roughly one scene per 2–3 seconds where the narration supports it: usually one sentence or one compact spoken beat per scene. Keep the full narration length; divide it across more scenes instead of cutting text. Each scene needs its own specific visible action, evidence, reaction, transition, or payoff. Do not create empty/filler scenes, split every clause mechanically, or combine distinct visual beats into one box.
+- HARD LENGTH TARGET: write about {words} spoken words for a {settings.target_seconds}-second video. Treat this as a requirement, not a loose suggestion; do not finish early after making the point. The measured voice duration should land close to the requested duration. Aim for {n_scenes} scenes; acceptable range is {scene_count_bounds(style, settings.target_seconds)[0]}–{scene_count_bounds(style, settings.target_seconds)[1]}. Scene count is a real visual-editing requirement, not a suggestion to ignore. For a 30–60 second Short, do NOT compress the entire script into 3–5 oversized scene boxes. Use roughly one scene per 2–3 seconds where the narration supports it: usually one sentence or one compact spoken beat per scene. Keep the full narration length; divide it across more scenes instead of cutting text. Each scene needs its own specific visible action, evidence, reaction, transition, or payoff. Do not create empty/filler scenes, split every clause mechanically, or combine distinct visual beats into one box.
 {_format_rules(style, settings.target_seconds)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - CREATIVE DESIGN BEFORE PROSE: first choose the single strongest angle for this topic, the viewer's central question, the most interesting evidence or event, and the ending that makes the opening worthwhile. Build one coherent progression suited to the format: opening -> development -> meaningful complication/evidence -> payoff. A list is allowed only when the list itself is the promise; otherwise connect the information into one thread. Avoid "fact babbling", generic AI phrasing, and announcing what the video will explain.
