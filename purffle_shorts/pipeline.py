@@ -32,7 +32,6 @@ from .script import (
     DEFAULT_CAST,
     LANGUAGES,
     MULTI_SPEAKER,
-    STYLES,
     Script,
     load_script,
     localize_metadata,
