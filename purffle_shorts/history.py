@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS ideas_status ON ideas (status, id);
 
 # Columns added after 2.0; existing databases get them on open.
 VIDEO_COLUMNS = {
-    "score": "INTEGER",            # Script Doctor retention score, 0-100
+    "score": "INTEGER",            # Script Doctor script-quality score, 0-100
     "parent_id": "INTEGER",        # the original video when this one is a translated copy
     "views": "INTEGER", "likes": "INTEGER", "comments": "INTEGER", "stats_at": "TEXT",
     "approval_status": "TEXT NOT NULL DEFAULT 'pending'",
