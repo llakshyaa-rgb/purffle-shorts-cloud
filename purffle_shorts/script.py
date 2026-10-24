@@ -704,7 +704,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
                 for idx, word, root in roots:
                     if len(root) < 4 or root in _STOP or word == root:
                         continue
-                    for other_idx, other_word, other_root in roots[idx + 1:idx + 8]:
+                    for _other_idx, other_word, other_root in roots[idx + 1:idx + 8]:
                         if root == other_root and word != other_word:
                             out.append(
                                 f"Scene {scene_no} has a word-echo ('{word}' and '{other_word}') that repeats the same idea; rewrite the sentence."
