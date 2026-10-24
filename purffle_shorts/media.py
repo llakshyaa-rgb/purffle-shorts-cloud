@@ -625,7 +625,7 @@ class Visuals:
         # configured, attempt a metadata-matched asset first and keep the offline library as a
         # last resort rather than letting a director style tag override factual relevance.
         use_library = (
-            directed_mode == "diagram"
+            (directed_mode == "diagram" and not self.sources)
             or (directed_mode in ("illustration", "symbolic") and not self.sources)
             or (not directed_mode and visual_kind == "diagram" and not self.sources)
             or (not directed_mode and not self.sources and stable % 100 < 78)
@@ -735,7 +735,7 @@ class Visuals:
                     or (
                         candidate.source != "local"
                         and (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
-                        and relevance(candidate, query) >= 0.45
+                        and relevance(candidate, query) >= 0.58
                     )
                 ]
                 item = self._claim(cand, need, query)
