@@ -90,6 +90,26 @@ const S = {
 };
 
 // ------------------------------------------------------------------ helpers
+async function copyText(value) {
+  const text = String(value ?? "");
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Local HTTP Studio on Android is not always treated as a secure clipboard context.
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  field.style.pointerEvents = "none";
+  document.body.append(field);
+  field.select();
+  field.setSelectionRange(0, field.value.length);
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("Clipboard copy failed");
+}
 function toast(html, kind = "info", ms = 5200) {
   const el = document.createElement("div");
   el.className = `toast ${kind}`;
@@ -600,10 +620,14 @@ function drawEditor() {
       <div class="scene ${s.speaker === "B" ? "b" : "a"}${multi ? " multi" : ""}">
         <span class="num">${multi ? esc(s.speaker || "A") : String(n + 1).padStart(2, "0")}</span>
         <div class="field">
-          <textarea data-i="${n}" data-s="narration" aria-label="Scene ${n + 1} narration">${esc(s.narration)}</textarea>
+          <div class="scene-copybar"><label for="scene-narration-${n}">Narration</label><button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="narration">${I.copy}Copy narration</button></div>
+          <textarea id="scene-narration-${n}" data-i="${n}" data-s="narration" aria-label="Scene ${n + 1} narration">${esc(s.narration)}</textarea>
+          <div class="scene-copybar visual-copybar"><label for="scene-visual-${n}">Visual prompt</label><button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="image_prompt">${I.copy}Copy visual prompt</button></div>
+          <textarea id="scene-visual-${n}" data-i="${n}" data-s="image_prompt" aria-label="Scene ${n + 1} visual prompt" placeholder="Describe exactly what should appear in this scene">${esc(s.image_prompt || "")}</textarea>
           <div class="row">
             ${multi ? `<button class="btn ghost sm" type="button" data-act="speaker" data-i="${n}" title="Switch speaker">A/B</button>` : ""}
             <input type="text" data-i="${n}" data-s="search_query" value="${esc(s.search_query)}" placeholder="footage search" aria-label="Footage search">
+            <button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="search_query" aria-label="Copy footage search">${I.copy}Copy search</button>
             <span class="tools">
               <button class="btn ghost sm" type="button" data-act="up" data-i="${n}" aria-label="Move up">${I.up}</button>
               <button class="btn ghost sm" type="button" data-act="down" data-i="${n}" aria-label="Move down">${I.down}</button>
@@ -628,7 +652,23 @@ function drawEditor() {
     $("#wc").textContent = `${t} words · ~${Math.round(t / 2.6)}s`;
     saveDraft();
   };
-  box.onclick = e => {
+  box.onclick = async e => {
+    const copyButton = e.target.closest("[data-copy-scene]");
+    if (copyButton) {
+      const scene = d.scenes[+copyButton.dataset.copyScene];
+      const value = scene && scene[copyButton.dataset.copyField];
+      if (!String(value || "").trim()) return toast("Nothing to copy yet.", "info", 2200);
+      try {
+        await copyText(value);
+        const original = copyButton.innerHTML;
+        copyButton.innerHTML = `${I.check}Copied`;
+        toast("Copied to clipboard.", "ok", 1800);
+        setTimeout(() => { if (copyButton.isConnected) copyButton.innerHTML = original; }, 1500);
+      } catch {
+        toast("Clipboard access failed. Try opening the Studio page in your browser.", "bad");
+      }
+      return;
+    }
     const b = e.target.closest("[data-act]");
     if (!b) return;
     const n = +b.dataset.i, sc = d.scenes;
