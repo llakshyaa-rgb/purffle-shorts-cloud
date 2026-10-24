@@ -245,3 +245,32 @@ def test_lint_judges_the_opening_sentence_and_accepts_a_closing_question():
     found = " ".join(lint_script(script, Settings(target_seconds=10)))
     assert "first spoken sentence" not in found  # "Octopus blood is blue." is 4 words
     assert "call to action" not in found         # a question invites comments
+
+
+
+def test_lint_flags_reused_nonadjacent_visuals_and_title_promise_drift():
+    script = normalize({"title": "The Secret Door Behind My Wardrobe",
+        "scenes": [
+            {"narration": "Every night, someone knocked three times.", "search_query": "bedroom wardrobe door",
+             "image_prompt": "A narrow bedroom at night with a wardrobe door in the foreground."},
+            {"narration": "My dad laughed when I told him.", "search_query": "father laughing bedroom",
+             "image_prompt": "A father laughs beside a bedroom doorway."},
+            {"narration": "Last night, I finally opened the door.", "search_query": "bedroom wardrobe door",
+             "image_prompt": "A hand slowly opens the same wardrobe door in a dark bedroom."},
+        ]}, "wardrobe mystery", "story", "en")
+    findings = " ".join(lint_script(script, Settings(target_seconds=10)))
+    assert "Title and spoken opening" in findings
+    assert "reuse the same visual search" in findings
+
+
+def test_lint_flags_cta_only_ending_and_underspecified_visuals():
+    script = normalize({"title": "The Octopus Escape", "scenes": [
+        {"narration": "The octopus squeezed through a tiny gap in the tank.", "search_query": "octopus",
+         "image_prompt": "octopus"},
+        {"narration": "Follow for more strange animal stories.", "search_query": "octopus",
+         "image_prompt": "octopus"},
+    ]}, "octopus escape", "story", "en")
+    findings = " ".join(lint_script(script, Settings(target_seconds=5)))
+    assert "final beat leans on a CTA" in findings
+    assert "vague visual search" in findings
+    assert "specific visual prompt" in findings
