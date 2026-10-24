@@ -196,12 +196,28 @@ def scene_timeline(scene_texts: list[str], words: list[Word], total: float, lang
             else:
                 starts.append(starts[-1] if starts else 0.0)
             idx += c
-    starts = list(starts)
+    # TTS aligners and tokenizers can disagree slightly about punctuation, contractions,
+    # or spoken numbers. Sanitize boundaries before building shots so a bad timestamp cannot
+    # create a reversed/zero-length scene or put later visuals ahead of the narration.
+    starts = list(starts[:len(scene_texts)])
+    if not starts:
+        return []
     starts[0] = 0.0
+    safe_total = max(0.0, float(total))
+    clean_starts: list[float] = []
+    last = 0.0
+    for raw in starts:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            value = last
+        value = min(safe_total, max(last, value))
+        clean_starts.append(value)
+        last = value
     out = []
-    for k, s in enumerate(starts):
-        e = starts[k + 1] if k + 1 < len(starts) else total
-        out.append(SceneTiming(k, s, e))
+    for k, start in enumerate(clean_starts):
+        end = clean_starts[k + 1] if k + 1 < len(clean_starts) else safe_total
+        out.append(SceneTiming(k, start, max(start, end)))
     # Grow each shot until it lasts at least min_len (too-short scenes can't be read), then start the next;
     # a short final shot joins the one before it.
     merged: list[SceneTiming] = []
