@@ -622,17 +622,39 @@ class Studio:
             # match to its own scene. Prompt-generated AI images are scene-directed by construction;
             # generic library art and gradients never count as evidence.
             scene_matches = 0
+            visual_audit = []
             for shot, item in zip(shots, media):
-                scene_query = script.scenes[shot.index].search_query if shot.index < len(script.scenes) else script.topic
-                is_ai_visual = item.source in AI_SOURCES and item.path is not None and item.path.is_file()
+                scene = script.scenes[shot.index] if shot.index < len(script.scenes) else None
+                scene_query = scene.search_query if scene else script.topic
+                metadata = item.text or item.extra.get("description") or item.extra.get("categories")
+                match_score = relevance(item, scene_query) if metadata else 0.0
+                file_ok = item.path is not None and item.path.is_file()
+                is_ai_visual = item.source in AI_SOURCES and file_ok
                 is_matched_stock = (
                     item.source not in ("generated", "library") and item.source not in AI_SOURCES
-                    and item.path is not None and item.path.is_file()
-                    and bool(item.text or item.extra.get("description") or item.extra.get("categories"))
-                    and relevance(item, scene_query) >= 0.58
+                    and file_ok and bool(metadata) and match_score >= 0.58
                 )
-                if is_ai_visual or is_matched_stock:
+                matched = bool(is_ai_visual or is_matched_stock)
+                if matched:
                     scene_matches += 1
+                visual_audit.append({
+                    "shot": len(visual_audit) + 1,
+                    "scene": shot.index + 1,
+                    "start": round(shot.start, 2),
+                    "end": round(shot.end, 2),
+                    "query": scene_query,
+                    "source": item.source,
+                    "asset_id": item.id,
+                    "metadata_available": bool(metadata),
+                    "relevance_score": round(match_score, 3),
+                    "file_available": file_ok,
+                    "scene_match_approved": matched,
+                    "review_note": (
+                        "AI-generated scene visual" if is_ai_visual else
+                        "Metadata match accepted" if is_matched_stock else
+                        "Fallback or weakly evidenced match; manual review recommended"
+                    ),
+                })
             visual_real = scene_matches
             visual_coverage = round(100 * visual_real / visual_total) if visual_total else 0
             if visual_coverage < 80:
@@ -645,8 +667,15 @@ class Studio:
             duration_ok = target_delta <= 0.20
             visuals_ok = visual_coverage >= 70
             captions_ok = bool(chunks) and all(
-                chunk.end > chunk.start and bool(chunk.text.strip()) for chunk in chunks
-            ) and all(a.start <= b.start for a, b in zip(chunks, chunks[1:]))
+                chunk.end > chunk.start
+                and chunk.start >= 0
+                and chunk.end <= info["duration"] + 0.25
+                and bool(chunk.text.strip())
+                for chunk in chunks
+            ) and all(
+                a.start <= b.start and a.end <= b.start + 0.08
+                for a, b in zip(chunks, chunks[1:])
+            )
             publish_ready = duration_ok and visuals_ok and captions_ok
             quality_report = {
                 "target_seconds": s.target_seconds,
@@ -655,6 +684,7 @@ class Studio:
                 "duration_ok": duration_ok,
                 "visual_coverage_percent": visual_coverage,
                 "visual_coverage_ok": visuals_ok,
+                "visual_audit": visual_audit,
                 "captions_ok": captions_ok,
                 "publish_ready": publish_ready,
                 "reasons": [],
