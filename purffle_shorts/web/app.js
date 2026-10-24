@@ -90,6 +90,26 @@ const S = {
 };
 
 // ------------------------------------------------------------------ helpers
+async function copyText(value) {
+  const text = String(value ?? "");
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Android local HTTP Studio may not expose the modern clipboard API.
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  field.style.pointerEvents = "none";
+  document.body.append(field);
+  field.select();
+  field.setSelectionRange(0, field.value.length);
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("Clipboard copy failed");
+}
 function toast(html, kind = "info", ms = 5200) {
   const el = document.createElement("div");
   el.className = `toast ${kind}`;
