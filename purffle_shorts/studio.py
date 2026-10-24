@@ -437,6 +437,22 @@ class StudioServer:
                         out.append(item)
         return out
 
+    def assets(self, query: str = "", kind: str = "") -> list[dict]:
+        from .asset_library import list_assets
+        root = Path(self.settings.media_dir) / ".purffle_assets"
+        rows = list_assets(root, limit=120)
+        query = (query or "").strip().casefold()
+        kind = (kind or "").strip().casefold()
+        out = []
+        for row in rows:
+            searchable = " ".join(str(row.get(k) or "") for k in ("query", "prompt", "character", "style_key")).casefold()
+            if query and query not in searchable:
+                continue
+            if kind and kind not in (str(row.get("visual_type") or "").casefold(), str(row.get("character") or "").casefold()):
+                continue
+            out.append({k: v for k, v in row.items() if k != "path"})
+        return out
+
     def channel(self) -> dict:
         from .analytics import calibration
         rows = [r for r in self.studio.history.recent(1000) if r.get("views") is not None]
@@ -586,6 +602,13 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 return self._json(checks(app.settings))
             if path == "/api/channel":
                 return self._json(app.channel())
+            if path == "/api/assets":
+                return self._json(app.assets(params.get("q", ""), params.get("kind", "")))
+            m = re.fullmatch(r"/assets/([0-9a-f]{24})\.png", path)
+            if m:
+                from .asset_library import asset_path
+                asset = asset_path(Path(app.settings.media_dir) / ".purffle_assets", m.group(1))
+                return self._file(asset) if asset else self._send(404, b"not found", "text/plain")
             if path == "/api/voices":
                 return self._json(app.voices(params.get("lang", "")))
             m = re.fullmatch(r"/files/(\d+)/([\w.]+)", path)
