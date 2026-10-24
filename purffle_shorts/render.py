@@ -85,9 +85,25 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
 
     if item.kind == "image" and item.path:
         if settings.ken_burns:
-            z = random.choice(["in", "out", "pan"])
-            zoom = {"in": f"min(1+0.16*on/{frames},1.16)", "out": f"1.16-0.16*on/{frames}", "pan": "1.12"}[z]
-            x = "(iw-iw/zoom)*on/" + str(frames) if z == "pan" else "iw/2-(iw/zoom/2)"
+            # Respect the Creative Director's per-shot camera choice instead of randomising every still.
+            camera = str(item.extra.get("director_camera", "")).lower()
+            camera_map = {
+                "push_in": "in", "pull_out": "out", "pan_left": "left",
+                "pan_right": "right", "static": "static", "shake": "shake",
+            }
+            move = camera_map.get(camera) or random.choice(["in", "out", "left", "right"])
+            zoom = {
+                "in": f"min(1+0.13*on/{frames},1.13)",
+                "out": f"1.13-0.13*on/{frames}",
+                "left": "1.12", "right": "1.12", "static": "1.0",
+                "shake": "min(1.04+0.025*abs(sin(on*0.35)),1.07)",
+            }[move]
+            if move == "left":
+                x = f"(iw-iw/zoom)*(1-on/{frames})"
+            elif move == "right":
+                x = "(iw-iw/zoom)*on/" + str(frames)
+            else:
+                x = "iw/2-(iw/zoom/2)"
             y = "ih/2-(ih/zoom/2)"
             vf = (f"scale={2 * W}:{2 * H}:force_original_aspect_ratio=increase,crop={2 * W}:{2 * H},"
                   f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={F},setsar=1{grade}")
