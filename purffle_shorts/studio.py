@@ -173,7 +173,7 @@ class StudioServer:
             "tts_engine": _choice(p.get("tts"), ("edge", "openai", "elevenlabs", "kokoro", "coqui", "system")),
             "tts_voice": str(p.get("voice") or "").strip()[:200] or None,
             "tts_voice_b": str(p.get("voice_b") or "").strip()[:200] or None,
-            "caption_style": _choice(p.get("caption_style"), CAPTION_STYLES),
+            "caption_style": _choice(p.get("caption_style"), ["auto", *CAPTION_STYLES]),
             "caption_position": _choice(p.get("caption_position"), ("upper", "center", "lower", "bottom")),
             "color_grade": _choice(p.get("grade"), ["random", *GRADES], "random"),
             "transition": _choice(p.get("transition"), ["random", "none", *TRANSITIONS], "random"),
