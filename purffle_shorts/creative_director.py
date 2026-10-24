@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from .script import Script
@@ -49,7 +50,7 @@ CHARACTERS = ("none", "purffle_narrator", "detective", "scientist", "explorer", 
 
 
 def _character_for(text: str, style: str) -> str:
-    words = set(text.lower().replace("-", " ").split())
+    words = set(re.findall(r"[a-z]+", text.lower()))
     if words & {"detective", "investigator", "sleuth"}:
         return "detective"
     if words & {"scientist", "researcher", "laboratory"}:
