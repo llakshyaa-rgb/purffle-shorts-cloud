@@ -32,6 +32,18 @@ DEFAULT_NICHES = [
     "weird laws around the world",
     "survival facts",
     "motivational stories",
+    "forgotten engineering failures and near-misses",
+    "strange medical history and discoveries",
+    "how everyday technology actually works",
+    "lost cities and archaeological mysteries",
+    "animal survival strategies and evolution",
+    "psychological experiments and cognitive biases",
+    "internet mysteries and digital culture",
+    "extreme weather and natural disasters explained",
+    "incredible human achievements and records",
+    "money mistakes and economic oddities",
+    "space missions and planetary discoveries",
+    "food science and surprising origins",
 ]
 
 
