@@ -652,7 +652,9 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
         log.warning("Story payoff check skipped: %s", e)
         return script, script.score, script.rubric, list(script.review or [])
 
-    if script.style not in {"story", "reddit", "chat"} or rubric.get("payoff", 5) >= 7:
+    quality_dimensions = ("payoff", "specificity", "pacing", "curiosity")
+    weak_dimensions = [key for key in quality_dimensions if rubric.get(key, 5) < 7]
+    if script.style not in {"story", "reddit", "chat"} or not weak_dimensions:
         return script, score, rubric, issues
 
     forced_checks = lint_script(script, settings) + [
@@ -670,12 +672,13 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
             log.warning("Story payoff rewrite ignored: %d words for a %d-word target", count, target)
             return script, score, rubric, issues
         new_score, new_rubric, new_issues = _grade(llm, candidate, settings)
-        if new_rubric.get("payoff", 5) > rubric.get("payoff", 5) or (
-            new_rubric.get("payoff", 5) == rubric.get("payoff", 5)
-            and (new_score or 0) >= (score or 0)
+        old_weakness = sum(rubric.get(key, 5) for key in quality_dimensions)
+        new_weakness = sum(new_rubric.get(key, 5) for key in quality_dimensions)
+        if new_weakness > old_weakness or (
+            new_weakness == old_weakness and (new_score or 0) >= (score or 0)
         ):
-            log.info("Story payoff check: accepted rewrite (payoff %s -> %s)",
-                     rubric.get("payoff", 5), new_rubric.get("payoff", 5))
+            log.info("Story quality check: accepted rewrite (weak dimensions total %s -> %s)",
+                     old_weakness, new_weakness)
             return candidate, new_score, new_rubric, new_issues
         log.info("Story payoff check: rewrite did not improve payoff; kept prior script")
     except Exception as e:
