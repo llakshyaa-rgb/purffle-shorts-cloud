@@ -644,7 +644,10 @@ class Studio:
             target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
             duration_ok = target_delta <= 0.20
             visuals_ok = visual_coverage >= 70
-            publish_ready = duration_ok and visuals_ok
+            captions_ok = bool(chunks) and all(
+                chunk.end > chunk.start and bool(chunk.text.strip()) for chunk in chunks
+            ) and all(a.start <= b.start for a, b in zip(chunks, chunks[1:]))
+            publish_ready = duration_ok and visuals_ok and captions_ok
             quality_report = {
                 "target_seconds": s.target_seconds,
                 "actual_seconds": round(info["duration"], 2),
@@ -652,6 +655,7 @@ class Studio:
                 "duration_ok": duration_ok,
                 "visual_coverage_percent": visual_coverage,
                 "visual_coverage_ok": visuals_ok,
+                "captions_ok": captions_ok,
                 "publish_ready": publish_ready,
                 "reasons": [],
             }
@@ -666,6 +670,11 @@ class Studio:
                     "Fewer than 70% of shots use scene assets; generic artwork/gradients do not count as visual evidence."
                 )
                 log.warning("Quality gate: visual coverage is only %d%%", visual_coverage)
+            if not captions_ok:
+                quality_report["reasons"].append(
+                    "Caption timing is empty, reversed, or out of sequence; inspect narration alignment."
+                )
+                log.warning("Quality gate: caption timing validation failed")
             (folder / "quality_report.json").write_text(
                 json.dumps(quality_report, indent=2, ensure_ascii=False), encoding="utf-8"
             )
@@ -679,7 +688,8 @@ class Studio:
                 "cast": script.cast,
                 "voice": f"{speech.engine}:{speech.voice}", "timing": speech.timing,
                 "visual_coverage_percent": visual_coverage,
-                "visual_real_shots": visual_real, "visual_total_shots": visual_total,
+                "visual_matched_shots": visual_real, "visual_real_shots": visual_real,
+                "visual_total_shots": visual_total,
                 "quality": quality_report,
                 "visuals": [{"source": m.source, "id": m.id, "kind": m.kind, "query": m.query}
                             for m in media + ([background] if split else [])],
