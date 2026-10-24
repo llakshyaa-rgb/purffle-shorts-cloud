@@ -199,7 +199,7 @@ def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
         return words, max(6, min(14, round(target_seconds / 3.5)))
     if style == "reddit":
         return words, max(5, min(12, round(target_seconds / 4.5)))
-    return words, max(4, min(10, round(target_seconds / 5.5)))
+    return words, max(5, min(12, round(target_seconds / 4.2)))
 
 
 def _format_rules(style: str) -> str:
@@ -253,10 +253,10 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - Give this video its own creative identity. Build a clear progression suited to its format: opening -> development -> meaningful detail or complication -> payoff. Even facts/list formats need a clear thread, not a pile of unrelated trivia. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, generic AI phrasing, and announcing what the video will explain.
-- STORYTELLING DETAIL (without copying any creator or reference video): narrate like a vivid, tightly edited animated story. Make the viewer feel present through concrete actions, visible reactions, specific objects/places, small decisions, and consequences. Replace summaries such as "he got scared" with the observable thing that happens and how the character reacts. Let details carry emotion; do not over-explain what the visuals already show.
+- STORYTELLING DETAIL (without copying any creator or reference video): write a vivid, tightly edited story the viewer can picture as animation. Use concrete actions, distinct objects, visible reactions, and consequences. Do not summarize a whole event in one vague sentence. For every major beat, ask: what exactly happens on screen, what does the character notice, what do they do next, and what changes because of it? Make the character’s choice cause the next beat. Build tension through specific evidence, not repeated words like "creepy", "terrifying", or "mysterious".
 - Every video is a COMPLETE STANDALONE PIECE, not an episode in a series. Give it a clear beginning, development, and ending/payoff within the chosen duration. Do not use "part 2", "follow for the next part", or leave the main question unresolved just to bait another view. Do not invent continuity from previous videos unless the topic explicitly asks for it.
 - Avoid repetitive engagement bait. Never automatically end with "What do you think?", "Would you have done it?", or "Follow for part 2". End on the story's consequence, reveal, emotional beat, or useful takeaway. Add a brief CTA only when it feels natural and does not weaken the ending; vary it and omit it when the payoff is stronger alone.
-- For fictional or dramatized stories, make the chain of events concrete and believable: establish what the character wants, introduce a specific obstacle, show the character making a choice, and show the consequence. Use meaningful details and reactions rather than vague suspense. For factual stories, keep real-world claims accurate and distinguish documented facts from invented dialogue or reconstruction.
+- For fictional or dramatized stories, build a visible mini-arc: establish the character and immediate situation, introduce a specific disturbance, show a reaction and a deliberate choice, make that choice change what happens, then deliver a concrete reveal or consequence. The ending must resolve or transform the central mystery, not merely announce something eerie and stop. Make the twist understandable on first listen and plant enough detail that it feels earned. Include a human reaction after the reveal when time allows. For factual stories, keep real-world claims accurate and distinguish documented facts from invented dialogue or reconstruction.
 - Edit every line before returning it: replace vague wording with a concrete detail; remove repeated ideas; simplify awkward sentences; check that pronouns clearly refer to something; and make transitions sound natural when spoken aloud.
 - Avoid canned AI phrases such as "little did they know", "but here's the twist", "what happened next changed everything", "you won't believe", and "and that's when things got interesting" unless the specific story genuinely earns that wording. Do not use dramatic language as a substitute for information.
 - Do not force every sentence to be a hook. Use rhythm: a few short punchy lines, then a clear explanatory line when needed, then move forward. The script should sound natural at normal speaking speed, not like every line is a trailer voice-over.
@@ -522,8 +522,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
     if target and abs(n - target) > 0.25 * target:
         out.append(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
     ending = " ".join(sc.narration for sc in script.scenes[-2:])
-    if False and english and script.scenes and not (_CTA.search(ending) or "?" in ending):
-        out.append("The ending has no call to action (comment, follow or a question).")
+    # A story payoff is more important than a call to action; CTAs are optional.
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
             sentences = [x.strip() for x in re.split(r"(?<=[.!?])\\s+", sc.narration) if x.strip()]
@@ -590,7 +589,7 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
     task = (f"""Then rewrite it into the strongest version you can. Keep the same subject, format, language ({lang}),
 the same JSON structure and about {words} words in about {n_scenes} scenes. Fix every issue you listed and every
 automatic finding: sharpen the hook, cut filler, make vague lines concrete, remove any claim that may not be true,
-keep the payoff for the end, end with a short call to action. Put the rewritten script in "script".
+build toward a clear, earned payoff at the end. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
 Creative-quality requirements:
 - Do not default to "Did you know?" or any repeated stock opening. Keep the opening specific to this topic and distinct from recent titles/context.
 - Read the narration as one complete spoken script before judging individual scenes. It must flow naturally from the first line to the final payoff, with no disconnected lines or abrupt jumps—even in facts/list formats.
@@ -612,7 +611,7 @@ Creative-quality requirements:
 - Use punctuation to support natural TTS pauses, but do not add ellipses or commas everywhere. Do not include stage directions in narration.
 - Keep transitions between scenes logical: each line should connect to the previous thought or set up the next, not feel like disconnected facts.
 - Do not pad the target length with filler. If a script is short, add a meaningful example, mechanism, or consequence instead.
-- For story-driven scripts, increase specificity rather than merely adding words: show the exact action, physical detail, reaction, choice, and consequence that make the event feel real. The audience should be able to picture each important beat. A 20-second story still needs a complete mini-arc, not just a hook and a teaser.
+- For story-driven scripts, require a complete mini-arc even at 20 seconds: (1) a vivid opening image, (2) a strange event or concrete problem, (3) a reaction that reveals character, (4) a choice that escalates or changes the situation, and (5) a specific reveal/consequence that pays off the opening. Usually use 5-6 scenes for a 20-second story, with each scene showing a distinct visual beat. The reveal must be more than a vague line such as "his own room was inside"; show what makes it impossible, emotionally meaningful, or causally surprising. End after the payoff or its immediate consequence—not on an unexplained teaser.
 - Treat every video as self-contained. Do not write a serial episode, cliffhanger designed only to force a sequel, or recurring-character continuity unless explicitly requested. Do not append "What do you think?" by habit; prioritize a natural final line that pays off the story. CTA is optional.
 - Do not imitate a named creator's exact wording, characters, plot, or signature phrases. Learn only broad craft principles: visual specificity, clear cause-and-effect, emotional reactions, and satisfying standalone payoffs.
 Format rules to keep:
