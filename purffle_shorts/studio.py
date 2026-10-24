@@ -529,6 +529,8 @@ class StudioServer:
         raw = (value or "").strip()
         if not raw:
             self.studio.history.set_publish_at(vid, None)
+            # Removing a scheduled time changes the intended publishing behavior; require a fresh review.
+            self.studio.history.set_approval(vid, False)
             return None
         try:
             dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
