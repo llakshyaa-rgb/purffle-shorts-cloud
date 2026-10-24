@@ -359,19 +359,19 @@ def _director_search_query(image_prompt: str) -> str:
     prompt = re.sub(
         r"^(?:DIAGRAM / EXPLANATORY GRAPHIC|ORIGINAL DRAWN ILLUSTRATION|"
         r"SYMBOLIC VISUAL METAPHOR|REAL-WORLD DOCUMENTARY FOOTAGE|"
-        r"REALISTIC EDITORIAL PHOTOGRAPH):\\s*",
+        r"REALISTIC EDITORIAL PHOTOGRAPH):\s*",
         "",
         prompt,
         flags=re.IGNORECASE,
     )
-    prompt = re.sub(r"\\bREUSABLE CHARACTER:.*$", "", prompt, flags=re.IGNORECASE | re.DOTALL)
+    prompt = re.sub(r"\bREUSABLE CHARACTER:.*$", "", prompt, flags=re.IGNORECASE | re.DOTALL)
     # The director is instructed to put the actual subject/action first. Ignore style boilerplate
     # after the first sentence and trim very long descriptions to keep search queries useful.
-    first_sentence = re.split(r"(?<=[.!?])\\s+", prompt, maxsplit=1)[0]
+    first_sentence = re.split(r"(?<=[.!?])\s+", prompt, maxsplit=1)[0]
     first_sentence = re.sub(
-        r"\\b(cinematic|documentary-style|real-world|realistic|editorial|photograph|"
+        r"\b(cinematic|documentary-style|real-world|realistic|editorial|photograph|"
         r"portrait|vertical|framing|no text|no letters|no watermark|clear|specific|"
-        r"visible|action|lighting|composition|illustration|footage|photography)\\b",
+        r"visible|action|lighting|composition|illustration|footage|photography)\b",
         " ",
         first_sentence,
         flags=re.IGNORECASE,
