@@ -159,7 +159,7 @@ class History:
         cutoff = datetime.fromtimestamp(datetime.now(timezone.utc).timestamp() - min_age_hours * 3600,
                                         timezone.utc).isoformat(timespec="seconds")
         return self._all(
-            "SELECT id, title, style, score, views, likes, comments, publish_at, uploaded_at FROM videos "
+            "SELECT id, title, subject, topic, style, score, views, likes, comments, publish_at, uploaded_at FROM videos "
             "WHERE views IS NOT NULL AND parent_id IS NULL AND COALESCE(publish_at, uploaded_at) <= ?", (cutoff,))
 
     # -- idea queue (planner) --
