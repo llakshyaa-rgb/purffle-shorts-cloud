@@ -228,6 +228,7 @@ def calibration(history: History, timezone_name: str | None = None) -> dict:
     return {
         "videos": len(rows),
         "scored": len(scored),
+        "timezone": timezone_name or "server local time",
         "score_vs_views": rho,
         "verdict": _verdict(rho, len(scored)),
         "styles": sorted(style_rows, key=lambda x: -x["median_views"]),
