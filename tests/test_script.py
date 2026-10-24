@@ -44,7 +44,9 @@ def test_normalize_cleans_everything():
 def test_normalize_merges_too_many_scenes():
     data = {"scenes": [{"narration": f"Sentence {i}.", "search_query": "q", "image_prompt": "p"} for i in range(20)]}
     s = normalize(data, "x", "facts", "en")
-    assert len(s.scenes) == 12
+    # Non-chat scripts cap at 16 scenes; preserve all 20 spoken sentences by merging
+    # the shortest same-speaker neighbours rather than dropping narration.
+    assert len(s.scenes) == 16
     assert s.narration.count("Sentence") == 20
 
 
