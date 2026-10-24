@@ -96,7 +96,7 @@ async function copyText(value) {
     await navigator.clipboard.writeText(text);
     return;
   }
-  // Android local HTTP Studio may not expose the modern clipboard API.
+  // Local HTTP Studio on Android is not always treated as a secure clipboard context.
   const field = document.createElement("textarea");
   field.value = text;
   field.setAttribute("readonly", "");
@@ -609,7 +609,7 @@ function drawEditor() {
   const total = d.scenes.reduce((n, s) => n + words(s.narration), 0);
   const target = Math.round((f.duration || 40) * 2.6);
   box.innerHTML = `<section class="card">
-    ${sh("SC", "Script", `<span class="chip">${esc(d.style)}</span><span class="chip">${esc(d.language)}</span><span class="wc" id="wc">${total} words · ~${Math.round(total / 2.6)}s</span><button class="btn ghost sm" id="copy-script" type="button">${I.copy}Copy full script</button><button class="btn ghost sm" id="discard" type="button">${I.trash}Discard</button>`)}
+    ${sh("SC", "Script", `<span class="chip">${esc(d.style)}</span><span class="chip">${esc(d.language)}</span><span class="wc" id="wc">${total} words · ~${Math.round(total / 2.6)}s</span><button class="btn ghost sm" id="discard" type="button">${I.trash}Discard</button>`)}
     ${d.score != null ? `<div class="score"><div class="ring" data-p="${d.score}"><b>${d.score}</b></div><div class="grow"><b>Retention score</b>${rubricHtml(d.rubric)}${d.review && d.review.length ? `<ul>${d.review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="hint">No issues found.</p>`}</div></div>` : ""}
     <div class="field"><label>Title</label><input type="text" data-k="title" value="${esc(d.title)}" maxlength="90"></div>
     <div class="field"><label>On-screen hook</label><input type="text" data-k="hook_text" value="${esc(d.hook_text)}" maxlength="48"></div>
@@ -620,10 +620,14 @@ function drawEditor() {
       <div class="scene ${s.speaker === "B" ? "b" : "a"}${multi ? " multi" : ""}">
         <span class="num">${multi ? esc(s.speaker || "A") : String(n + 1).padStart(2, "0")}</span>
         <div class="field">
-          <textarea data-i="${n}" data-s="narration" aria-label="Scene ${n + 1} narration" placeholder="Scene narration">${esc(s.narration)}</textarea>
+          <div class="scene-copybar"><label for="scene-narration-${n}">Narration</label><button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="narration">${I.copy}Copy narration</button></div>
+          <textarea id="scene-narration-${n}" data-i="${n}" data-s="narration" aria-label="Scene ${n + 1} narration">${esc(s.narration)}</textarea>
+          <div class="scene-copybar visual-copybar"><label for="scene-visual-${n}">Visual prompt</label><button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="image_prompt">${I.copy}Copy visual prompt</button></div>
+          <textarea id="scene-visual-${n}" data-i="${n}" data-s="image_prompt" aria-label="Scene ${n + 1} visual prompt" placeholder="Describe exactly what should appear in this scene">${esc(s.image_prompt || "")}</textarea>
           <div class="row">
             ${multi ? `<button class="btn ghost sm" type="button" data-act="speaker" data-i="${n}" title="Switch speaker">A/B</button>` : ""}
             <input type="text" data-i="${n}" data-s="search_query" value="${esc(s.search_query)}" placeholder="footage search" aria-label="Footage search">
+            <button class="btn ghost sm copy-scene" type="button" data-copy-scene="${n}" data-copy-field="search_query" aria-label="Copy footage search">${I.copy}Copy search</button>
             <span class="tools">
               <button class="btn ghost sm" type="button" data-act="up" data-i="${n}" aria-label="Move up">${I.up}</button>
               <button class="btn ghost sm" type="button" data-act="down" data-i="${n}" aria-label="Move down">${I.down}</button>
@@ -649,15 +653,20 @@ function drawEditor() {
     saveDraft();
   };
   box.onclick = async e => {
-    const fullCopy = e.target.closest("#copy-script");
-    if (fullCopy) {
-      const text = [d.title, d.hook_text, ...d.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`), d.description, (d.hashtags || []).join(" ")].filter(Boolean).join("\n\n");
+    const copyButton = e.target.closest("[data-copy-scene]");
+    if (copyButton) {
+      const scene = d.scenes[+copyButton.dataset.copyScene];
+      const value = scene && scene[copyButton.dataset.copyField];
+      if (!String(value || "").trim()) return toast("Nothing to copy yet.", "info", 2200);
       try {
-        await copyText(text);
-        fullCopy.innerHTML = `${I.check}Copied`;
-        toast("Full script copied.", "ok", 1800);
-        setTimeout(() => { if (fullCopy.isConnected) fullCopy.innerHTML = `${I.copy}Copy full script`; }, 1500);
-      } catch { toast("Clipboard access failed. Try opening the Studio page in your browser.", "bad"); }
+        await copyText(value);
+        const original = copyButton.innerHTML;
+        copyButton.innerHTML = `${I.check}Copied`;
+        toast("Copied to clipboard.", "ok", 1800);
+        setTimeout(() => { if (copyButton.isConnected) copyButton.innerHTML = original; }, 1500);
+      } catch {
+        toast("Clipboard access failed. Try opening the Studio page in your browser.", "bad");
+      }
       return;
     }
     const b = e.target.closest("[data-act]");
