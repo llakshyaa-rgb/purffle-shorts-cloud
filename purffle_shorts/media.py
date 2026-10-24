@@ -16,6 +16,7 @@ from urllib.parse import quote
 
 from .config import Settings
 from .utils import PermanentError, download, http, raise_for_status, redact, with_retries
+from .visual_library import make_visual, visual_type
 
 log = logging.getLogger("purffle")
 
@@ -590,6 +591,28 @@ class Visuals:
         return MediaItem(source, dest.name, "image", path=dest, width=s.width, height=s.height, query=prompt)
 
     def for_scene(self, idx: int, query: str, image_prompt: str, topic: str, need: float, dest_dir: Path) -> MediaItem:
+        # Use the built-in illustration/diagram library for a meaningful share of scenes.
+        # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
+        # while remaining scenes can still use stock footage/photos for realism and variety.
+        visual_kind = visual_type(query or topic, image_prompt)
+        stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode("utf-8")).hexdigest()[:8], 16)
+        use_library = visual_kind == "diagram" or (stable % 100 < 58)
+        if use_library:
+            try:
+                library_path = dest_dir / f"scene{idx:02d}_library.png"
+                make_visual(
+                    query or topic, image_prompt, library_path,
+                    self.s.width, self.s.height,
+                )
+                log.info("Scene %d: built-in %s visual library", idx + 1, visual_kind)
+                return MediaItem(
+                    "library", library_path.name, "image", path=library_path,
+                    width=self.s.width, height=self.s.height, query=query or topic,
+                    text=f"built-in {visual_kind} illustration",
+                    extra={"visual_type": visual_kind},
+                )
+            except Exception as e:
+                log.warning("Built-in visual library failed for scene %d: %s", idx + 1, redact(e))
         queries = []
         for q in (query, simplify_query(query), simplify_query(topic), topic):
             q = (q or "").strip()
