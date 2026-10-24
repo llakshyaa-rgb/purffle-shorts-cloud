@@ -111,7 +111,8 @@ def get_or_create_asset(
 
 
 def ensure_character_collection(root: str | Path, width: int, height: int) -> list[dict[str, Any]]:
-    """Create the canonical cast once; subsequent videos reuse the same character artwork."""
+    """Ensure the canonical cast exists without inflating usage counts when the gallery is reopened."""
+    root = Path(root)
     cast = (
         ("purffle_narrator", "Purffle hooded narrator", "REUSABLE CHARACTER: purffle_narrator"),
         ("purffle_detective", "Detective character", "REUSABLE CHARACTER: purffle_detective"),
@@ -119,10 +120,15 @@ def ensure_character_collection(root: str | Path, width: int, height: int) -> li
         ("purffle_explorer", "Explorer character", "REUSABLE CHARACTER: purffle_explorer"),
         ("purffle_mystery", "Mysterious figure character", "REUSABLE CHARACTER: purffle_mystery"),
     )
-    return [
-        get_or_create_asset(root, title, prompt, width, height, mode="character", style_key=key)
-        for key, title, prompt in cast
-    ]
+    existing = {row.get("id"): row for row in list_assets(root, limit=MAX_ASSETS)}
+    output = []
+    for key, title, prompt in cast:
+        identifier = asset_key(title, prompt, width, height, 0, "character", key)
+        if identifier in existing and asset_path(root, identifier):
+            output.append(existing[identifier])
+        else:
+            output.append(get_or_create_asset(root, title, prompt, width, height, mode="character", style_key=key))
+    return output
 
 
 def list_assets(root: str | Path, limit: int = 120) -> list[dict[str, Any]]:
