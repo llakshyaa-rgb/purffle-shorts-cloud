@@ -290,6 +290,12 @@ def test_manual_schedule_and_approval_are_persistent_but_upload_stays_disabled(s
     assert status == 200 and json.loads(body)["approval_status"] == "approved"
     assert app.studio.history.get(vid)["approval_status"] == "approved"
 
+    # Changing the intended publish behavior must revoke the previous approval.
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/schedule", {"publish_at": ""}, app.token)
+    assert status == 200
+    assert app.studio.history.get(vid)["publish_at"] is None
+    assert app.studio.history.get(vid)["approval_status"] == "pending"
+
     # Approval is not permission to bypass UPLOAD=false; the server enforces the hard stop.
     status, _, body = req(port, "POST", f"/api/upload/{vid}", {}, app.token)
     assert status == 403 and "UPLOAD=false" in json.loads(body)["error"]
