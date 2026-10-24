@@ -1104,7 +1104,7 @@ function calibrationCard(c) {
   return `<section class="card">${sh("02", "Do the predictions hold up?")}
     <p>${rho != null ? `<span class="chip ${tone}">ρ = ${rho.toFixed(2)}</span> ` : ""}Script Doctor score vs real views: ${esc(c.verdict)}.
       <span class="muted">Spearman rank correlation over ${c.scored} scored videos public for 2+ days. This measures script-quality calibration, not YouTube audience retention.</span></p>
-    ${c.hours.length ? `<p class="muted">Best publish hours (your time): ${c.hours.map(h => `<b>${String(h.hour).padStart(2, "0")}:00</b> ${fmtNum(h.median_views)}`).join(" · ")}</p>` : ""}
+    ${c.hours.length ? `<p class="muted">Best publish hours (${esc(c.timezone || "server local time")}): ${c.hours.map(h => `<b>${String(h.hour).padStart(2, "0")}:00</b> ${fmtNum(h.median_views)}`).join(" · ")}</p>` : ""}
   </section>`;
 }
 
