@@ -324,3 +324,14 @@ def test_manual_schedule_rejects_past_times_and_missing_files(server, tmp_path):
     )
     status, _, body = req(port, "POST", f"/api/videos/{missing}/approval", {"approved": True}, app.token)
     assert status == 404
+
+
+def test_character_filter_returns_the_reusable_cast(server):
+    app, port = server
+    status, _, body = req(port, "GET", "/api/assets?kind=character")
+    assert status == 200
+    assets = json.loads(body)
+    assert len(assets) >= 5
+    assert {"hooded_narrator", "detective", "scientist", "explorer", "mysterious_figure"} <= {
+        asset["character"] for asset in assets
+    }
