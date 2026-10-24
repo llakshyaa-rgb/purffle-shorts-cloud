@@ -202,6 +202,11 @@ def scene_timeline(scene_texts: list[str], words: list[Word], total: float, lang
     starts = list(starts[:len(scene_texts)])
     if not starts:
         return []
+    # A caller may provide partial line starts (e.g. a TTS aligner omitted a line).
+    # Keep one boundary per narration scene by extending missing entries monotonically.
+    if len(starts) < len(scene_texts):
+        last_start = float(starts[-1]) if starts else 0.0
+        starts.extend([last_start] * (len(scene_texts) - len(starts)))
     starts[0] = 0.0
     safe_total = max(0.0, float(total))
     clean_starts: list[float] = []
