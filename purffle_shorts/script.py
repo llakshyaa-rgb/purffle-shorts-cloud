@@ -569,6 +569,65 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
                 out.append("Too many scenes are only a couple of words; combine beats that do not need their own visual cut.")
     # Stronger publishability checks: repeated visual plans, title/opening promise drift,
     # and endings that spend the final beat on engagement bait instead of delivery.
+    if english and script.scenes and script.style in {"story", "reddit", "chat"}:
+        # Deterministic continuity tripwires for common reveal failures. These are deliberately
+        # narrow: they flag missing explanations for the editor rather than trying to judge all fiction.
+        narration = " ".join(sc.narration for sc in script.scenes).lower()
+        has_animal = bool(re.search(
+            r"\\b(?:kitten|cat|hamster|puppy|dog|bird|rabbit|bunny|mouse|mice|rat|pet|animal|creature)\\b",
+            narration,
+        ))
+        hidden_barrier = bool(re.search(
+            r"\\b(?:sealed|hidden|locked|tiny|small)\\s+(?:door|hatch|panel|opening)\\b"
+            r"|\\bbehind (?:the )?(?:wardrobe|wall|walls|panel|sealed door)\\b"
+            r"|\\binside (?:the )?(?:wall|walls|crawlspace|wall cavity)\\b"
+            r"|\\btrapped (?:inside|behind|within)\\b",
+            narration,
+        ))
+        access_explanation = bool(re.search(
+            r"\\b(?:gap|hole|vent|opening|crawlspace entrance|crack|duct|pipe|loose board|broken panel|"
+            r"squeezed through|slipped through|crawled through|climbed through|fell through|"
+            r"came through|got inside|got in|entered through|wandered in|left open|from outside)\\b",
+            narration,
+        ))
+        explicit_magic = bool(re.search(
+            r"\\b(?:magic|magical|supernatural|ghost|haunted|curse|enchanted|teleported|impossible)\\b",
+            narration,
+        ))
+        if has_animal and hidden_barrier and not access_explanation and not explicit_magic:
+            out.append(
+                "Fiction continuity: an animal is found behind a sealed/hidden barrier, but the narration "
+                "never explains how it entered. Plant a believable route in (gap, hole, vent, opening), "
+                "or establish a consistent supernatural rule."
+            )
+        has_knocking = bool(re.search(r"\\b(?:knock|knocks|knocked|knocking|rattle|rattled|taps|tapped)\\b", narration))
+        physical_sound_cause = bool(re.search(
+            r"\\b(?:paw|paws|claw|claws|scratch|scratched|scratching|struck|hit|banged|bumping|"
+            r"body|tail|thumped|kicked|pushed against|moving against|rattled the panel|"
+            r"hit the wood|struck the door)\\b",
+            narration,
+        ))
+        if has_animal and has_knocking and not physical_sound_cause and not explicit_magic:
+            out.append(
+                "Fiction continuity: the knocking is not physically connected to the animal's actions. "
+                "Show what strikes or moves against the door/panel, or establish a consistent supernatural rule."
+            )
+        long_confinement = bool(re.search(
+            r"\\b(?:all summer|for (?:several )?(?:weeks|months|years)|for the past (?:weeks|months|year)|"
+            r"since (?:january|february|march|april|may|june|july|august|september|october|november|december))\\b",
+            narration,
+        ))
+        supply_explanation = bool(re.search(
+            r"\\b(?:food|water|drank|ate|fed|feeding|rainwater|drain|pipe|supplies|"
+            r"kept it alive|survived because|survived on|could reach)\\b",
+            narration,
+        ))
+        if has_animal and hidden_barrier and long_confinement and not supply_explanation and not explicit_magic:
+            out.append(
+                "Fiction continuity: an animal appears to survive a long confinement, but the narration "
+                "does not explain access to food/water or another credible survival mechanism. Shorten the "
+                "duration or establish the mechanism before the reveal."
+            )
     if english and script.scenes:
         def content_words(value: str) -> set[str]:
             return {w for w in re.findall(r"[a-z0-9]+", value.lower())
