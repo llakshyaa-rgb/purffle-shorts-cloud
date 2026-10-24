@@ -1,8 +1,6 @@
 from purffle_shorts import media as M
 
 
-
-
 def test_stock_without_descriptive_metadata_is_not_approved_as_relevant():
     item = M.MediaItem("pexels", "opaque-id", "video", width=1080, height=1920)
     # Neutral relevance is useful for ranking, but must not make an undocumented asset pass
