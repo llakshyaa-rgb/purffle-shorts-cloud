@@ -612,8 +612,15 @@ class Visuals:
             visual_kind = directed_mode
         stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode("utf-8")).hexdigest()[:8], 16)
         # Explicit director choices override the usual library/stock balance; otherwise keep variety.
-        use_library = (directed_mode in ("diagram", "illustration", "symbolic")
-                       or (not directed_mode and (visual_kind == "diagram" or stable % 100 < 78)))
+        # Respect the configured source order: a Pexels-only or Pollinations-only setup
+        # must actually try that source for ordinary scenes. The built-in library is the
+        # default when local artwork is requested, for explicit director illustration/
+        # diagram choices, and as the final fallback when no source yields a usable match.
+        use_library = (
+            directed_mode in ("diagram", "illustration", "symbolic")
+            or (not directed_mode and visual_kind == "diagram")
+            or (not directed_mode and "local" in self.sources and stable % 100 < 78)
+        )
         character_marker = "REUSABLE CHARACTER:"
         character_mode = character_marker in (image_prompt or "").upper()
         style_key = ""
