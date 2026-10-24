@@ -194,11 +194,11 @@ def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
     words = int(target_seconds * WORDS_PER_SECOND)
     if style == "chat":
         suggested = round(target_seconds / 2.8)
-    elif style == "dialogue":
-        suggested = round(target_seconds / 3.5)
     else:
-        suggested = round(target_seconds / 3.0)
-    return words, max(3, min(14, suggested))
+        # Non-chat scenes are usually a few seconds long; keep enough distinct visuals
+        # without asking a normal narration to fragment every clause into a cut.
+        suggested = round(target_seconds / 3.5)
+    return words, max(3, min(16, suggested))
 
 
 def scene_count_bounds(style: str, target_seconds: int) -> tuple[int, int]:
@@ -397,7 +397,7 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
                             emphasis=_emphasis(s.get("emphasis"), narration), emoji=one_emoji(s.get("emoji"))))
     if not scenes:
         raise ValueError("script has no narration")
-    limit = 20 if style == "chat" else 16
+    limit = 20 if style == "chat" else 12
     while len(scenes) > limit:  # merge the shortest same-speaker neighbours to keep cuts watchable
         pairs = [k for k in range(len(scenes) - 1) if scenes[k].speaker == scenes[k + 1].speaker]
         if not pairs:
@@ -791,7 +791,7 @@ Creative-quality requirements:
 - MANDATORY READ-ALOUD EDIT: mentally read the complete narration at normal speaking speed. Rewrite any sentence that sounds like an essay, caption, generic AI narration, slogan, or a collection of dramatic fragments. The final script should sound like a real person telling this exact story to one interested viewer, with natural contractions, varied sentence lengths, smooth transitions, and no fake profundity.
 - Cut vague emotional labels and replace them with specific reactions or consequences. Remove generic scaffolding, repeated explanations, empty suspense, and a second twist that has not been earned. Every important object or detail should pay off, and the viewer must understand the central event after one listen.
 - Run a sentence-level redundancy audit: catch repeated word roots and meaning echoes (for example, "a bustling city ... bustles", "whispered quietly", or "tiny miniature"). Rewrite tautologies rather than merely deleting one adjective at random.
-- For fiction, audit the premise's rules and causal chain: what makes the reveal true, what evidence plants it, what exact danger or need exists, why the protagonist's choice matters, and what changes because of it? Check physical geography and scale, elapsed time, access, object placement, and how the reveal relates to the opening clue. HARD PLAUSIBILITY CHECK: test whether each character or animal could survive the stated time and conditions, including food, water, air, temperature, shelter, injury, age, and physical ability. Do not use vague explanations like 'it survived on crumbs' to excuse a biologically impossible duration. Either provide a credible cause supported by the story, establish an explicit supernatural rule with earlier clues, or change the duration/condition. A trapped creature must have a clear route into the space and a believable way to survive; the narrator must be able to reach it, and freeing it must resolve the original problem. A future-self reveal or warning must explain its connection and consequence in spoken narration, not leave the viewer to invent the missing logic.
+- For fiction, audit the premise's rules and causal chain: what makes the reveal true, what evidence plants it, what exact danger or need exists, why the protagonist's choice matters, and what changes because of it? Check physical scale, access, object placement, elapsed time, and how the reveal relates to the opening clue. HARD PLAUSIBILITY CHECK: test whether each character or animal could survive the stated time and conditions, including food, water, air, temperature, shelter, injury, age, and physical ability. Do not use vague explanations like 'it survived on crumbs' to excuse a biologically impossible duration. Either provide a credible cause supported by the story, establish an explicit supernatural rule with earlier clues, or change the duration/condition. A trapped creature must have a clear route into the space and a believable way to survive; the narrator must be able to reach it, and freeing it must resolve the original problem. A future-self reveal or warning must explain its connection and consequence in spoken narration, not leave the viewer to invent the missing logic.
 - Reject generic stock twists and familiar horror imagery unless the particular setup earns them. The story should be recognizably about this exact premise, not a template with swapped nouns.
 - After editing, join all scene narration into one continuous passage and check chronology, point of view, motivations, transitions, and repeated information. Split it back into scenes only at natural spoken/visual beats; never make the prose sound chopped up to fit cards.
 - Verify that title, on-screen hook, and spoken opening promise the same story. Reject a mismatched clickbait title or an unrelated visual gimmick.
