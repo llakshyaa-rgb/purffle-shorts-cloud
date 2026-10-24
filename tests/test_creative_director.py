@@ -58,3 +58,14 @@ def test_director_notes_are_concise_and_match_scene_count():
     assert "Scene 1" in notes and "Scene 2" in notes
     assert "not private chain-of-thought" in notes
     assert notes.count("**Why:**") == len(script.scenes)
+
+
+def test_director_marks_reusable_archetypes_for_the_asset_library():
+    script = _script()
+    script.style = "story"
+    script.scenes[0].narration = "The detective opened the hidden door."
+    plan = direct(script, None)
+    assert plan[0]["character"] == "detective"
+    apply_to_script(script, plan)
+    assert "REUSABLE CHARACTER: detective" in script.scenes[0].image_prompt
+    assert "REUSABLE CHARACTER:" not in script.scenes[1].image_prompt
