@@ -365,7 +365,7 @@ function drawForm() {
     ${sh("03", "Shape and voice")}
     <div class="grid2">
       <div class="field"><label>Language</label>${sel("language", langs.map(([c, n]) => [c, `${n} (${c})`]), f.language)}</div>
-      <div class="field"><label>Length</label><div class="range-row"><button class="btn ghost sm" type="button" data-duration-step="-1" aria-label="Decrease length">−</button><input type="range" min="15" max="600" step="1" data-f="duration" value="${f.duration}" aria-label="Length in seconds"><button class="btn ghost sm" type="button" data-duration-step="1" aria-label="Increase length">+</button><output id="dur-out">${f.duration >= 60 ? Math.floor(f.duration/60) + "m " + (f.duration%60 ? f.duration%60 + "s" : "") : f.duration+"s"}</output></div></div>
+      <div class="field"><label>Length</label><div class="range-row"><button class="btn ghost sm" type="button" data-duration-step="-1" aria-label="Decrease length">−</button><input type="range" min="15" max="170" step="1" data-f="duration" value="${f.duration}" aria-label="Length in seconds"><button class="btn ghost sm" type="button" data-duration-step="1" aria-label="Increase length">+</button><output id="dur-out">${f.duration >= 60 ? Math.floor(f.duration/60) + "m " + (f.duration%60 ? f.duration%60 + "s" : "") : f.duration+"s"}</output></div></div>
     </div>
     <div class="field"><label>Aspect</label>${seg("aspect", [["9:16", '<i class="shape s916"></i>9:16 Short'], ["16:9", '<i class="shape s169"></i>16:9 YouTube'], ["1:1", '<i class="shape s11"></i>1:1 Square'], ["4:5", '<i class="shape s45"></i>4:5 Feed'], ["2:3", '<i class="shape s23"></i>2:3 Portrait'], ["3:2", '<i class="shape s32"></i>3:2 Photo'], ["3:4", '<i class="shape s34"></i>3:4 Portrait'], ["21:9", '<i class="shape s219"></i>21:9 Cinema']], f.aspect)}</div>
     <div class="grid2">
@@ -448,7 +448,7 @@ function bindForm() {
     if (step) {
       const slider = $('[data-f="duration"]', root);
       const current = +slider.value;
-      slider.value = Math.max(15, Math.min(600, current + Number(step.dataset.durationStep)));
+      slider.value = Math.max(15, Math.min(170, current + Number(step.dataset.durationStep)));
       S.form.duration = +slider.value;
       const out = $("#dur-out");
       out.textContent = S.form.duration >= 60 ? Math.floor(S.form.duration/60) + "m " + (S.form.duration%60 ? S.form.duration%60 + "s" : "") : S.form.duration + "s";
@@ -472,7 +472,7 @@ function bindForm() {
     } else if (el.dataset.f) {
       if (el.dataset.f === "duration" && el.type === "range") {
         // Slider drags snap to five-second increments; +/- buttons set exact seconds.
-        el.value = Math.max(15, Math.min(600, Math.round(+el.value / 5) * 5));
+        el.value = Math.max(15, Math.min(170, Math.round(+el.value / 5) * 5));
       }
       S.form[el.dataset.f] = el.type === "checkbox" ? el.checked : el.type === "range" ? +el.value : el.value;
       if (el.dataset.f === "duration") $("#dur-out").textContent = +el.value >= 60 ? Math.floor(+el.value/60) + "m " + (+el.value%60 ? (+el.value%60) + "s" : "") : el.value + "s";
