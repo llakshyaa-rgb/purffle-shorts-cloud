@@ -350,6 +350,26 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
         i = min(pairs, key=lambda k: len(scenes[k].narration) + len(scenes[k + 1].narration))
         a, b = scenes[i], scenes.pop(i + 1)
         a.narration = f"{a.narration} {b.narration}"
+        # A merged narration must not keep only the first scene's visual plan.
+        # Carry both concrete subjects forward so the footage search still represents
+        # the complete spoken line rather than silently drifting out of sync.
+        query_parts = []
+        for part in (a.search_query, b.search_query):
+            part = part.strip(" ,;")
+            if part and part.casefold() not in {x.casefold() for x in query_parts}:
+                query_parts.append(part)
+        a.search_query = truncate_words(" ".join(query_parts), 12) or subject
+        prompt_parts = [part.strip() for part in (a.image_prompt, b.image_prompt) if part and part.strip()]
+        if len(prompt_parts) > 1 and prompt_parts[0].casefold() != prompt_parts[1].casefold():
+            a.image_prompt = (
+                f"A coherent documentary shot connecting {prompt_parts[0].rstrip('.')} "
+                f"with {prompt_parts[1].rstrip('.')}. Keep both subjects visually clear; "
+                "natural lighting, clear composition, vertical framing, no text."
+            )
+        elif prompt_parts:
+            a.image_prompt = prompt_parts[0]
+        a.emphasis = list(dict.fromkeys(a.emphasis + b.emphasis))[:3]
+        a.emoji = a.emoji or b.emoji
 
     title = re.sub(r"#\w+", "", strip_emoji(str(data.get("title") or subject)))
     title = re.sub(r"[<>\"“”]", "", title).strip(" '-:")
