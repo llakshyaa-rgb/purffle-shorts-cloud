@@ -510,3 +510,7 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 .grid2 > .card + .card, .grid3 > .card + .card, .create > .card + .card { margin-top: 0; }
 @media (max-width: 860px) { .toolbar input[type=search] { max-width: none; margin-left: 0; } }
 .monitor + .card { margin-top: 14px; }
+
+
+/* Background Creative Director notes, opened only on request from Queue or a video detail. */
+.director-notes{white-space:pre-wrap;overflow-wrap:anywhere;max-height:70vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);color:var(--ink);font:12px/1.75 var(--mono);}
