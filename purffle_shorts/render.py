@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import os
 import random
 import sys
 from collections.abc import Callable
@@ -239,7 +240,7 @@ def mix_audio(settings: Settings, voice: Path, total: float, music: Path | None,
 def compose(settings: Settings, segments: list[Path], lengths: list[float], voice: Path, total: float,
             plan: OverlayPlan, out: Path, work: Path, music: Path | None, joins: list[bool] | None = None,
             progress: Callable[[float], None] | None = None, effects: Path | None = None,
-            background: Path | None = None, _safe_retry: bool = False) -> Path:
+            background: Path | None = None, _safe_retry: bool = False, narrator_topic: str = "") -> Path:
     """``background``: a segment as long as the video, stacked under the footage (split layout); the
     segments are then the top part of the frame."""
     W, H, F = settings.width, settings.height, settings.fps
@@ -353,6 +354,38 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
         f.append(f"[{idx}:v]format=yuva420p[emo]")
         overlay("emo", f"x={ex}:y={ey}", "vemo")
         idx += 1
+    # Transparent recurring narrator: locally drawn RGBA sprites, no external image service.
+    # NARRATOR_ENABLED=false disables it without changing the existing render pipeline.
+    if os.getenv("NARRATOR_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}:
+        try:
+            from .narrator import build_assets
+            narrator_assets = build_assets(work, W, H, total, narrator_topic)
+            for ni, asset in enumerate(narrator_assets):
+                start, end = float(asset["start"]), float(asset["end"])
+                if end <= start:
+                    continue
+                still(Path(asset["path"]), total)
+                label = f"narrator{ni}"
+                f.append(
+                    f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS,"
+                    f"fade=t=in:st=0:d=0.16:alpha=1,"
+                    f"fade=t=out:st={max(0.0, end-start-0.20):.3f}:d=0.20:alpha=1[{label}]"
+                )
+                if asset["kind"] == "callout":
+                    x = "24" if asset["side"] == "left" else "W-w-24"
+                    y = "H*0.24"
+                else:
+                    x = "24" if asset["side"] == "left" else "W-w-24"
+                    y = "H*0.47-h/2+7*sin(t*2)"
+                overlay(label, f"x='{x}':y='{y}':enable='between(t,{start:.3f},{end:.3f})':eof_action=pass",
+                        f"vnarrator{ni}")
+                idx += 1
+            if narrator_assets:
+                log.info("Narrator mascot: %d timed appearances/callouts", len(narrator_assets))
+        except Exception as exc:
+            # A mascot must never prevent a story from rendering.
+            log.warning("Narrator overlay skipped: %s", exc)
+
     if settings.progress_bar:
         bar_h = max(6, H // 200 // 2 * 2)
         f.append(f"color=c=0xFFE11A@0.9:s={W}x{bar_h}:r={F}:d={total:.3f},format=yuva420p[bar]")
@@ -387,7 +420,7 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
                                     preset="ultrafast", crf=max(settings.crf, 24))
             return compose(safe_settings, segments, plain_lengths, voice, total, plan, out, work, music,
                            joins=None, progress=progress, effects=effects, background=background,
-                           _safe_retry=True)
+                           _safe_retry=True, narrator_topic=narrator_topic)
         if encode[1] == "libx264":
             raise
         # Hardware encoders fail on some machines/drivers (busy GPU, unsupported size): use the CPU.
@@ -433,9 +466,10 @@ def render_video(settings: Settings, media: list[MediaItem], scene_durations: li
         fx = sfx.track(effects, total, work / "effects.wav")
         if fx:
             log.info("Sound effects: %d", len(effects))
+    topic = " ".join(dict.fromkeys((m.query or "").strip() for m in media if (m.query or "").strip()))
     return compose(settings, segments, lengths, voice, total, plan, out, work, music, joins,
                    progress=lambda frac: report(SEGMENT_SHARE + (1 - SEGMENT_SHARE) * frac), effects=fx,
-                   background=bg_seg)
+                   background=bg_seg, narrator_topic=topic[:100])
 
 
 def split_sizes(settings: Settings) -> tuple[tuple[int, int], tuple[int, int]]:
