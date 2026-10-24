@@ -367,7 +367,7 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
                 still(Path(asset["path"]), total)
                 label = f"narrator{ni}"
                 f.append(
-                    f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS,"
+                    f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS+{start:.3f}/TB,"
                     f"fade=t=in:st=0:d=0.16:alpha=1,"
                     f"fade=t=out:st={max(0.0, end-start-0.20):.3f}:d=0.20:alpha=1[{label}]"
                 )
@@ -437,7 +437,8 @@ SEGMENT_SHARE = 0.3
 def render_video(settings: Settings, media: list[MediaItem], scene_durations: list[float], voice: Path,
                  total: float, plan: OverlayPlan, out: Path, work: Path, joins: list[bool] | None = None,
                  progress: Callable[[float], None] | None = None,
-                 effects: list[tuple[float, str]] | None = None, background: MediaItem | None = None) -> Path:
+                 effects: list[tuple[float, str]] | None = None, background: MediaItem | None = None,
+                 narrator_topic: str = "") -> Path:
     """``progress`` gets the fraction of the render that is done (0..1), several times a second.
     ``effects`` are (time, sound) pairs for the sound-effects track (see sfx.events_for). ``background``
     (split layout): the footage fills the top half and this video plays under it for the whole Short."""
@@ -466,10 +467,9 @@ def render_video(settings: Settings, media: list[MediaItem], scene_durations: li
         fx = sfx.track(effects, total, work / "effects.wav")
         if fx:
             log.info("Sound effects: %d", len(effects))
-    topic = " ".join(dict.fromkeys((m.query or "").strip() for m in media if (m.query or "").strip()))
     return compose(settings, segments, lengths, voice, total, plan, out, work, music, joins,
                    progress=lambda frac: report(SEGMENT_SHARE + (1 - SEGMENT_SHARE) * frac), effects=fx,
-                   background=bg_seg, narrator_topic=topic[:100])
+                   background=bg_seg, narrator_topic=narrator_topic[:100])
 
 
 def split_sizes(settings: Settings) -> tuple[tuple[int, int], tuple[int, int]]:
