@@ -90,7 +90,7 @@ def _character(draw, w: int, h: int, ink, accent, second, seed: int, archetype: 
     scale = min(w * .56, h * .42)
     line_w = max(5, w // 150)
     # Identity stays stable across poses: hood shape, face glow, eye spacing and accent trim.
-    if archetype in ("hooded_narrator", "mysterious_figure", "detective"):
+    if archetype in ("hooded_narrator", "mysterious_figure"):
         head_r = scale * .23
         hood = [(cx, cy-scale*.64), (cx-scale*.28, cy-scale*.35), (cx-scale*.24, cy+scale*.06),
                 (cx-scale*.15, cy+scale*.18), (cx+scale*.15, cy+scale*.18),
@@ -124,9 +124,44 @@ def _character(draw, w: int, h: int, ink, accent, second, seed: int, archetype: 
                          (cx-scale*.59, cy-scale*.02)], accent, line_w)
             _line(draw, [(cx+scale*.24, arm_y), (cx+scale*.42, cy+scale*.5)], second, line_w)
     else:
-        # General character silhouette; same body language and visual grammar across topics.
+        # Shared proportions preserve the cast's visual identity, while clear props distinguish
+        # each role even on a small phone screen.
         _person(draw, cx, int(cy+scale*.12), scale*.85, ink, accent, frightened=False)
-        draw.ellipse((cx-scale*.22,cy-scale*.62,cx+scale*.22,cy-scale*.18),outline=second,width=line_w)
+        if archetype == "detective":
+            # Fedora, raised collar and magnifying glass read as a detective at thumbnail size.
+            draw.polygon([(cx-scale*.34, cy-scale*.28), (cx-scale*.20, cy-scale*.48),
+                          (cx+scale*.20, cy-scale*.48), (cx+scale*.34, cy-scale*.28)],
+                         fill=ink, outline=accent)
+            _line(draw, [(cx-scale*.36, cy-scale*.27), (cx+scale*.36, cy-scale*.27)], second, line_w*2)
+            _line(draw, [(cx-scale*.18, cy+scale*.18), (cx, cy+scale*.35),
+                         (cx+scale*.18, cy+scale*.18)], accent, line_w)
+            mx, my, mr = int(cx+scale*.43), int(cy+scale*.42), int(scale*.15)
+            draw.ellipse((mx-mr, my-mr, mx+mr, my+mr), outline=second, width=line_w*2)
+            _line(draw, [(mx+mr*.65, my+mr*.65), (mx+mr*1.55, my+mr*1.55)], second, line_w*2)
+        elif archetype == "scientist":
+            # Lab coat panels, glasses and a simple atom mark distinguish the science character.
+            draw.polygon([(cx-scale*.18, cy+scale*.13), (cx-scale*.34, cy+scale*.72),
+                          (cx-scale*.04, cy+scale*.72), (cx, cy+scale*.28),
+                          (cx+scale*.04, cy+scale*.72), (cx+scale*.34, cy+scale*.72),
+                          (cx+scale*.18, cy+scale*.13)], fill=(222, 230, 242), outline=accent)
+            gr = scale*.09
+            draw.ellipse((cx-scale*.22-gr, cy-scale*.36-gr, cx-scale*.22+gr, cy-scale*.36+gr),
+                         outline=second, width=line_w)
+            draw.ellipse((cx+scale*.22-gr, cy-scale*.36-gr, cx+scale*.22+gr, cy-scale*.36+gr),
+                         outline=second, width=line_w)
+            _line(draw, [(cx-scale*.13, cy-scale*.36), (cx+scale*.13, cy-scale*.36)], second, line_w)
+            draw.ellipse((cx+scale*.13, cy+scale*.42, cx+scale*.27, cy+scale*.56), outline=second, width=line_w)
+        elif archetype == "explorer":
+            # Brimmed hat, pack and shoulder straps make this a field explorer, not a generic person.
+            draw.ellipse((cx-scale*.34, cy-scale*.50, cx+scale*.34, cy-scale*.36), fill=accent, outline=second, width=line_w)
+            draw.rounded_rectangle((cx+scale*.20, cy+scale*.16, cx+scale*.42, cy+scale*.56),
+                                   radius=max(3, int(scale*.04)), fill=second, outline=accent, width=line_w)
+            _line(draw, [(cx-scale*.17, cy+scale*.15), (cx-scale*.08, cy+scale*.50),
+                         (cx+scale*.08, cy+scale*.50), (cx+scale*.17, cy+scale*.15)], second, line_w)
+            draw.ellipse((cx-scale*.31, cy+scale*.40, cx-scale*.10, cy+scale*.61), outline=second, width=line_w)
+        else:
+            draw.ellipse((cx-scale*.22, cy-scale*.62, cx+scale*.22, cy-scale*.18),
+                         outline=second, width=line_w)
     _glow(draw, cx, int(cy-scale*.18), int(scale*.38), second)
 
 
