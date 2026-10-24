@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
-import os
 import random
 import sys
 from collections.abc import Callable
