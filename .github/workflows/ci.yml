@@ -20,12 +20,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Lint
-        run: ruff check .
       - name: Studio JS syntax
         run: node --check purffle_shorts/web/app.js
+      - name: Targeted lint (new creative director files)
+        run: ruff check purffle_shorts/creative_director.py tests/test_creative_director.py
       - name: Tests (includes an offline end-to-end render)
         run: pytest -q
+      - name: Full repository lint
+        if: always()
+        run: ruff check .
 
   docker:
     runs-on: ubuntu-latest
