@@ -134,7 +134,7 @@ def test_youtube_refusal_pauses_uploads_until_the_reset(online, monkeypatch):
 
 
 @needs_ffmpeg
-def test_creator_publish_time_overrides_configured_slot(online, monkeypatch):
+def test_creator_publish_time_overrides_single_configured_slot(online, monkeypatch):
     from datetime import datetime, timedelta, timezone
 
     s, _ = online
