@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from purffle_shorts import asset_library as AL
 from purffle_shorts.asset_library import asset_path, ensure_character_collection, get_or_create_asset, list_assets
 from purffle_shorts.visual_library import make_visual
 
@@ -53,3 +54,16 @@ def test_reusable_cast_has_distinct_visual_identities(tmp_path: Path):
             assert image.size == (360, 640)
             fingerprints.append(image.convert("RGB").tobytes())
     assert len(set(fingerprints)) == len(keys)
+
+
+def test_cache_eviction_preserves_canonical_cast(tmp_path: Path, monkeypatch):
+    root = tmp_path / ".purffle_assets"
+    monkeypatch.setattr(AL, "MAX_ASSETS", 6)
+    cast = ensure_character_collection(root, 360, 640)
+    for i in range(4):
+        get_or_create_asset(root, f"scene {i}", f"unique illustration {i}", 360, 640, variation=i)
+    assert all(asset_path(root, item["id"]) for item in cast)
+    assert {item["id"] for item in ensure_character_collection(root, 360, 640)} == {
+        item["id"] for item in cast
+    }
+    assert len(list_assets(root, limit=6)) == 6
