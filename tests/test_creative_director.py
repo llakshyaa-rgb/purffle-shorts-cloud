@@ -33,7 +33,7 @@ def test_local_director_plans_every_scene_with_valid_choices():
     assert [beat["scene"] for beat in plan] == [1, 2]
     assert all(beat["camera"] in {"push_in", "pull_out", "pan_left", "pan_right", "static", "shake"}
                for beat in plan)
-    assert all(beat["visual_mode"] in {"illustration", "diagram", "footage", "photo", "symbolic"}
+    assert all(beat["visual_mode"] in {"illustration", "diagram", "footage", "photo", "symbolic", "gradient"}
                for beat in plan)
     assert all(beat["reason"] for beat in plan)
 
@@ -46,7 +46,7 @@ def test_director_visual_prompts_are_applied_to_the_real_script():
     assert any(tag in script.scenes[0].image_prompt for tag in (
         "DIAGRAM / EXPLANATORY GRAPHIC:", "ORIGINAL DRAWN ILLUSTRATION:",
         "SYMBOLIC VISUAL METAPHOR:", "REAL-WORLD DOCUMENTARY FOOTAGE:",
-        "REALISTIC EDITORIAL PHOTOGRAPH:",
+        "REALISTIC EDITORIAL PHOTOGRAPH:", "ABSTRACT GRADIENT BACKGROUND:",
     ))
 
 
@@ -69,3 +69,17 @@ def test_director_marks_reusable_archetypes_for_the_asset_library():
     apply_to_script(script, plan)
     assert "REUSABLE CHARACTER: purffle_detective" in script.scenes[0].image_prompt
     assert "REUSABLE CHARACTER:" not in script.scenes[1].image_prompt
+
+
+def test_abstract_connective_beat_chooses_intentional_gradient():
+    script = _script()
+    script.scenes = [Scene(
+        narration="Which means the real question is what that tells us.",
+        search_query="abstract transition",
+        image_prompt="",
+    )]
+    plan = direct(script, None)
+    assert plan[0]["visual_mode"] == "gradient"
+    apply_to_script(script, plan)
+    assert script.scenes[0].image_prompt.startswith("ABSTRACT GRADIENT BACKGROUND:")
+    assert "no people" in plan[0]["visual_prompt"].lower()

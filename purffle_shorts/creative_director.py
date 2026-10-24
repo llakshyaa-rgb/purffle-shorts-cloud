@@ -25,7 +25,7 @@ DIRECTOR_SCHEMA = {
                 "properties": {
                     "scene": {"type": "integer"},
                     "purpose": {"type": "string"},
-                    "visual_mode": {"type": "string", "enum": ["illustration", "diagram", "footage", "photo", "symbolic"]},
+                    "visual_mode": {"type": "string", "enum": ["illustration", "diagram", "footage", "photo", "symbolic", "gradient"]},
                     "visual_prompt": {"type": "string"},
                     "camera": {"type": "string", "enum": ["push_in", "pull_out", "pan_left", "pan_right", "static", "shake"]},
                     "transition": {"type": "string", "enum": ["cut", "fade", "dissolve", "whip", "match_cut"]},
@@ -43,7 +43,7 @@ DIRECTOR_SCHEMA = {
 }
 
 CAMERAS = ("push_in", "pull_out", "pan_left", "pan_right", "static", "shake")
-MODES = ("illustration", "diagram", "footage", "photo", "symbolic")
+MODES = ("illustration", "diagram", "footage", "photo", "symbolic", "gradient")
 TRANSITIONS = ("cut", "fade", "dissolve", "whip", "match_cut")
 SOUNDS = ("none", "whoosh", "pop", "hit")
 CHARACTERS = ("none", "purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery")
@@ -65,7 +65,16 @@ def _character_for(text: str, style: str) -> str:
 
 
 def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
-    text = f"{getattr(scene, 'narration', '')} {getattr(scene, 'search_query', '')} {getattr(scene, 'image_prompt', '')}".lower()
+    narration = str(getattr(scene, "narration", "") or "")
+    query = str(getattr(scene, "search_query", "") or "")
+    text = f"{narration} {query} {getattr(scene, 'image_prompt', '')}".lower()
+    # Abstract connective beats should use designed motion graphics, not irrelevant stock.
+    abstract_phrases = ("which means", "the real question", "here is the catch", "here's the catch",
+                        "that is why", "that's why", "in other words", "the answer is",
+                        "so what does that mean")
+    generic_query = not query or query.strip().lower() in {"abstract", "transition", "background", "gradient"}
+    if any(phrase in narration.lower() for phrase in abstract_phrases) or (generic_query and len(narration.split()) <= 8):
+        mode = "gradient"
     # Reserve diagram treatment for an actual mechanism, not generic words like "why" or "brain".
     # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.
     diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
@@ -93,6 +102,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     query = getattr(scene, "search_query", "") or getattr(scene, "narration", "")
     prompt = getattr(scene, "image_prompt", "") or query
     mode_hint = {
+        "gradient": "intentional animated gradient background, deep cinematic color, restrained slow light movement, clean negative space for captions; no people, no stock photo, no icons",
         "illustration": "original cinematic illustrated scene, clear readable silhouette and specific visible action",
         "diagram": "clean custom explanatory diagram, labeled only when genuinely useful, simple visual cause-and-effect",
         "footage": "documentary-style real-world footage, one clear subject and visible action",
@@ -131,9 +141,12 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "You are the scene-level creative director for a vertical short-form video. "
         "Return valid JSON matching the provided schema. Plan every scene in the background. "
         "Return practical instructions the renderer can use, not an essay. "
-        "Choose a visual mode scene-by-scene: use real footage/photos for concrete factual subjects, and diagrams only "
-        "for mechanisms that genuinely need explaining; original illustrations "
-        "for fictional/horror beats; footage/photos for real-world evidence; symbolic visuals only when clearer. "
+        "Choose a visual mode scene-by-scene: use real footage/photos for concrete factual subjects and evidence, diagrams only "
+        "for mechanisms that genuinely need explaining, original illustrations for fictional/horror beats, and symbolic visuals only when clearer. "
+        "Gradient is an intentional first-class mode, not a failed search fallback: use it for abstract connective lines, transitions, "
+        "or narration where no specific image materially helps. Never insert a random human or generic stock photo just to fill the screen. "
+        "If a person is not part of the narrated event or evidence, do not show one. A restrained animated gradient with negative space is better "
+        "than irrelevant imagery. Use gradients sparingly, about one scene in four at most; concrete factual claims still need relevant visuals. "
         "Avoid repeating the same visual treatment for every scene. Every scene must have a distinct, concrete visual "
         "subject or action tied to that scene's narration; do not use the same planet icon, generic orbit diagram, "
         "floating shapes, or broad topic wallpaper as a substitute for the specific fact being explained. "
@@ -181,6 +194,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
         prompt = str(beat.get("visual_prompt", "")).strip()
         mode = str(beat.get("visual_mode", "illustration")).strip().lower()
         prefix = {
+            "gradient": "ABSTRACT GRADIENT BACKGROUND: ",
             "diagram": "DIAGRAM / EXPLANATORY GRAPHIC: ",
             "illustration": "ORIGINAL DRAWN ILLUSTRATION: ",
             "symbolic": "SYMBOLIC VISUAL METAPHOR: ",
@@ -188,6 +202,9 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
             "photo": "REALISTIC EDITORIAL PHOTOGRAPH: ",
         }.get(mode, "")
         if prompt:
+            if mode == "gradient":
+                scene.image_prompt = prefix + prompt
+                continue
             character = str(beat.get("character", "none")).strip().lower()
             character_note = f"\nREUSABLE CHARACTER: {character}" if character in CHARACTERS and character != "none" else ""
             scene.image_prompt = prefix + prompt + character_note

@@ -134,3 +134,14 @@ def test_claim_prefers_the_clip_that_shows_the_scene(monkeypatch):
     first = M.MediaItem("pexels", "3", "video", width=1080, height=1920, duration=10, rank=0, text="ocean waves")
     later = M.MediaItem("pexels", "4", "video", width=1080, height=1920, duration=10, rank=9, text="ocean waves")
     assert v._claim([later, first], 5, "ocean waves").key == "pexels:3"
+
+
+def test_intentional_gradient_skips_irrelevant_media_search(tmp_path, monkeypatch):
+    v = M.Visuals(Settings(visual_sources=["pexels"], pexels_api_key="test"))
+    monkeypatch.setattr(v, "_search", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not search")))
+    item = v.for_scene(
+        3, "abstract transition", "ABSTRACT GRADIENT BACKGROUND: dark indigo gradient",
+        "space", 3.0, tmp_path,
+    )
+    assert item.source == "generated"
+    assert item.extra["intentional_gradient"] is True

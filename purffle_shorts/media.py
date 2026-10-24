@@ -630,6 +630,10 @@ class Visuals:
         # Use the built-in illustration/diagram library for a meaningful share of scenes.
         # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
         # while a smaller share can still use real footage/photos for realism and variety.
+        # An explicit gradient is a designed visual choice, not a failed search result.
+        if "ABSTRACT GRADIENT BACKGROUND:" in (image_prompt or "").upper():
+            return MediaItem("generated", f"intentional-gradient-{idx}", "generated",
+                             query=query or topic, extra={"intentional_gradient": True})
         visual_kind = visual_type(query or topic, image_prompt)
         directed_mode = ""
         for marker, mode in (
