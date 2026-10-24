@@ -163,7 +163,7 @@ class Settings:
     preset: str = "veryfast"
     transition: str = "random"        # random|none|fade|slideup|...
     transition_seconds: float = 0.35
-    max_shot_seconds: float = 4.5     # longer scenes are cut into several shots (0 = one shot per scene)
+    max_shot_seconds: float = 3.5     # longer scenes are cut into several shots (0 = one shot per scene)
     clip_jump_cuts: bool = True       # clips: shorten long pauses and cut "um" / "uh"
     clip_max_pause: float = 0.6       # clips: pauses longer than this (seconds) are shortened
     clip_zoom: bool = True            # clips: punch in and out between sentences
