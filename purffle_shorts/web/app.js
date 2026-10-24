@@ -46,18 +46,7 @@ const G = {
 };
 
 const FORMATS = [
-  ["auto", "Auto", "The AI picks the best format"],
-  ["facts", "Facts", "Rapid-fire surprising facts"],
-  ["story", "Story", "A true story with a twist"],
-  ["listicle", "Top 3", "Countdown to number one"],
-  ["myth", "Myth vs fact", "Bust a common belief"],
-  ["quiz", "Quiz", "Question, suspense, answer"],
-  ["explainer", "Explainer", "One idea, one analogy"],
-  ["motivational", "Motivation", "A story and a takeaway"],
-  ["news", "News", "What happened and why"],
-  ["dialogue", "Dialogue", "Two voices, back and forth", true],
-  ["chat", "Text story", "Animated text messages", true],
-  ["reddit", "Reddit story", "Post card, then the story", true],
+  ["auto", "Auto · Hybrid", "Combines the story, facts, myth-check, countdown, quiz and explainer techniques that fit this topic."],
 ];
 const MULTI = new Set(["dialogue", "chat"]);
 const STAGES = [["topic", "Topic"], ["script", "Script"], ["review", "Review"], ["voice", "Voice"], ["footage", "Footage"],
@@ -162,7 +151,7 @@ async function boot() {
   const i = S.info;
   S.form = Object.assign({
     mode: "topic", topic: "", url: "", creative_brief: "", style: i.style || "auto", language: i.language, duration: i.duration,
-    aspect: ["9:16", "16:9", "1:1", "4:5"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
+    aspect: ["9:16", "16:9", "1:1", "4:5", "2:3", "3:2", "3:4", "21:9"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
     caption_position: i.caption_position, grade: i.grade, transition: i.transition, review: i.review, tts: i.tts,
     voice: "", voice_b: "", provider: "", model: "", also_langs: (i.also_languages || []).join(", "), music: true,
     upload: false, offline: !i.llm_ok, visual_mode: "match", visuals: i.visuals, background: "", layout: "full", sfx: true, emphasis: true,
@@ -376,9 +365,9 @@ function drawForm() {
     ${sh("03", "Shape and voice")}
     <div class="grid2">
       <div class="field"><label>Language</label>${sel("language", langs.map(([c, n]) => [c, `${n} (${c})`]), f.language)}</div>
-      <div class="field"><label>Length</label><div class="range-row"><input type="range" min="15" max="120" step="5" data-f="duration" value="${f.duration}" aria-label="Length in seconds"><output id="dur-out">${f.duration}s</output></div></div>
+      <div class="field"><label>Length</label><div class="range-row"><button class="btn ghost sm" type="button" data-duration-step="-1" aria-label="Decrease length">−</button><input type="range" min="15" max="600" step="5" data-f="duration" value="${f.duration}" aria-label="Length in seconds"><button class="btn ghost sm" type="button" data-duration-step="1" aria-label="Increase length">+</button><output id="dur-out">${f.duration >= 60 ? Math.floor(f.duration/60) + "m " + (f.duration%60 ? f.duration%60 + "s" : "") : f.duration+"s"}</output></div></div>
     </div>
-    <div class="field"><label>Aspect</label>${seg("aspect", [["9:16", '<i class="shape s916"></i>9:16 Short'], ["16:9", '<i class="shape s169"></i>16:9 YouTube'], ["1:1", '<i class="shape s11"></i>1:1 Square'], ["4:5", '<i class="shape s45"></i>4:5 Feed']], f.aspect)}</div>
+    <div class="field"><label>Aspect</label>${seg("aspect", [["9:16", '<i class="shape s916"></i>9:16 Short'], ["16:9", '<i class="shape s169"></i>16:9 YouTube'], ["1:1", '<i class="shape s11"></i>1:1 Square'], ["4:5", '<i class="shape s45"></i>4:5 Feed'], ["2:3", '<i class="shape s23"></i>2:3 Portrait'], ["3:2", '<i class="shape s32"></i>3:2 Photo'], ["3:4", '<i class="shape s34"></i>3:4 Portrait'], ["21:9", '<i class="shape s219"></i>21:9 Cinema']], f.aspect)}</div>
     <div class="grid2">
       <div class="field"><label>Voice engine</label>${sel("tts", o.tts.map(t => [t, { edge: "Microsoft neural (free)", openai: "OpenAI", elevenlabs: "ElevenLabs", kokoro: "Kokoro (local)", coqui: "Coqui (local)", system: "System voice" }[t] || t]), f.tts)}</div>
       <div class="field"><label>${multi ? "Voice A" : "Voice"}</label><input type="text" data-f="voice" list="voices" value="${esc(f.voice)}" placeholder="automatic for the language"></div>
@@ -390,10 +379,10 @@ function drawForm() {
   <section class="card">
     ${sh("04", "Look and sound")}
     <div class="swatches">${o.caption_styles.map(c => `<button type="button" class="sw" data-seg="caption_style" data-v="${c}" aria-pressed="${f.caption_style === c}">${capSample(c)}<small>${c}</small></button>`).join("")}</div>
-    <div class="field"><label>Caption position</label>${seg("caption_position", [["upper", "Top"], ["center", "Middle"], ["lower", "Lower third"]], f.caption_position)}</div>
+    <div class="field"><label>Caption position</label>${seg("caption_position", [["upper", "Top"], ["center", "Middle"], ["lower", "Lower third"], ["bottom", "Bottom safe"]], f.caption_position)}</div>
     <div class="grid2">
-      <div class="field"><label>Colour grade</label>${sel("grade", o.grades.map(g => [g, g]), f.grade)}</div>
-      <div class="field"><label>Transitions</label>${sel("transition", o.transitions.map(t => [t, t]), f.transition)}</div>
+      <div class="field"><label>Colour grade</label>${sel("grade", [["random", "Auto · adaptive grade"], ...o.grades.map(g => [g, g])], f.grade || "random")}</div>
+      <div class="field"><label>Transitions</label>${sel("transition", [["random", "Auto · varied transitions"], ...o.transitions.filter(t => t !== "random").map(t => [t, t])], f.transition || "random")}</div>
     </div>
     <div class="field"><label>Scene visuals mode</label>${sel("visual_mode", [["match", "Match each scene (recommended)"], ["ai", "AI-generated scenes (AI sources first)"], ["local", "My media first"], ["mixed", "Mixed: stock first, AI fallback"]], f.visual_mode || "match")}</div>
 <div class="field"><label>Footage & images</label><div class="checks-inline">${o.visuals.map(v => `<label><input type="checkbox" data-visual="${v}"${(f.visuals || []).includes(v) ? " checked" : ""}>${{ pexels: "Pexels", pixabay: "Pixabay", commons: "Wikimedia Commons", local: "My media folder", pollinations: "AI images (Pollinations, key advised)", "openai-images": "OpenAI images" }[v] || v}</label>`).join("")}</div></div>
@@ -443,6 +432,17 @@ function capSample(style, position = "") {
 function bindForm() {
   const root = $("#form");
   root.addEventListener("click", e => {
+    const step = e.target.closest("[data-duration-step]");
+    if (step) {
+      const slider = $('[data-f="duration"]', root);
+      const current = +slider.value;
+      slider.value = Math.max(15, Math.min(600, current + Number(step.dataset.durationStep)));
+      S.form.duration = +slider.value;
+      const out = $("#dur-out");
+      out.textContent = S.form.duration >= 60 ? Math.floor(S.form.duration/60) + "m " + (S.form.duration%60 ? S.form.duration%60 + "s" : "") : S.form.duration + "s";
+      saveForm();
+      return;
+    }
     const b = e.target.closest("[data-seg]");
     if (!b) return;
     const k = b.dataset.seg, v = b.dataset.v;
@@ -459,7 +459,7 @@ function bindForm() {
       S.form.visuals = $$("[data-visual]", root).filter(x => x.checked).map(x => x.dataset.visual);
     } else if (el.dataset.f) {
       S.form[el.dataset.f] = el.type === "checkbox" ? el.checked : el.type === "range" ? +el.value : el.value;
-      if (el.dataset.f === "duration") $("#dur-out").textContent = el.value + "s";
+      if (el.dataset.f === "duration") $("#dur-out").textContent = +el.value >= 60 ? Math.floor(+el.value/60) + "m " + (+el.value%60 ? (+el.value%60) + "s" : "") : el.value + "s";
       if (el.dataset.f === "language" || el.dataset.f === "tts") loadVoices();
       if (el.dataset.f === "background") { saveForm(); return drawForm(); }
     }
