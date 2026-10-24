@@ -553,7 +553,11 @@ class StudioServer:
             searchable = " ".join(str(row.get(k) or "") for k in ("query", "prompt", "character", "style_key")).casefold()
             if query and query not in searchable:
                 continue
-            if kind and kind not in (str(row.get("visual_type") or "").casefold(), str(row.get("character") or "").casefold()):
+            if kind == "character":
+                character = str(row.get("character") or "").casefold()
+                if not character or character in {"symbolic_mascot", "none", "unknown"}:
+                    continue
+            elif kind and kind != str(row.get("visual_type") or "").casefold():
                 continue
             out.append({k: v for k, v in row.items() if k != "path"})
         return out
