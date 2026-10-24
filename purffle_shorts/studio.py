@@ -397,6 +397,7 @@ class StudioServer:
             out.append({
                 "id": r["id"], "title": r["title"], "status": r["status"], "created": r["created_at"],
                 "youtube_id": r["youtube_id"], "publish_at": r["publish_at"], "duration": r["duration"],
+                "approval_status": r.get("approval_status") or "pending",
                 "style": r["style"], "language": r["language"], "score": r.get("score"),
                 "views": r.get("views"), "likes": r.get("likes"), "parent_id": r.get("parent_id"),
                 "video": video.name if video and video.exists() else None,
