@@ -59,3 +59,29 @@ def test_calibration_says_whether_the_score_predicts_views(tmp_path):
 def test_calibration_with_too_little_data(tmp_path):
     cal = A.calibration(_history(tmp_path, [("quiz", 10, 50, 100)]))
     assert cal["score_vs_views"] is None and "at least 5" in cal["verdict"]
+
+
+
+def test_engagement_is_a_capped_tie_breaker_not_a_fake_retention_metric():
+    low = {"views": 10_000, "likes": 10, "comments": 0}
+    high = {"views": 10_000, "likes": 1_000, "comments": 100}
+    assert A._performance_signal(high) > A._performance_signal(low)
+    assert A._performance_signal(high) - A._log_views(high) <= 1.200001
+
+
+def test_insights_include_topics_and_disclose_proxy_metrics(tmp_path):
+    h = History(tmp_path / "topics.db")
+    for i, (topic, views, likes) in enumerate([
+        ("space", 10_000, 500), ("space", 12_000, 600),
+        ("mysteries", 4_000, 100), ("mysteries", 3_000, 80),
+    ]):
+        when = (datetime.now(timezone.utc) - timedelta(hours=100)).isoformat(timespec="seconds")
+        h.add_video(title=f"video {i}", subject=topic, topic=topic, style="facts", status="uploaded",
+                    youtube_id=f"topic-{i}", uploaded_at=when)
+        h.set_stats(f"topic-{i}", views, likes, likes // 10)
+    report = A.insights(h)
+    assert "space" in report and "mysteries" in report
+    assert "not true audience retention" in report
+    cal = A.calibration(h)
+    assert cal["topics"] and cal["topics"][0]["topic"] == "space"
+    assert cal["styles"][0]["median_engagement_percent"] is not None
