@@ -788,7 +788,6 @@ async function openVideo(id) {
       <div class="actions">
         ${v.video && toPublish(v, m).length && v.approval_status === "approved" && S.info.upload ? `<button class="btn primary sm" type="button" id="d-up">${I.upload}Publish${toPublish(v, m).length < (S.info.publish_to || []).length ? " the rest" : ""}</button>` : ""}
         ${sc ? `<button class="btn sm" type="button" id="d-edit">${I.pen}Edit & re-render</button>` : ""}
-        ${v.has_director_notes ? `<button class="btn sm" type="button" id="d-director">${I.doc}Director notes</button>` : ""}
         <button class="btn sm danger" type="button" id="d-del">${I.trash}Delete</button>
       </div>
       ${v.score != null ? `<div class="score"><div class="ring" data-p="${v.score}"><b>${v.score}</b></div><div class="grow"><b>Script quality score</b>${rubricHtml(m.rubric)}${review.length ? `<ul>${review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
@@ -838,8 +837,6 @@ async function openVideo(id) {
   };
   const scheduleClear = $("#d-clear-schedule");
   if (scheduleClear) scheduleClear.onclick = () => saveSchedule("");
-  const director = $("#d-director");
-  if (director) director.onclick = () => openDirectorNotes(id);
   const ed = $("#d-edit");
   if (ed) ed.onclick = () => {
     S.draft = Object.assign({}, sc, { title: (sc.title || "").replace(/\s*#shorts$/i, "") });
