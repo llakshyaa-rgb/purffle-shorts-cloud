@@ -67,3 +67,15 @@ def test_cache_eviction_preserves_canonical_cast(tmp_path: Path, monkeypatch):
         item["id"] for item in cast
     }
     assert len(list_assets(root, limit=6)) == 6
+
+
+def test_director_archetype_keys_reuse_the_seeded_cast(tmp_path: Path):
+    root = tmp_path / ".purffle_assets"
+    cast = ensure_character_collection(root, 360, 640)
+    for key in ("purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery"):
+        canonical = next(item for item in cast if item["style_key"] == key)
+        scene = get_or_create_asset(
+            root, "different scene wording", f"REUSABLE CHARACTER: {key}",
+            360, 640, mode="character", style_key=key,
+        )
+        assert scene["id"] == canonical["id"]
