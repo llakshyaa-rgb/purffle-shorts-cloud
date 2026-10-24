@@ -602,12 +602,7 @@ class Studio:
                 "visual_coverage_percent": visual_coverage,
                 "visual_coverage_ok": visuals_ok,
                 "publish_ready": publish_ready,
-                "reasons": [
-                    reason for condition, reason in (
-                        (duration_ok, ""),
-                        (visuals_ok, ""),
-                    ) if not condition
-                ],
+                "reasons": [],
             }
             if not duration_ok:
                 quality_report["reasons"].append(
