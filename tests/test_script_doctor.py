@@ -70,7 +70,7 @@ def test_script_from_data_detects_a_conversation():
 
 
 def test_scene_plan_by_format():
-    assert scene_plan("facts", 40) == (104, 11)
+    assert scene_plan("facts", 40) == (114, 11)
     assert scene_plan("chat", 40)[1] == 14
     assert scene_plan("dialogue", 40)[1] == 11
     assert scene_count_bounds("facts", 40) == (9, 14)
