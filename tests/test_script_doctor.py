@@ -322,3 +322,11 @@ def test_story_prompt_checks_physical_logic_and_dangling_implications():
     _, editor = review_prompt(draft, Settings(), rewrite=True)
     assert "Check physical scale, access, object placement" in editor
     assert "what the character fears and why" in editor
+
+
+def test_story_scene_architecture_prompt_is_explicit():
+    _, writer = build_prompt("a door behind a wardrobe that knocks back", "story", Settings(), [])
+    assert "STORY SCENE ARCHITECTURE" in writer
+    assert "what happened, why it happened, and what changed afterward" in writer
+    assert "VISUALS ARE YOUR JOB, NOT THE USER'S" in writer
+    assert "shot size/angle, lighting" in writer
