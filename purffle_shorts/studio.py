@@ -308,9 +308,20 @@ class StudioServer:
             p = job.params
             try:
                 if job.kind == "upload":
-                    status = self.studio.upload_record(int(p["id"]))
-                    job.result = {"status": status, "id": int(p["id"])}
-                    ok = status in ("uploaded", "scheduled", "queued")
+                    if not self.settings.upload:
+                        job.message = "Publishing is disabled (UPLOAD=false). Enable it explicitly in .env before uploading."
+                        job.result = {"error": job.message, "id": int(p["id"])}
+                        ok = False
+                    else:
+                        record = self.studio.history.get(int(p["id"]))
+                        if not record or record.get("approval_status") != "approved":
+                            job.message = "Creator approval required. Review the video in Library and approve it before publishing."
+                            job.result = {"error": job.message, "id": int(p["id"]), "approval_required": True}
+                            ok = False
+                        else:
+                            status = self.studio.upload_record(int(p["id"]))
+                            job.result = {"status": status, "id": int(p["id"])}
+                            ok = status in ("uploaded", "scheduled", "queued")
                 elif job.kind == "stats":
                     from .analytics import sync_stats
                     job.result = {"updated": sync_stats(self.settings, self.studio.history)}
@@ -815,8 +826,16 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 return self._json({"ok": True, "publish_at": publish_at})
             m = re.fullmatch(r"/api/upload/(\d+)", path)
             if m:
+                if not app.settings.upload:
+                    return self._json({"error": "Publishing is disabled (UPLOAD=false). Enable it explicitly in .env first."}, 403)
                 rec = h.get(int(m.group(1)))
-                label = f"Upload: {rec['title']}" if rec else f"Upload #{m.group(1)}"
+                if not rec:
+                    return self._json({"error": "video not found"}, 404)
+                if rec.get("approval_status") != "approved":
+                    return self._json({"error": "Creator approval required. Approve this video in Library before publishing."}, 409)
+                if not rec.get("video_path") or not Path(rec["video_path"]).is_file():
+                    return self._json({"error": "video file missing"}, 409)
+                label = f"Upload: {rec['title']}"
                 return self._json({"job": app.submit("upload", {"id": int(m.group(1))}, label).id})
             m = re.fullmatch(r"/api/videos/(\d+)/delete", path)
             if m:
