@@ -517,7 +517,7 @@ class Visuals:
             return []
         words = set(simplify_query(query).split()) | set(query.lower().split())
         # background videos (media/backgrounds, BACKGROUND_VIDEO) play under stories, never as scene footage
-        skip = [(root / "backgrounds").resolve()]
+        skip = [(root / "backgrounds").resolve(), (root / ".purffle_assets").resolve()]
         if self.s.background_video:
             skip.append(Path(self.s.background_video).expanduser().resolve())
         items = []
