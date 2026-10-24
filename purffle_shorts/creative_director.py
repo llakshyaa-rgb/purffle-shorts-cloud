@@ -66,7 +66,9 @@ def _character_for(text: str, style: str) -> str:
 
 def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     text = f"{getattr(scene, 'narration', '')} {getattr(scene, 'search_query', '')} {getattr(scene, 'image_prompt', '')}".lower()
-    diagram_words = ("how", "why", "process", "system", "flow", "cause", "effect", "brain", "orbit", "energy", "moves", "works", "inside", "mechanism", "steps")
+    # Reserve diagram treatment for an actual mechanism, not generic words like "why" or "brain".
+    # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.
+    diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
     story_words = ("door", "room", "shadow", "dark", "heard", "knock", "footsteps", "ran", "screamed", "blood", "monster", "stranger", "alone", "silhouette")
     if any(w in text for w in diagram_words) and style not in ("story", "reddit", "chat"):
         mode = "diagram"
@@ -76,6 +78,10 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     ):
         mode = "illustration"
     else:
+        mode = "footage"
+    # A deterministic visual rhythm: factual shorts should not default every beat to a diagram.
+    # Use footage for concrete subjects and reserve diagrams for explicit mechanisms only.
+    if mode == "diagram" and index % 3 == 2:
         mode = "footage"
     camera = ("push_in", "pan_left", "push_in", "pan_right", "pull_out", "static")[index % 6]
     if any(w in text for w in ("reveal", "realize", "suddenly", "impossible", "finally", "truth")):
@@ -125,7 +131,8 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "You are the scene-level creative director for a vertical short-form video. "
         "Return valid JSON matching the provided schema. Plan every scene in the background. "
         "Return practical instructions the renderer can use, not an essay. "
-        "Choose a visual mode scene-by-scene: diagrams for causal/mechanical explanations; original illustrations "
+        "Choose a visual mode scene-by-scene: use real footage/photos for concrete factual subjects, and diagrams only "
+        "for mechanisms that genuinely need explaining; original illustrations "
         "for fictional/horror beats; footage/photos for real-world evidence; symbolic visuals only when clearer. "
         "Avoid repeating the same visual treatment for every scene. When a recurring character is visibly present, "
         "reuse the same allowed character archetype across those scenes; choose none when no recurring character is shown. "
