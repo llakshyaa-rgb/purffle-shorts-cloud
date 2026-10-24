@@ -18,7 +18,9 @@ from pathlib import Path
 
 from . import analytics, crosspost, ffmpeg, notify, seo, sfx, topics, tts, youtube
 from .config import Settings
-from .creative_director import apply_to_script, direct as direct_scenes, notes_markdown as director_notes_markdown
+from .creative_director import apply_to_script
+from .creative_director import direct as direct_scenes
+from .creative_director import notes_markdown as director_notes_markdown
 from .history import History, now_iso
 from .llm import LLM, LLMConfigError
 from .media import MediaItem, Visuals, background_item, relevance
