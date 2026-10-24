@@ -536,11 +536,32 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
     n = word_count(script.narration, script.language)
     if target and abs(n - target) > 0.25 * target:
         out.append(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
+    # Check the edit as a video, not just as prose. These findings feed the Script Doctor.
+    if len(script.scenes) > 1:
+        queries = [re.sub(r"[^a-z0-9 ]", "", sc.search_query.lower()).strip() for sc in script.scenes]
+        for i in range(1, len(queries)):
+            if queries[i] and queries[i] == queries[i - 1]:
+                out.append(f"Scenes {i} and {i + 1} use the same footage search; change the visual when the narrated beat changes.")
+                break
+        for i, sc in enumerate(script.scenes, 1):
+            if len(sc.image_prompt.split()) < 5:
+                out.append(f"Scene {i} has an underspecified visual prompt; describe a concrete subject, action, and shot.")
+                break
+        if len(script.scenes) >= 4:
+            short_scenes = [i for i, sc in enumerate(script.scenes, 1) if len(sc.narration.split()) <= 2]
+            if len(short_scenes) >= max(3, len(script.scenes) // 2):
+                out.append("Too many scenes are only a couple of words; combine beats that do not need their own visual cut.")
+    if english:
+        repeated_lines = [re.sub(r"[^a-z0-9 ]", "", sc.narration.lower()).strip() for sc in script.scenes]
+        for i in range(1, len(repeated_lines)):
+            if repeated_lines[i] and repeated_lines[i] == repeated_lines[i - 1]:
+                out.append(f"Scenes {i} and {i + 1} repeat the same narration; remove the duplicate.")
+                break
     ending = " ".join(sc.narration for sc in script.scenes[-2:])
     # A story payoff is more important than a call to action; CTAs are optional.
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
-            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\\s+", sc.narration) if x.strip()]
+            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\s+", sc.narration) if x.strip()]
             longest = max((len(x.split()) for x in sentences), default=0)
             if longest > 22:
                 out.append(f"Scene {k} has a {longest}-word sentence; shorten it for natural spoken delivery.")
@@ -677,7 +698,7 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
         candidate = normalize(data["script"], script.topic, script.style, script.language)
         target = scene_plan(script.style, settings.target_seconds)[0]
         count = word_count(candidate.narration, script.language)
-        if not (0.5 * target <= count <= 1.7 * target):
+        if not (0.75 * target <= count <= 1.25 * target):
             log.warning("Story payoff rewrite ignored: %d words for a %d-word target", count, target)
             return script, score, rubric, issues
         new_score, new_rubric, new_issues = _grade(llm, candidate, settings)
@@ -730,7 +751,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
             try:
                 cand = normalize(data["script"], script.topic, script.style, script.language)
                 n = word_count(cand.narration, script.language)
-                if 0.5 * target <= n <= 1.7 * target:
+                if 0.75 * target <= n <= 1.25 * target:
                     better = cand
                 else:
                     log.warning("Script Doctor rewrite ignored: %d words for a %d-word target", n, target)
