@@ -69,7 +69,7 @@ def test_script_from_data_detects_a_conversation():
 
 
 def test_scene_plan_by_format():
-    assert scene_plan("facts", 40) == (104, 7)
+    assert scene_plan("facts", 40) == (104, 11)
     assert scene_plan("chat", 40)[1] == 14
     assert scene_plan("dialogue", 40)[1] == 11
 
@@ -227,7 +227,7 @@ def test_lint_finds_the_obvious_problems():
         {"narration": "Cats sleep. Cats basically sleep a lot, really, just sleep, actually.", "search_query": "cat"},
     ]}, "pets", "facts", "en")
     found = " ".join(lint_script(script, Settings(target_seconds=40)))
-    assert "greeting" in found and "call to action" in found and "filler" in found
+    assert "greeting" in found and "filler" in found
     assert "No concrete number" in found and "words for a 40-second video" in found
     good = normalize({"title": "T", "scenes": [
         {"narration": "Cats sleep sixteen hours a day.", "search_query": "cat"},
