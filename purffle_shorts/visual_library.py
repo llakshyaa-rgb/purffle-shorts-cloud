@@ -460,10 +460,10 @@ def _diagram(im, draw, query, ink, accent, second):
         _line(draw,[(x,h*.22),(x+w*.045,h*.22)],accent,max(2,w//280))
         _line(draw,[(x,h*.82),(x+w*.045,h*.82)],second,max(2,w//280))
 
-def make_visual(query: str, image_prompt: str, destination: Path, width: int, height: int) -> str:
+def make_visual(query: str, image_prompt: str, destination: Path, width: int, height: int, variation: int = 0) -> str:
     """Create a story-aware illustration or subject-matched infographic as a PNG."""
     destination=Path(destination); destination.parent.mkdir(parents=True,exist_ok=True)
-    seed=int(hashlib.sha1((query+"|"+image_prompt).encode("utf-8")).hexdigest()[:8],16)
+    seed=int(hashlib.sha1((query+"|"+image_prompt+"|variation:"+str(variation)).encode("utf-8")).hexdigest()[:8],16)
     bg,accent,second,ink=PALETTES[seed%len(PALETTES)]
     w=max(360,int(width)); h=max(640,int(height))
     im=Image.new("RGB",(w,h),bg); draw=ImageDraw.Draw(im)
