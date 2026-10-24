@@ -17,7 +17,7 @@ SCRIPT = {
     "scenes": [
         {"narration": "An octopus has three hearts.", "search_query": "octopus", "image_prompt": "octopus"},
         {"narration": "Two pump blood through the gills.", "search_query": "octopus gills", "image_prompt": "gills"},
-        {"narration": "Follow for more ocean facts.", "search_query": "ocean", "image_prompt": "ocean"},
+        {"narration": "Its skin changes color to hide among coral.", "search_query": "octopus camouflage", "image_prompt": "an octopus blending into coral"},
     ],
     "description": "Three hearts, one octopus.", "hashtags": ["#octopus"], "tags": ["octopus"],
     "category": "science",
