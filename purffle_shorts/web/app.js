@@ -540,7 +540,7 @@ function drawLive() {
       <div class="pbar"><i id="live-bar" data-w="${j.pct}"></i></div>
       <p class="hint" id="live-msg">${esc(j.message || "")}</p>` : ""}
     ${j.status === "done" && r.id ? `<div class="actions"><button class="btn primary sm" type="button" data-open="${r.id}">${I.play}Watch</button>
-      ${r.score != null ? `<span class="chip ${r.score >= 75 ? "ok" : r.score >= 55 ? "accent" : "bad"}">Retention score ${r.score}</span>` : ""}
+      ${r.score != null ? `<span class="chip ${r.score >= 75 ? "ok" : r.score >= 55 ? "accent" : "bad"}">Script quality score ${r.score}</span>` : ""}
       <span class="chip">${esc(r.status)}</span>${(r.variants || []).map(v => `<span class="chip ${v.ok ? "ok" : "bad"}">${esc(v.language)} ${v.ok ? "✓" : "✗"}</span>`).join("")}</div>` : ""}
     ${j.status === "failed" ? `<div class="err">${esc(r.error || j.message)}</div>` : ""}
     ${running ? `<pre class="log" id="live-log">${esc(j.log.slice(-8).join("\n"))}</pre>` : ""}
@@ -590,7 +590,7 @@ function drawEditor() {
   const target = Math.round((f.duration || 40) * 2.6);
   box.innerHTML = `<section class="card">
     ${sh("SC", "Script", `<span class="chip">${esc(d.style)}</span><span class="chip">${esc(d.language)}</span><span class="wc" id="wc">${total} words · ~${Math.round(total / 2.6)}s</span><button class="btn ghost sm" id="discard" type="button">${I.trash}Discard</button>`)}
-    ${d.score != null ? `<div class="score"><div class="ring" data-p="${d.score}"><b>${d.score}</b></div><div class="grow"><b>Retention score</b>${rubricHtml(d.rubric)}${d.review && d.review.length ? `<ul>${d.review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="hint">No issues found.</p>`}</div></div>` : ""}
+    ${d.score != null ? `<div class="score"><div class="ring" data-p="${d.score}"><b>${d.score}</b></div><div class="grow"><b>Script quality score</b>${rubricHtml(d.rubric)}${d.review && d.review.length ? `<ul>${d.review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="hint">No issues found.</p>`}</div></div>` : ""}
     <div class="field"><label>Title</label><input type="text" data-k="title" value="${esc(d.title)}" maxlength="90"></div>
     <div class="field"><label>On-screen hook</label><input type="text" data-k="hook_text" value="${esc(d.hook_text)}" maxlength="48"></div>
     ${multi ? `<div class="grid2"><div class="field"><label>Speaker A</label><input type="text" data-cast="0" value="${esc((d.cast || [])[0] || "")}"></div>
@@ -768,7 +768,7 @@ async function openVideo(id) {
         ${v.has_director_notes ? `<button class="btn sm" type="button" id="d-director">${I.doc}Director notes</button>` : ""}
         <button class="btn sm danger" type="button" id="d-del">${I.trash}Delete</button>
       </div>
-      ${v.score != null ? `<div class="score"><div class="ring" data-p="${v.score}"><b>${v.score}</b></div><div class="grow"><b>Retention score</b>${rubricHtml(m.rubric)}${review.length ? `<ul>${review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
+      ${v.score != null ? `<div class="score"><div class="ring" data-p="${v.score}"><b>${v.score}</b></div><div class="grow"><b>Script quality score</b>${rubricHtml(m.rubric)}${review.length ? `<ul>${review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
       <dl class="kv">
         <dt>Length</dt><dd>${fmtSec(v.duration)}</dd>
         ${m.resolution ? `<dt>Size</dt><dd>${esc(m.resolution)}</dd>` : ""}
