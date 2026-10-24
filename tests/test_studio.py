@@ -210,3 +210,18 @@ def test_page_has_no_inline_styles_or_scripts(server):
     js = req(port, "GET", "/static/app.js")[2].decode()
     assert not re.search(r"\sstyle=", html) and not re.search(r"<script>(?!\s*</script>)", html)
     assert not re.search(r"""\sstyle=["']""", js)
+
+
+
+def test_visual_asset_api_seeds_and_serves_reusable_characters(server):
+    app, port = server
+    status, _, body = req(port, "GET", "/api/assets")
+    assert status == 200
+    assets = json.loads(body)
+    assert len(assets) >= 5
+    narrator = next(a for a in assets if a["character"] == "hooded_narrator")
+    assert "path" not in narrator
+    status, headers, image = req(port, "GET", f"/assets/{narrator['id']}.png")
+    assert status == 200 and headers["Content-Type"] == "image/png"
+    assert image.startswith(b"\x89PNG\r\n\x1a\n")
+    assert req(port, "GET", "/assets/../../etc/passwd.png")[0] == 404
