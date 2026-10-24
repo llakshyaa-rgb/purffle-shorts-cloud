@@ -982,6 +982,71 @@ function viewClip() {
   };
 }
 
+
+async function viewAssets() {
+  const main = $("#main");
+  main.innerHTML = \`
+    ${head("library", "Visual assets", "Reusable illustrations, diagrams and character artwork saved across your videos.",
+      '<button class="btn" id="back-videos" type="button">'+I.arrow+'Back to videos</button>')}
+    <div class="toolbar">
+      <input type="search" id="asset-q" placeholder="Search topics, characters or styles" aria-label="Search visual assets">
+      <select id="asset-kind" aria-label="Filter visual assets">
+        <option value="">All asset types</option><option value="illustration">Illustrations</option>
+        <option value="diagram">Diagrams</option><option value="character">Characters</option>
+      </select>
+    </div>
+    <div class="asset-grid" id="asset-grid">${empty("ASSETS", "Loading visual assets…", "")}</div>\`;
+  $("#back-videos").onclick = viewLibrary;
+  let timer;
+  $("#asset-q").oninput = () => { clearTimeout(timer); timer = setTimeout(drawAssets, 180); };
+  $("#asset-kind").onchange = drawAssets;
+  await drawAssets();
+}
+
+async function drawAssets() {
+  const box = $("#asset-grid");
+  if (!box) return;
+  try {
+    const q = $("#asset-q")?.value || "";
+    const kind = $("#asset-kind")?.value || "";
+    const assets = await get(\`/api/assets?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(kind)}\`);
+    if (!box.isConnected) return;
+    if (!assets.length) {
+      box.innerHTML = empty("NO ASSETS YET", "Your visual library is empty", "Generate a video with built-in illustrations or diagrams. Purffle will save reusable artwork here automatically.");
+      return;
+    }
+    box.innerHTML = assets.map(a => \`
+      <article class="asset-card">
+        <img src="/assets/${encodeURIComponent(a.id)}.png" alt="${esc(a.visual_type || "Visual asset")}" loading="lazy">
+        <div class="asset-meta">
+          <span class="chip">${esc(a.visual_type || "artwork")}</span>
+          ${a.character && a.character !== "symbolic_mascot" ? \`<span class="chip">${esc(a.character.replaceAll("_", " "))}</span>\` : ""}
+          <b>${esc(a.query || a.prompt || "Untitled visual")}</b>
+          <small>${fmtNum(a.uses || 0)} uses · ${esc(a.width)}×${esc(a.height)}</small>
+          <button class="btn sm" type="button" data-asset-preview="${esc(a.id)}">View details</button>
+        </div>
+      </article>\`).join("");
+    box.querySelectorAll("[data-asset-preview]").forEach(button => {
+      button.onclick = () => {
+        const asset = assets.find(a => a.id === button.dataset.assetPreview);
+        if (!asset) return;
+        const drawer = $("#drawer"), panel = $("#drawer-panel");
+        panel.innerHTML = \`<button class="btn ghost close" type="button" data-close aria-label="Close">${I.x}</button>
+          <p class="eyebrow">Reusable visual asset</p><h2>${esc(asset.query || "Untitled visual")}</h2>
+          <img class="asset-preview" src="/assets/${encodeURIComponent(asset.id)}.png" alt="${esc(asset.visual_type || "Visual asset")}">
+          <p><b>Type:</b> ${esc(asset.visual_type || "artwork")}</p>
+          <p><b>Character archetype:</b> ${esc((asset.character || "none").replaceAll("_", " "))}</p>
+          <p><b>Style:</b> ${esc(asset.style_key || "default")}</p>
+          <p><b>Reuse count:</b> ${fmtNum(asset.uses || 0)}</p>
+          <p class="hint">${esc(asset.prompt || "")}</p>\`;
+        drawer.hidden = false; document.body.style.overflow = "hidden";
+      };
+    });
+  } catch (error) {
+    if (box.isConnected) box.innerHTML = empty("LIBRARY ERROR", "Could not load visual assets", esc(error.message));
+  }
+}
+
 // ------------------------------------------------------------------ CHANNEL
 function calibrationCard(c) {
   const rho = c.score_vs_views;
