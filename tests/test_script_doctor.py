@@ -386,6 +386,13 @@ def test_lint_flags_unexplained_animal_entry_and_knocking_mechanism():
     assert any("never explains how it entered" in finding for finding in findings)
     assert any("knocking is not physically connected" in finding for finding in findings)
 
+    # Confirm the real Script Doctor prompt receives the deterministic findings.
+    from purffle_shorts.script import review_prompt
+    _, editor = review_prompt(draft, Settings(), rewrite=True, checks=findings)
+    assert "Automatic checks already found:" in editor
+    assert "never explains how it entered" in editor
+    assert "knocking is not physically connected" in editor
+
     # Positive control: once entry and the sound mechanism are actually explained,
     # those two continuity warnings should disappear.
     draft.scenes[4].narration = "A narrow gap let the kitten crawl inside, where its paw caught on a nail."
