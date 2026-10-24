@@ -396,6 +396,44 @@ class Studio:
             self._step("voice", f"{s.tts_engine} voice")
             speech = self._speak(script, work, s)
             total = round(speech.duration + END_PAD, 3)
+
+            # One bounded duration-repair pass: never silently stretch audio or ship a wildly
+            # off-target runtime. Keep the same topic/style and ask the script writer for a tighter
+            # word budget, then synthesize the revised narration once.
+            target = max(1, int(s.target_seconds))
+            if abs(total - target) / target > 0.20 and self.llm is not None and not s.offline:
+                try:
+                    log.warning("Narration runtime %.1fs misses %ss target; attempting one script repair",
+                                total, target)
+                    repaired = write_script(
+                        self.llm, script.topic, s, source=pick.source, style=script.style,
+                        context=(f"Original title: {script.title}. Preserve the original factual topic, "
+                                 "central reveal, and intended audience."),
+                        creative_brief=(
+                            f"RUNTIME REPAIR: target exactly about {target} seconds. "
+                            f"The previous narration rendered to {total:.1f} seconds. "
+                            "Rewrite the narration, do not explain the revision. Target the word count "
+                            "for this runtime; keep only the strongest specific facts, a compelling hook, "
+                            "clear causal logic, and a satisfying ending. Do not pad with filler or a CTA. "
+                            "Use concise, natural spoken sentences and keep every scene visually concrete."
+                        ),
+                    )
+                    repaired = review_script(self.llm, repaired, s)
+                    repaired_path = folder / "script.json"
+                    repaired_path.write_text(
+                        json.dumps(repaired.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+                    )
+                    repaired_speech = self._speak(repaired, work, s)
+                    repaired_total = round(repaired_speech.duration + END_PAD, 3)
+                    if abs(repaired_total - target) < abs(total - target):
+                        script, speech, total = repaired, repaired_speech, repaired_total
+                        log.info("Runtime repair improved duration to %.1fs (target %ss)", total, target)
+                    else:
+                        log.warning("Runtime repair did not improve duration (%.1fs -> %.1fs)",
+                                    total, repaired_total)
+                except Exception as repair_error:
+                    log.warning("Runtime repair failed; quality gate will block off-target publishing: %s",
+                                redact(repair_error))
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
                                       starts=speech.line_starts, min_len=4.5 if chat else 1.2)
@@ -581,8 +619,13 @@ class Studio:
             # Record actual visual coverage, not just the number of requested scenes. This makes
             # fallback-heavy renders visible in the library and gives the next quality pass real data.
             visual_total = len(media)
-            visual_real = sum(1 for m in media
-                              if m.source != "generated" and m.path is not None and m.path.is_file())
+            # The persistent artwork library is a fallback, not evidence of a scene-specific
+            # match. Count fetched/created scene assets, but not generic gradients or library reuse.
+            visual_real = sum(
+                1 for m in media
+                if m.source not in ("generated", "library")
+                and m.path is not None and m.path.is_file()
+            )
             visual_coverage = round(100 * visual_real / visual_total) if visual_total else 0
             if visual_coverage < 80:
                 log.warning("Visual coverage is only %d%% (%d/%d shots have real media)",
@@ -592,7 +635,7 @@ class Studio:
                          visual_coverage, visual_real, visual_total)
             target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
             duration_ok = target_delta <= 0.20
-            visuals_ok = visual_coverage >= 60
+            visuals_ok = visual_coverage >= 70
             publish_ready = duration_ok and visuals_ok
             quality_report = {
                 "target_seconds": s.target_seconds,
@@ -612,7 +655,7 @@ class Studio:
                             info["duration"], s.target_seconds)
             if not visuals_ok:
                 quality_report["reasons"].append(
-                    "Fewer than 60% of shots use downloaded/local media; inspect fallback visuals."
+                    "Fewer than 70% of shots use scene assets; generic artwork/gradients do not count as visual evidence."
                 )
                 log.warning("Quality gate: visual coverage is only %d%%", visual_coverage)
             (folder / "quality_report.json").write_text(
