@@ -190,7 +190,7 @@ def pick_style(settings: Settings, source: str) -> str:
 
 
 def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
-    """Return a word target and a flexible scene-count suggestion, never a scene-count requirement."""
+    """Return a narration word target and a practical shot/scene target for the runtime."""
     words = int(target_seconds * WORDS_PER_SECOND)
     if style == "chat":
         suggested = round(target_seconds / 2.8)
@@ -198,9 +198,15 @@ def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
         suggested = round(target_seconds / 3.5)
     else:
         suggested = round(target_seconds / 3.8)
-    # Guidance for the writer, not a quota: the prompt permits fewer or more scenes
-    # whenever the story's natural beats, pacing, or runtime calls for it.
     return words, max(3, min(14, suggested))
+
+
+def scene_count_bounds(style: str, target_seconds: int) -> tuple[int, int]:
+    """Reasonable scene-count bounds: enough distinct shots to keep a Short visually moving."""
+    _, target = scene_plan(style, target_seconds)
+    minimum = max(3, target - 2)
+    maximum = min(16 if style != "chat" else 20, target + 3)
+    return minimum, maximum
 
 
 def _format_rules(style: str) -> str:
@@ -250,7 +256,7 @@ Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
 {ctx}{ins}{brief}{avoid_block}Rules:
-- Total narration about {words} words (~{settings.target_seconds} seconds spoken). Suggested scene count: {n_scenes}, but this is flexible guidance, NOT a quota. Use as many or as few scenes as the content naturally needs (often 3-8 for a short); never add filler scenes to hit a number and never merge distinct important beats just to hit a number. Keep each scene a clean, visually meaningful spoken beat and let story rhythm determine scene boundaries.
+- Total narration about {words} words (~{settings.target_seconds} seconds spoken). Aim for {n_scenes} scenes; acceptable range is {scene_count_bounds(style, settings.target_seconds)[0]}–{scene_count_bounds(style, settings.target_seconds)[1]}. Scene count is a real visual-editing requirement, not a suggestion to ignore. For a 30–60 second Short, do NOT compress the entire script into 3–5 oversized scene boxes. Use roughly one scene per 2–4 seconds: usually one sentence or one compact spoken beat per scene. Keep the full narration length; divide it across more scenes instead of cutting text. Each scene needs its own specific visible action, evidence, reaction, transition, or payoff. Do not create empty/filler scenes, split every clause mechanically, or combine distinct visual beats into one box.
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - CREATIVE DESIGN BEFORE PROSE: first choose the single strongest angle for this topic, the viewer's central question, the most interesting evidence or event, and the ending that makes the opening worthwhile. Build one coherent progression suited to the format: opening -> development -> meaningful complication/evidence -> payoff. A list is allowed only when the list itself is the promise; otherwise connect the information into one thread. Avoid "fact babbling", generic AI phrasing, and announcing what the video will explain.
@@ -287,7 +293,7 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - Every line earns its place: use concrete details, names, comparisons, actions, and well-established facts. No invented statistics, fake certainty, or sensational claims unsupported by evidence.
 - PUBLISHABLE-OR-NOT QUALITY GATE: do not return the first plausible draft. Check five things: (1) PROMISE — does the opening create the exact expectation the video fulfils? (2) PROGRESSION — does every beat add information or change the situation? (3) CLARITY — can a listener follow the logic on one hearing without filling in missing steps? (4) VOICE — would a real person say these words naturally aloud? (5) PAYOFF — does the ending deliver a meaningful answer, consequence, result, or emotional landing? Rewrite any failed gate. If the premise is too broad for the runtime, narrow it. If it is too thin, develop its strongest meaningful detail rather than padding. Never trade clarity for dramatic-sounding prose.
 - CAUSE-AND-EFFECT TEST: every important action must have a reason and consequence. Do not introduce a key, person, object, note, or relationship only in the final line unless the opening planted it or the ending clearly explains it. If a detail is called "missing", establish that it went missing earlier. Pronouns such as he/she/they/her must have an unambiguous referent.
-- ENDING AND SCENE COUNT: the reveal and its consequence must both fit, but there is no mandatory number of scenes. Use fewer scenes when a beat needs breathing room and more when distinct actions genuinely need separate shots. Never pad, compress, or split a sentence solely to hit a scene target. A short story with 4 coherent scenes beats 8 repetitive ones. The last scenes must deliver the promised answer and its consequence; no unexplained final line or mystery-only ending.
+- SCENE COUNT AND EDITING RHYTHM: aim for {n_scenes} scenes (acceptable range {scene_count_bounds(script.style, settings.target_seconds)[0]}–{scene_count_bounds(script.style, settings.target_seconds)[1]}). For a 30–60 second Short, 3–5 scene boxes is usually too few: preserve the full narration and split it into distinct, visually useful beats averaging about 2–4 seconds. Do not pad with meaningless cuts; do not merge different actions, evidence, reactions, or reveals into one oversized scene. The final scenes must deliver the promised answer and its consequence.
 - VISUAL STORYBOARD QUALITY: write each scene as a distinct shot that changes the information or emotion. The image_prompt should specify subject, visible action, setting, framing, and a useful detail; search_query should describe the actual visible subject, not abstract mood. Avoid reusing the same generic shot across scenes. For fictional animation, keep character identity, clothing, scale, props, and location consistent across the script by repeating concise visual continuity cues in each relevant image_prompt.
 - VISUALS ARE YOUR JOB, NOT THE USER'S: choose the visual concept and shot progression yourself from the story. Each image_prompt must be ready to use without the user rewriting it: specify the exact subject and action, environment, shot size/angle, lighting, and relevant continuity details. Give scenes varied compositions (establishing shot, detail insert, reaction, movement, reveal) only when story-appropriate; do not make every scene a generic close-up. For fictional scenes, preserve a stable character/prop design and physical layout. Never invent a separate visual story that contradicts the narration; the visuals should clarify or heighten the exact beat being spoken.
 - SCENE-TO-SCENE CONTINUITY: keep point of view, tense, character names, object ownership, and physical geography consistent. Each scene must follow naturally from the previous one. Do not change "I" to "he" without a clear reason, and do not make the narrator know something they could not know.
@@ -386,7 +392,7 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
                             emphasis=_emphasis(s.get("emphasis"), narration), emoji=one_emoji(s.get("emoji"))))
     if not scenes:
         raise ValueError("script has no narration")
-    limit = 20 if style == "chat" else 12
+    limit = 20 if style == "chat" else 16
     while len(scenes) > limit:  # merge the shortest same-speaker neighbours to keep cuts watchable
         pairs = [k for k in range(len(scenes) - 1) if scenes[k].speaker == scenes[k + 1].speaker]
         if not pairs:
@@ -540,6 +546,12 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
     n = word_count(script.narration, script.language)
     if target and abs(n - target) > 0.25 * target:
         out.append(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
+    # Scene density is part of the actual edit: avoid huge narration boxes with too few visual cuts.
+    minimum_scenes, maximum_scenes = scene_count_bounds(script.style, settings.target_seconds)
+    if len(script.scenes) < minimum_scenes:
+        out.append(f"Only {len(script.scenes)} scene boxes for a {settings.target_seconds}-second Short; aim for {minimum_scenes}-{maximum_scenes} distinct visual beats without cutting narration.")
+    elif len(script.scenes) > maximum_scenes:
+        out.append(f"{len(script.scenes)} scene boxes exceed the practical {maximum_scenes}-scene target; merge only repetitive or visually redundant beats.")
     # Check the edit as a video, not just as prose. These findings feed the Script Doctor.
     if len(script.scenes) > 1:
         queries = [re.sub(r"[^a-z0-9 ]", "", sc.search_query.lower()).strip() for sc in script.scenes]
@@ -705,7 +717,7 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
     rubric = "\n".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
     found = ("Automatic checks already found:\n" + "\n".join(f"- {c}" for c in checks) + "\n") if checks else ""
     task = (f"""Then rewrite it into the strongest version you can. Keep the same subject, format, language ({lang}),
-the same JSON structure and a narration length appropriate for the selected runtime (target about {words} words; scene count is flexible, with {n_scenes} only a planning estimate). Fix every issue and automatic finding. Do a complete rewrite where needed—not a cosmetic line edit. Rebuild weak structure, replace generic phrasing, strengthen cause-and-effect, improve spoken rhythm, ensure visuals match each beat, and make the payoff earn the opening. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
+the same JSON structure and a narration length appropriate for the selected runtime (target about {words} words). Aim for {n_scenes} scenes, within {scene_count_bounds(script.style, settings.target_seconds)[0]}–{scene_count_bounds(script.style, settings.target_seconds)[1]}; preserve all useful narration while redistributing it into more distinct, visual beats when needed. Fix every issue and automatic finding. Do a complete rewrite where needed—not a cosmetic line edit. Rebuild weak structure, replace generic phrasing, strengthen cause-and-effect, improve spoken rhythm, ensure visuals match each beat, and make the payoff earn the opening. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
 Creative-quality requirements:
 - Do not default to "Did you know?" or any repeated stock opening. Keep the opening specific to this topic and distinct from recent titles/context.
 - Read the narration as one complete spoken script before judging individual scenes. It must flow naturally from the first line to the final payoff, with no disconnected lines or abrupt jumps—even in facts/list formats.
