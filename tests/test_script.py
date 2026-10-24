@@ -135,3 +135,11 @@ def test_lint_flags_repeated_visual_search_and_weak_prompt():
     checks = lint_script(script, Settings(target_seconds=10))
     assert any("same footage search" in item for item in checks)
     assert any("underspecified visual prompt" in item for item in checks)
+
+
+def test_script_prompt_sets_strong_runtime_length_target():
+    settings = Settings.from_env()
+    settings.target_seconds = 25
+    system, user = build_prompt("Saturn density", "facts", settings, [])
+    assert "HARD LENGTH TARGET" in user
+    assert "25-second video" in user
