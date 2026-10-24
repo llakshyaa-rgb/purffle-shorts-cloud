@@ -325,19 +325,8 @@ details.more > summary + * { margin-top: 12px; }
 .scene .row input { font-size: 12.5px; padding: 6px 9px; font-family: var(--mono); }
 .scene .tools { display: flex; gap: 2px; margin-left: auto; }
 .scene .tools .btn { padding: 5px 7px; }
-.scene-copybar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 5px; }
-.scene-copybar label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
-.scene-copybar .btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.scene-copybar .btn svg, .scene .copy-scene svg { width: 14px; height: 14px; }
-.scene .visual-copybar { margin-top: 10px; }
-.scene textarea[data-s="image_prompt"] { min-height: 58px; font-size: 12.5px; }
-.scene .copy-scene { flex-shrink: 0; }
-@media (max-width: 520px) {
-  .scene-copybar .btn { padding: 6px 8px; font-size: 12px; }
-  .scene .row > .copy-scene { padding: 6px 8px; font-size: 11px; }
-  .scene .row { flex-wrap: wrap; }
-  .scene .row input { min-width: 0; flex: 1 1 120px; }
-}
+.scene .row { flex-wrap: wrap; }
+.scene .row input { min-width: 0; flex: 1 1 120px; }
 .wc { font: 500 11.5px var(--mono); color: var(--ink-3); }
 
 /* live job: an edit timeline */
