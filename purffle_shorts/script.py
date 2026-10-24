@@ -551,6 +551,46 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             short_scenes = [i for i, sc in enumerate(script.scenes, 1) if len(sc.narration.split()) <= 2]
             if len(short_scenes) >= max(3, len(script.scenes) // 2):
                 out.append("Too many scenes are only a couple of words; combine beats that do not need their own visual cut.")
+    # Stronger publishability checks: repeated visual plans, title/opening promise drift,
+    # and endings that spend the final beat on engagement bait instead of delivery.
+    if english and script.scenes:
+        def content_words(value: str) -> set[str]:
+            return {w for w in re.findall(r"[a-z0-9]+", value.lower())
+                    if len(w) > 3 and w not in _COMMON and w not in _STOP}
+        title_words = content_words(script.title)
+        opening_words = content_words(script.scenes[0].narration)
+        if title_words and opening_words:
+            overlap = len(title_words & opening_words) / max(1, min(len(title_words), len(opening_words)))
+            if overlap < 0.20 and len(title_words) >= 3:
+                out.append("Title and spoken opening may promise different subjects; align the title with what the first line actually delivers.")
+        normalized_queries = [
+            re.sub(r"[^a-z0-9 ]", "", sc.search_query.lower()).strip()
+            for sc in script.scenes
+        ]
+        seen_queries: dict[str, int] = {}
+        for i, query in enumerate(normalized_queries, 1):
+            if not query:
+                out.append(f"Scene {i} has no usable visual search query; provide a concrete subject that can be found or illustrated.")
+                break
+            if query in seen_queries and len(script.scenes) >= 4:
+                out.append(f"Scenes {seen_queries[query]} and {i} reuse the same visual search; vary the shot when the narrated beat changes.")
+                break
+            seen_queries[query] = i
+        last_line = script.scenes[-1].narration.strip()
+        if _CTA.search(last_line) and len(last_line.split()) <= 12:
+            out.append("The final beat leans on a CTA; end on the answer, reveal, consequence, or takeaway and move any CTA earlier or omit it.")
+        if script.style in {"story", "reddit", "chat"} and len(script.scenes) >= 3:
+            ending_words = content_words(" ".join(sc.narration for sc in script.scenes[-2:]))
+            hook_words = content_words(script.scenes[0].narration)
+            if hook_words and len(ending_words & hook_words) == 0:
+                out.append("The ending may not reconnect to the opening; make the final two scenes resolve the central question or explain the reveal's consequence.")
+        for i, sc in enumerate(script.scenes, 1):
+            if not sc.search_query.strip() or len(sc.search_query.split()) < 2:
+                out.append(f"Scene {i} has a vague visual search; use 2–5 concrete English words matching the narrated subject.")
+                break
+            if not sc.image_prompt.strip() or len(sc.image_prompt.split()) < 7:
+                out.append(f"Scene {i} needs a specific visual prompt with subject, visible action, setting, and framing.")
+                break
     if english:
         repeated_lines = [re.sub(r"[^a-z0-9 ]", "", sc.narration.lower()).strip() for sc in script.scenes]
         for i in range(1, len(repeated_lines)):
