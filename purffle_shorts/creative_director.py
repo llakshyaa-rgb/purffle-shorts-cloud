@@ -92,6 +92,12 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     # Use footage for concrete subjects and reserve diagrams for explicit mechanisms only.
     if mode == "diagram" and index % 3 == 2:
         mode = "footage"
+    # Re-apply this after the generic footage/illustration selection above: abstract beats
+    # must not accidentally be overwritten into stock-footage mode.
+    if any(phrase in narration.lower() for phrase in abstract_phrases) or (
+        generic_query and len(narration.split()) <= 8
+    ):
+        mode = "gradient"
     camera = ("push_in", "pan_left", "push_in", "pan_right", "pull_out", "static")[index % 6]
     if any(w in text for w in ("reveal", "realize", "suddenly", "impossible", "finally", "truth")):
         camera, sound, transition = "push_in", "hit", "cut"

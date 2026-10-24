@@ -83,3 +83,12 @@ def test_abstract_connective_beat_chooses_intentional_gradient():
     apply_to_script(script, plan)
     assert script.scenes[0].image_prompt.startswith("ABSTRACT GRADIENT BACKGROUND:")
     assert "no people" in plan[0]["visual_prompt"].lower()
+
+
+def test_abstract_beat_stays_gradient_after_fallback_mode_selection():
+    scene = type("SceneStub", (), {
+        "narration": "Which means the real question is what that tells us.",
+        "search_query": "abstract transition",
+        "image_prompt": "",
+    })()
+    assert _fallback(scene, 1, "facts")["visual_mode"] == "gradient"
