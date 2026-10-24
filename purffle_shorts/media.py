@@ -646,10 +646,19 @@ class Visuals:
                             source, q, redact(e)
                         )
 
+                # Don't accept a weak keyword coincidence as a visual match. Local files
+                # must have at least one filename-token overlap; stock media must have a
+                # meaningful match across the scene's descriptive metadata.
                 cand = [
                     candidate for candidate in combined.values()
-                    if candidate.source == "local"
-                    or relevance(candidate, query) > 0
+                    if (
+                        candidate.source == "local"
+                        and candidate.extra.get("overlap", 0) > 0
+                    )
+                    or (
+                        candidate.source != "local"
+                        and relevance(candidate, query) >= 0.45
+                    )
                 ]
                 item = self._claim(cand, need, query)
                 if not item:
