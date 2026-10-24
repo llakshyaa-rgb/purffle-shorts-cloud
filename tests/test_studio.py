@@ -271,6 +271,16 @@ def test_manual_schedule_and_approval_are_persistent_but_upload_stays_disabled(s
     assert saved.endswith("Z")
     assert app.studio.history.get(vid)["publish_at"] == saved
 
+    second_file = tmp_path / "second-approved-test.mp4"
+    second_file.write_bytes(b"second test video")
+    second_vid = app.studio.history.add_video(
+        title="Second approval test", status="rendered", folder=str(tmp_path),
+        video_path=str(second_file), duration=10, style="facts",
+    )
+    status, _, body = req(port, "POST", f"/api/videos/{second_vid}/schedule",
+                          {"publish_at": saved}, app.token)
+    assert status == 400 and "already reserves" in json.loads(body)["error"]
+
     status, _, body = req(port, "POST", f"/api/videos/{vid}/approval",
                           {"approved": True}, app.token)
     assert status == 200 and json.loads(body)["approval_status"] == "approved"
