@@ -306,7 +306,7 @@ class Studio:
             self._step("script", pick.subject)
             insights = analytics.insights(self.history) if s.learn_from_stats else ""
             style = style or pick.style or None
-            if (not style and s.learn_from_stats and s.style not in STYLES
+            if (not style and s.learn_from_stats and s.style in ("", "auto")
                     and pick.source not in ("trending", "wikipedia", "reddit", "rss", "url", "document")):
                 style = analytics.choose_style(self.history, sorted(set(AUTO_STYLES)))
                 if style:
