@@ -152,7 +152,7 @@ async function boot() {
   S.form = Object.assign({
     mode: "topic", topic: "", url: "", creative_brief: "", style: "auto", language: i.language, duration: i.duration,
     aspect: ["9:16", "16:9", "1:1", "4:5", "2:3", "3:2", "3:4", "21:9"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
-    caption_position: i.caption_position, grade: i.grade, transition: i.transition, review: i.review, tts: i.tts,
+    caption_position: i.caption_position, grade: "random", transition: "random", review: i.review, tts: i.tts,
     voice: "", voice_b: "", provider: "", model: "", also_langs: (i.also_languages || []).join(", "), music: true,
     upload: false, offline: !i.llm_ok, visual_mode: "match", visuals: i.visuals, background: "", layout: "full", sfx: true, emphasis: true,
     emoji: true,
