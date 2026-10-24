@@ -177,7 +177,7 @@ class Settings:
     caption_position: str = "center"  # upper|center|lower
     caption_font: str = ""
     caption_fontsize: int = 0         # 0 = auto
-    caption_max_words: int = 3
+    caption_max_words: int = 4
     caption_uppercase: bool = True
     caption_emphasis: bool = True     # key words and numbers in their own colour
     caption_emoji: bool = True        # an emoji per scene pops up above the captions (Twemoji, CC-BY 4.0)
