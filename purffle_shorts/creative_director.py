@@ -31,7 +31,7 @@ DIRECTOR_SCHEMA = {
                     "transition": {"type": "string", "enum": ["cut", "fade", "dissolve", "whip", "match_cut"]},
                     "sound": {"type": "string", "enum": ["none", "whoosh", "pop", "hit"]},
                     "reason": {"type": "string"},
-                    "character": {"type": "string", "enum": ["none", "purffle_narrator", "detective", "scientist", "explorer", "mysterious_figure"]},
+                    "character": {"type": "string", "enum": ["none", "purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery"]},
                 },
                 "required": ["scene", "purpose", "visual_mode", "visual_prompt", "camera", "transition", "sound", "reason", "character"],
                 "additionalProperties": False,
