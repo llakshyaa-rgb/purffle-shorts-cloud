@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 DIAGRAM_PHRASES = (
     "diagram", "flowchart", "how it works", "how does", "how the", "mechanism",
     "process", "step by step", "steps of", "cause and effect", "timeline",
-    "cross section", "cross-section", "floor plan", "map of", "route of",
+    "cross section", "cross-section", "floor plan", "map of", "map route", "route of",
     "orbit", "food chain", "life cycle", "network", "system architecture",
     "anatomy", "structure of", "inside the engine", "explained",
 )
