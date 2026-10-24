@@ -174,7 +174,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
         }.get(mode, "")
         if prompt:
             character = str(beat.get("character", "none")).strip().lower()
-            character_note = f"\\nREUSABLE CHARACTER: {character}" if character in CHARACTERS and character != "none" else ""
+            character_note = f"\nREUSABLE CHARACTER: {character}" if character in CHARACTERS and character != "none" else ""
             scene.image_prompt = prefix + prompt + character_note
 
 
