@@ -134,3 +134,16 @@ def test_anchored_timings_without_pauses_is_an_estimate():
     toks = tokenize("Just one sentence with no pauses at all.")
     words, pinned = anchored_timings(toks, 3.0, [])
     assert pinned == 0 and len(words) == len(toks) and words[-1].end <= 3.0
+
+
+def test_scene_timeline_clamps_non_monotonic_and_out_of_range_starts():
+    scenes = ["First beat.", "Second beat.", "Third beat."]
+    words = _words([("First", 0.0, 0.3), ("Second", 1.0, 1.3), ("Third", 2.0, 2.3)])
+    timeline = scene_timeline(scenes, words, total=3.0, starts=[0.0, 2.5, 1.2])
+    assert timeline[0].start == 0.0
+    assert timeline[1].start <= timeline[2].start
+    assert all(0 <= shot.start <= shot.end <= 3.0 for shot in timeline)
+
+
+def test_scene_timeline_handles_empty_scene_list():
+    assert scene_timeline([], [], total=4.0) == []
