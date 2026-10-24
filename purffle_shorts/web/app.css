@@ -183,7 +183,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 18px; }
 .seg button[aria-pressed=true] { background: var(--on); color: var(--on-ink); }
 .shape { display: inline-block; border: 1.5px solid currentColor; border-radius: 2px; }
 .shape.s916 { width: 9px; height: 15px; } .shape.s169 { width: 16px; height: 9px; } .shape.s11 { width: 12px; height: 12px; }
-.shape.s45 { width: 11px; height: 13px; }
+.shape.s45 { width: 11px; height: 13px; } .shape.s23 { width: 10px; height: 15px; } .shape.s32 { width: 15px; height: 10px; } .shape.s34 { width: 10px; height: 13px; } .shape.s219 { width: 17px; height: 7px; }
 .switch { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; user-select: none; font-weight: 620; padding: 10px 12px;
   border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--well); }
 .switch:hover { border-color: var(--rule-3); }
@@ -320,7 +320,7 @@ details.more > summary + * { margin-top: 12px; }
   display: grid; grid-template-columns: 38px 1fr; gap: 8px; }
 .scene .num { font: 600 11px var(--mono); color: var(--ink-3); text-align: center; padding-top: 10px; }
 .scene.b .num { color: var(--blue); } .scene.a.multi .num { color: var(--tally); }
-.scene textarea { min-height: 54px; background: var(--sheet); }
+.scene textarea { min-height: 72px; background: var(--sheet); line-height: 1.5; font-size: 14px; }
 .scene .row { display: flex; gap: 6px; align-items: center; }
 .scene .row input { font-size: 12.5px; padding: 6px 9px; font-family: var(--mono); }
 .scene .tools { display: flex; gap: 2px; margin-left: auto; }
