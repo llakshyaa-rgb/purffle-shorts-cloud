@@ -524,6 +524,11 @@ class Studio:
                     for candidate_pos, candidate in enumerate(media):
                         if candidate.source == "generated" or candidate_pos == pos:
                             continue
+                        # Never borrow another scene's image just because its metadata shares a
+                        # keyword. That creates visibly repeated or misleading shots. Reuse is
+                        # allowed only between split shots belonging to the same narrated scene.
+                        if shots[candidate_pos].index != st.index:
+                            continue
                         score = relevance(candidate, scene_query)
                         if score >= 0.58:
                             ranked_reuse.append((score, candidate_pos, candidate))
