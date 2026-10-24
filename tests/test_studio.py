@@ -219,6 +219,10 @@ def test_visual_asset_api_seeds_and_serves_reusable_characters(server):
     assert status == 200
     assets = json.loads(body)
     assert len(assets) >= 5
+    status, _, body = req(port, "GET", "/api/assets?kind=character")
+    characters = json.loads(body)
+    assert status == 200 and len(characters) == 5
+    assert all(a["character"] != "symbolic_mascot" for a in characters)
     narrator = next(a for a in assets if a["character"] == "hooded_narrator")
     assert "path" not in narrator
     status, headers, image = req(port, "GET", f"/assets/{narrator['id']}.png")
