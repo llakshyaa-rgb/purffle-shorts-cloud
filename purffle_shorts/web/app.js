@@ -150,7 +150,7 @@ async function boot() {
   }
   const i = S.info;
   S.form = Object.assign({
-    mode: "topic", topic: "", url: "", creative_brief: "", style: i.style || "auto", language: i.language, duration: i.duration,
+    mode: "topic", topic: "", url: "", creative_brief: "", style: "auto", language: i.language, duration: i.duration,
     aspect: ["9:16", "16:9", "1:1", "4:5", "2:3", "3:2", "3:4", "21:9"].includes(i.aspect) ? i.aspect : "9:16", caption_style: i.caption_style,
     caption_position: i.caption_position, grade: i.grade, transition: i.transition, review: i.review, tts: i.tts,
     voice: "", voice_b: "", provider: "", model: "", also_langs: (i.also_languages || []).join(", "), music: true,
@@ -288,7 +288,7 @@ document.addEventListener("click", e => {
 function payload(extra = {}) {
   const f = S.form;
   const p = {
-    style: f.style === "auto" ? "" : f.style, language: f.language, duration: f.duration, aspect: f.aspect,
+    style: "auto", language: f.language, duration: f.duration, aspect: f.aspect,
     caption_style: f.caption_style, caption_position: f.caption_position, grade: f.grade, transition: f.transition,
     tts: f.tts, voice: f.voice, voice_b: f.voice_b, provider: f.provider, model: f.model, review: f.review,
     also_langs: f.also_langs, music: f.music, upload: f.upload && S.info.upload && !f.offline, offline: f.offline,
