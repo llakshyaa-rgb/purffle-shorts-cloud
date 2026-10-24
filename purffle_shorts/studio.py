@@ -33,7 +33,7 @@ from .config import ASPECTS, Settings, aspect_resolution
 log = logging.getLogger("purffle")
 
 WEB = Path(__file__).parent / "web"
-FILES = ("short.mp4", "video.mp4", "cover.jpg", "captions.srt", "metadata.json", "script.json")
+FILES = ("short.mp4", "video.mp4", "cover.jpg", "captions.srt", "metadata.json", "script.json", "director.json", "director_notes.md")
 STATIC = {"app.js": "text/javascript; charset=utf-8", "app.css": "text/css; charset=utf-8",
           "icon.svg": "image/svg+xml"}
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -351,6 +351,7 @@ class StudioServer:
         data["video"] = video.name if video and video.exists() else None
         data["has_cover"] = bool(folder and (folder / "cover.jpg").exists())
         data["has_srt"] = bool(folder and (folder / "captions.srt").exists())
+        data["has_director_notes"] = bool(folder and (folder / "director_notes.md").exists())
         return data
 
     def file_for(self, vid: int, name: str) -> Path | None:
