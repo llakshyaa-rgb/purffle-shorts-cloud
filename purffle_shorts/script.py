@@ -637,6 +637,52 @@ def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[st
     return score, rubric, [str(i).strip() for i in data.get("issues") or [] if str(i).strip()][:5]
 
 
+def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
+    """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
+    if script.style not in {"story", "reddit", "chat"}:
+        try:
+            score, rubric, issues = _grade(llm, script, settings)
+            return script, score, rubric, issues
+        except Exception:
+            return script, script.score, script.rubric, list(script.review or [])
+
+    try:
+        score, rubric, issues = _grade(llm, script, settings)
+    except Exception as e:
+        log.warning("Story payoff check skipped: %s", e)
+        return script, script.score, script.rubric, list(script.review or [])
+
+    if rubric.get("payoff", 5) >= 7:
+        return script, score, rubric, issues
+
+    forced_checks = lint_script(script, settings) + [
+        "STORY PAYOFF FAILED: rewrite the final two scenes so the reveal answers a question raised by the opening and shows a concrete consequence. Do not end on a new unexplained mystery."
+    ]
+    system, user = review_prompt(script, settings, rewrite=True, checks=forced_checks)
+    try:
+        data = llm.complete_json(system, user, REVIEW_SCHEMA, max_tokens=5000, temperature=REVIEW_TEMPERATURE)
+        if not isinstance(data.get("script"), dict):
+            return script, score, rubric, issues
+        candidate = normalize(data["script"], script.topic, script.style, script.language)
+        target = scene_plan(script.style, settings.target_seconds)[0]
+        count = word_count(candidate.narration, script.language)
+        if not (0.5 * target <= count <= 1.7 * target):
+            log.warning("Story payoff rewrite ignored: %d words for a %d-word target", count, target)
+            return script, score, rubric, issues
+        new_score, new_rubric, new_issues = _grade(llm, candidate, settings)
+        if new_rubric.get("payoff", 5) > rubric.get("payoff", 5) or (
+            new_rubric.get("payoff", 5) == rubric.get("payoff", 5)
+            and (new_score or 0) >= (score or 0)
+        ):
+            log.info("Story payoff check: accepted rewrite (payoff %s -> %s)",
+                     rubric.get("payoff", 5), new_rubric.get("payoff", 5))
+            return candidate, new_score, new_rubric, new_issues
+        log.info("Story payoff check: rewrite did not improve payoff; kept prior script")
+    except Exception as e:
+        log.warning("Story payoff rewrite skipped: %s", e)
+    return script, score, rubric, issues
+
+
 def review_script(llm, script: Script, settings: Settings) -> Script:
     """Score the script and (in rewrite mode) replace it with an improved version. The rewrite is graded
     again and only kept when it scores at least as well as the draft, so the stored score belongs to the
@@ -652,6 +698,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
         except Exception as e:
             log.warning("Script Doctor skipped: %s", e)
             return script
+        script, score, rubric, issues = _enforce_story_payoff(llm, script, settings)
         script.score, script.rubric, script.review = score, rubric, _with_checks(issues, script, settings)
         log.info("Script Doctor: %s/100%s", score if score is not None else "?", f" — {issues[0]}" if issues else "")
         return script
@@ -695,6 +742,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
         best_rubric, best_issues = new_rubric, new_issues  # never show the draft's sub-scores for the rewrite
         if best_score is not None and best_score >= settings.script_target_score:
             break
+    best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings)
     best.score, best.rubric = best_score, best_rubric
     best.review = _with_checks(best_issues, best, settings)
     changed = "rewritten" if best is not script else "kept"
