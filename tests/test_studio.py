@@ -225,3 +225,28 @@ def test_visual_asset_api_seeds_and_serves_reusable_characters(server):
     assert status == 200 and headers["Content-Type"] == "image/png"
     assert image.startswith(b"\x89PNG\r\n\x1a\n")
     assert req(port, "GET", "/assets/../../etc/passwd.png")[0] == 404
+
+
+
+def test_queued_studio_jobs_survive_restart_without_replaying_running_uploads(settings, monkeypatch):
+    app = ST.StudioServer(settings.with_overrides(upload=False))
+    queued = ST.Job(id=17, kind="draft", params={"offline": True}, label="Persisted draft")
+    interrupted = ST.Job(id=18, kind="upload", params={"id": 3}, label="Interrupted upload",
+                         status="running", started=time.time())
+    app.jobs[queued.id] = queued
+    app.jobs[interrupted.id] = interrupted
+    app._next = 19
+    app._persist_jobs()
+
+    # Keep the restored worker idle so this test can inspect the queue before execution.
+    monkeypatch.setattr(ST.StudioServer, "_worker", lambda self: time.sleep(1))
+    restored = ST.StudioServer(settings.with_overrides(upload=False))
+    try:
+        assert restored.jobs[17].status == "queued"
+        assert restored.queue.qsize() == 1
+        assert restored.jobs[18].status == "failed"
+        assert restored.jobs[18].result["interrupted"] is True
+        assert "Check the Library" in restored.jobs[18].message
+    finally:
+        # The test-only idle worker is a daemon and exits on its own.
+        pass
