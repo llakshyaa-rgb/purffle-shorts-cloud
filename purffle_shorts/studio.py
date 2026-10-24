@@ -518,7 +518,7 @@ class StudioServer:
 
     def schedule_video(self, vid: int, value: str) -> str | None:
         """Validate and store a future publish timestamp. No upload is triggered here."""
-        from datetime import datetime, timezone
+        from datetime import datetime, timedelta, timezone
         rec = self.studio.history.get(vid)
         if not rec or not rec.get("video_path") or not Path(rec["video_path"]).is_file():
             raise ValueError("Video file is missing; render it again before scheduling.")
@@ -533,7 +533,7 @@ class StudioServer:
         if dt.tzinfo is None:
             raise ValueError("Choose a date and time with a timezone.")
         dt = dt.astimezone(timezone.utc)
-        if dt < datetime.now(timezone.utc) + __import__("datetime").timedelta(minutes=15):
+        if dt < datetime.now(timezone.utc) + timedelta(minutes=15):
             raise ValueError("Choose a publish time at least 15 minutes in the future (required by YouTube scheduling).")
         if rec.get("youtube_id"):
             raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
