@@ -152,7 +152,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
-    lines = [f"# Director's Notes — {script.title}", "", "Background production plan. These are concise decisions, not private reasoning.", ""]
+    lines = [f"# Director's Notes — {script.title}", "", "Background production plan. These are concise, user-facing decisions, not private chain-of-thought.", ""]
     for beat in plan:
         i = beat["scene"]
         narration = script.scenes[i - 1].narration if 0 < i <= len(script.scenes) else ""
