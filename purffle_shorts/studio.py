@@ -104,6 +104,9 @@ class StudioServer:
         self.current: Job | None = None
         self._next = 1
         self._lock = threading.Lock()
+        # Serialize snapshot + SQLite write, not just the in-memory copy. Otherwise an
+        # older queued snapshot can finish writing after the worker's running snapshot.
+        self._persist_lock = threading.Lock()
         self._voices: dict[str, list] = {}
         self.version = 0                       # bumped on every job change; the event stream waits on it
         self._changed = threading.Condition()
@@ -114,18 +117,19 @@ class StudioServer:
     JOBS_META_KEY = "studio_jobs_v1"
 
     def _persist_jobs(self) -> None:
-        """Persist a bounded queue snapshot so queued work survives Studio restarts."""
+        """Persist a bounded, ordered queue snapshot so queued work survives Studio restarts."""
         try:
-            with self._lock:
-                rows = []
-                for job in sorted(self.jobs.values(), key=lambda item: item.id)[-100:]:
-                    rows.append({
-                        "id": job.id, "kind": job.kind, "params": job.params, "label": job.label,
-                        "status": job.status, "stage": job.stage, "pct": job.pct, "message": job.message,
-                        "log": job.log[-80:], "result": job.result, "created": job.created,
-                        "started": job.started, "finished": job.finished,
-                    })
-            self.studio.history.set_meta(self.JOBS_META_KEY, json.dumps(rows, ensure_ascii=False, default=str))
+            with self._persist_lock:
+                with self._lock:
+                    rows = []
+                    for job in sorted(self.jobs.values(), key=lambda item: item.id)[-100:]:
+                        rows.append({
+                            "id": job.id, "kind": job.kind, "params": job.params, "label": job.label,
+                            "status": job.status, "stage": job.stage, "pct": job.pct, "message": job.message,
+                            "log": job.log[-80:], "result": job.result, "created": job.created,
+                            "started": job.started, "finished": job.finished,
+                        })
+                self.studio.history.set_meta(self.JOBS_META_KEY, json.dumps(rows, ensure_ascii=False, default=str))
         except Exception:
             log.warning("Could not persist Studio queue snapshot", exc_info=True)
 
