@@ -202,19 +202,25 @@ class StudioServer:
         stage)."""
         from . import ffmpeg
         from .utils import CANCEL
-        job = self.jobs.get(jid)
-        if job and job.status == "queued":
-            job.status, job.finished = "cancelled", time.time()
+        action = ""
+        with self._lock:
+            job = self.jobs.get(jid)
+            if job and job.status == "queued":
+                job.status, job.finished = "cancelled", time.time()
+                action = "queued"
+            elif job and job.status == "running" and job is self.current:
+                job.message = "cancelling…"
+                action = "running"
+            else:
+                return False
+        if action == "queued":
             self._persist_jobs()
             self.changed()
             return True
-        if job and job.status == "running" and job is self.current:
-            CANCEL.set()
-            ffmpeg.kill_all()
-            job.message = "cancelling…"
-            self.changed()
-            return True
-        return False
+        CANCEL.set()
+        ffmpeg.kill_all()
+        self.changed()
+        return True
 
     def _progress(self, job: Job):
         def cb(stage: str, pct: int, message: str) -> None:
@@ -303,10 +309,11 @@ class StudioServer:
         from .utils import CANCEL, Cancelled
         while True:
             job = self.queue.get()
-            if job.status == "cancelled":
-                continue
-            CANCEL.clear()
-            self.current, job.status, job.started = job, "running", time.time()
+            with self._lock:
+                if job.status == "cancelled":
+                    continue
+                CANCEL.clear()
+                self.current, job.status, job.started = job, "running", time.time()
             self._persist_jobs()
             self.changed()
             p = job.params
