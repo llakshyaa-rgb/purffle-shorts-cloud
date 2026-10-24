@@ -711,6 +711,9 @@ class Visuals:
                 # Don't accept a weak keyword coincidence as a visual match. Local files
                 # must have at least one filename-token overlap; stock media must have a
                 # meaningful match across the scene's descriptive metadata.
+                # Require evidence that the asset actually depicts the requested subject.
+                # A neutral score is useful for ranking but is not enough to approve stock footage:
+                # missing alt text/tags must not silently become unrelated b-roll.
                 cand = [
                     candidate for candidate in combined.values()
                     if (
@@ -719,6 +722,7 @@ class Visuals:
                     )
                     or (
                         candidate.source != "local"
+                        and (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
                         and relevance(candidate, query) >= 0.45
                     )
                 ]
