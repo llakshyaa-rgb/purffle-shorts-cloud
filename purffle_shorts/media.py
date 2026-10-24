@@ -602,7 +602,7 @@ class Visuals:
                 library_path = dest_dir / f"scene{idx:02d}_library.png"
                 make_visual(
                     query or topic, image_prompt, library_path,
-                    self.s.width, self.s.height,
+                    self.s.width, self.s.height, variation=idx,
                 )
                 log.info("Scene %d: built-in %s visual library", idx + 1, visual_kind)
                 return MediaItem(
