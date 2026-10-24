@@ -275,6 +275,13 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
   * Be specific without becoming dense. Keep one main idea per sentence or breath. Use short transitions only when they help. Cut filler, repeated conclusions, fake suspense, generic phrases, and unnecessary dramatic adjectives.
   * Preserve nuance and accuracy. Do not invent evidence or pretend uncertain claims are proven. If a subject is complicated, explain the key idea simply rather than oversimplifying it into something false.
 - Every line earns its place: use concrete details, names, comparisons, actions, and well-established facts. No invented statistics, fake certainty, or sensational claims unsupported by evidence.
+- QUALITY BAR: aim for a publishable script, not merely valid JSON or a plausible draft. Before returning, do a silent full-pass edit for logic, grammar, pronoun clarity, originality, spoken rhythm, emotional impact, and payoff. Replace any phrase that sounds like compressed notes rather than natural speech (e.g. "the lock refused, leaving mystery"). Never trade clarity for a dramatic-sounding sentence.
+- CAUSE-AND-EFFECT TEST: every important action must have a reason and consequence. Do not introduce a key, person, object, note, or relationship only in the final line unless the opening planted it or the ending clearly explains it. If a detail is called "missing", establish that it went missing earlier. Pronouns such as he/she/they/her must have an unambiguous referent.
+- FINAL TWO SCENES: use the penultimate scene to reveal the answer and the last scene to explain its meaning or show a concrete consequence/reaction. Do not use the final line merely to restate the reveal, introduce another mystery, or sound ominous. The audience should understand what happened without inventing missing logic themselves.
+- VISUAL STORYBOARD QUALITY: write each scene as a distinct shot that changes the information or emotion. The image_prompt should specify subject, visible action, setting, framing, and a useful detail; search_query should describe the actual visible subject, not abstract mood. Avoid reusing the same generic shot across scenes. For fictional animation, keep character identity, clothing, scale, props, and location consistent across the script by repeating concise visual continuity cues in each relevant image_prompt.
+- SCENE-TO-SCENE CONTINUITY: keep point of view, tense, character names, object ownership, and physical geography consistent. Each scene must follow naturally from the previous one. Do not change "I" to "he" without a clear reason, and do not make the narrator know something they could not know.
+- LENGTH AND DENSITY: target the requested runtime without padding. Each scene should contain one clean spoken beat; keep sentences easy to follow on first listen. If the premise needs more explanation than the runtime allows, simplify the premise rather than cutting essential cause-and-effect.
+- SELF-REVIEW BEFORE JSON: ask silently: What does the viewer wonder after the hook? What evidence builds the question? What choice changes the situation? What does the reveal prove? What happens because of it? If any answer is missing, revise the script before returning JSON.
 - Plan visuals while writing, not afterward. Each scene must depict a distinct, specific thing the viewer can actually see that directly matches its narration. Give every scene a useful, searchable visual subject; avoid repeating the same subject across adjacent scenes unless a deliberate return shot helps the story.
 - search_query: 2-5 specific English words describing the exact visible subject of the scene. Prefer concrete objects, organisms, scientific structures, actions, or locations. For science topics, use specific terms such as "Lake Natron flamingos", "sodium carbonate lake shore", or "flamingo feet alkaline water". Avoid vague phrases such as "hidden roles", "glowing brain", "amazing science", or "brain facts". Match the actual narration; never invent visual subjects.
 - image_prompt: one vivid English sentence describing a distinct shot for that scene, including subject, action, setting, and camera framing when helpful. No text, labels, or letters in the image.
@@ -639,16 +646,13 @@ def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[st
 
 def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
     """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
-    if script.style not in {"story", "reddit", "chat"}:
-        return script, script.score, script.rubric, list(script.review or [])
-
     try:
         score, rubric, issues = _grade(llm, script, settings)
     except Exception as e:
         log.warning("Story payoff check skipped: %s", e)
         return script, script.score, script.rubric, list(script.review or [])
 
-    if rubric.get("payoff", 5) >= 7:
+    if script.style not in {"story", "reddit", "chat"} or rubric.get("payoff", 5) >= 7:
         return script, score, rubric, issues
 
     forced_checks = lint_script(script, settings) + [
@@ -689,12 +693,9 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
     if llm is None or mode == "off":
         return script
     if mode == "score":
-        try:
-            score, rubric, issues = _grade(llm, script, settings)
-        except Exception as e:
-            log.warning("Script Doctor skipped: %s", e)
-            return script
         script, score, rubric, issues = _enforce_story_payoff(llm, script, settings)
+        if score is None and not rubric:
+            return script
         script.score, script.rubric, script.review = score, rubric, _with_checks(issues, script, settings)
         log.info("Script Doctor: %s/100%s", score if score is not None else "?", f" — {issues[0]}" if issues else "")
         return script
