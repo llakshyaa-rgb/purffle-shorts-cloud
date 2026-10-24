@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .visual_library import character_kind, make_visual, visual_type
+from .visual_library import character_kind, make_visual
 
 _LOCK = threading.RLock()
 _INDEX = "index.json"
