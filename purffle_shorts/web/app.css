@@ -519,9 +519,9 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 /* Persistent reusable artwork browser */
 .asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
 .asset-card{min-width:0;overflow:hidden;border:1px solid var(--rule);border-radius:var(--r);background:var(--sheet)}
-.asset-card>img{display:block;width:100%;aspect-ratio:9/16;max-height:340px;object-fit:cover;background:var(--panel)}
+.asset-card>img{display:block;width:100%;aspect-ratio:9/16;max-height:340px;object-fit:cover;background:var(--well)}
 .asset-meta{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
 .asset-meta>b{overflow-wrap:anywhere;line-height:1.4}
-.asset-meta>small{color:var(--muted)}
-.asset-preview{display:block;width:min(100%,340px);max-height:58vh;object-fit:contain;margin:12px auto;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel)}
+.asset-meta>small{color:var(--ink-3)}
+.asset-preview{display:block;width:min(100%,340px);max-height:58vh;object-fit:contain;margin:12px auto;border:1px solid var(--rule);border-radius:var(--r);background:var(--well)}
 @media(max-width:480px){.asset-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.asset-meta{padding:9px}.asset-card>img{max-height:270px}}
