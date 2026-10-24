@@ -279,3 +279,48 @@ def test_manual_schedule_and_approval_are_persistent_but_upload_stays_disabled(s
     # Approval is not permission to bypass UPLOAD=false; the server enforces the hard stop.
     status, _, body = req(port, "POST", f"/api/upload/{vid}", {}, app.token)
     assert status == 403 and "UPLOAD=false" in json.loads(body)["error"]
+
+
+def test_manual_schedule_and_approval_are_persistent_but_never_bypass_upload_switch(server, tmp_path):
+    from datetime import datetime, timedelta
+
+    app, port = server
+    video = tmp_path / "approved.mp4"
+    video.write_bytes(b"test-video")
+    vid = app.studio.history.add_video(
+        title="Approval test", status="rendered", folder=str(tmp_path), video_path=str(video),
+    )
+
+    future = (datetime.now().astimezone() + timedelta(days=1)).replace(second=0, microsecond=0).isoformat()
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/schedule", {"publish_at": future}, app.token)
+    assert status == 200 and json.loads(body)["publish_at"]
+    record = app.studio.history.get(vid)
+    assert record["publish_at"] and record["approval_status"] == "pending"
+
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/approval", {"approved": True}, app.token)
+    assert status == 200 and json.loads(body)["approval_status"] == "approved"
+    assert app.studio.history.get(vid)["approval_status"] == "approved"
+
+    # UPLOAD=false remains a hard stop even for an explicitly approved item.
+    status, _, body = req(port, "POST", f"/api/upload/{vid}", {}, app.token)
+    assert status == 403 and "UPLOAD=false" in json.loads(body)["error"]
+
+
+def test_manual_schedule_rejects_past_times_and_missing_files(server, tmp_path):
+    from datetime import datetime, timedelta
+
+    app, port = server
+    video = tmp_path / "schedule-test.mp4"
+    video.write_bytes(b"test-video")
+    vid = app.studio.history.add_video(
+        title="Schedule test", status="rendered", folder=str(tmp_path), video_path=str(video),
+    )
+    past = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/schedule", {"publish_at": past}, app.token)
+    assert status == 400 and "future" in json.loads(body)["error"]
+
+    missing = app.studio.history.add_video(
+        title="Missing file", status="rendered", folder=str(tmp_path), video_path=str(tmp_path / "gone.mp4"),
+    )
+    status, _, body = req(port, "POST", f"/api/videos/{missing}/approval", {"approved": True}, app.token)
+    assert status == 404
