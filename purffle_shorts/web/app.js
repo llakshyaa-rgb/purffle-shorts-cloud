@@ -348,11 +348,11 @@ function drawForm() {
   <section class="card">
     ${sh("01", "What is it about?")}
     <div class="src-tabs">${seg("mode", [["topic", "Topic"], ["url", "Web page"], ["queue", "Idea queue"], ["auto", "Surprise me"]], f.mode)}</div>
-    ${f.mode === "topic" ? `<div class="field big"><input type="text" data-f="topic" value="${esc(f.topic)}" placeholder="Why octopuses have three hearts" aria-label="Topic"><p class="hint">Broad or specific: the AI finds the surprising angle, using what people actually search for.</p></div>`
+    ${f.mode === "topic" ? `<div class="field big"><div class="clearable-input"><input type="text" data-f="topic" value="${esc(f.topic)}" placeholder="Why octopuses have three hearts" aria-label="Topic"><button class="clear-field" type="button" data-clear-field="topic" aria-label="Clear topic" title="Clear topic">×</button></div><p class="hint">Broad or specific: the AI finds the surprising angle, using what people actually search for.</p></div>`
     : f.mode === "url" ? `<div class="field big"><input type="url" data-f="url" value="${esc(f.url)}" placeholder="https://… an article, a blog post or a Reddit post" aria-label="Web page"><p class="hint">The page's text becomes the script's source material.</p></div>`
     : f.mode === "queue" ? `<p class="hint">Uses the oldest idea in your queue (${i_ideas()} waiting). Plan more on the <a href="#ideas">Ideas</a> page.</p>`
     : `<p class="hint">Picks a fresh topic from your niches and topic sources in .env.</p>`}
-    <div class="field"><label>Creative direction <span class="hint">(optional)</span></label><textarea data-f="creative_brief" rows="3" maxlength="1000" placeholder="e.g. Open with a cinematic scene, build a mystery, use real close-up footage and a map, avoid listicle pacing.">${esc(f.creative_brief || "")}</textarea><p class="hint">Steers the story, pacing and visual approach for this video. Leave blank for the AI to decide.</p></div>
+    <div class="field"><label>Creative direction <span class="hint">(optional)</span></label><div class="clearable-input clearable-textarea"><textarea data-f="creative_brief" rows="3" maxlength="1000" placeholder="e.g. Open with a cinematic scene, build a mystery, use real close-up footage and a map, avoid listicle pacing.">${esc(f.creative_brief || "")}</textarea><button class="clear-field" type="button" data-clear-field="creative_brief" aria-label="Clear creative direction" title="Clear creative direction">×</button></div><p class="hint">Steers the story, pacing and visual approach for this video. Leave blank for the AI to decide.</p></div>
   </section>
 
   <section class="card">
@@ -432,6 +432,18 @@ function capSample(style, position = "") {
 function bindForm() {
   const root = $("#form");
   root.addEventListener("click", e => {
+    const clear = e.target.closest("[data-clear-field]");
+    if (clear) {
+      const key = clear.dataset.clearField;
+      const field = $(`[data-f="${key}"]`, root);
+      if (field) {
+        field.value = "";
+        S.form[key] = "";
+        saveForm();
+        field.focus();
+      }
+      return;
+    }
     const step = e.target.closest("[data-duration-step]");
     if (step) {
       const slider = $('[data-f="duration"]', root);
