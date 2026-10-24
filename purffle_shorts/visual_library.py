@@ -63,6 +63,71 @@ def visual_type(query: str, image_prompt: str = "") -> str:
             return "diagram"
     return "illustration"
 
+
+def character_kind(text: str) -> str:
+    """Stable, reusable character archetype inferred from the explicit character brief."""
+    words = _words(text)
+    if words & {"narrator", "hooded", "mascot", "host", "purffle"}:
+        return "hooded_narrator"
+    if words & {"scientist", "researcher", "laboratory"}:
+        return "scientist"
+    if words & {"detective", "investigator", "sleuth"}:
+        return "detective"
+    if words & {"explorer", "astronaut", "adventurer"}:
+        return "explorer"
+    if words & {"ghost", "creature", "monster", "shadow"}:
+        return "mysterious_figure"
+    if words & {"boy", "girl", "person", "character", "witness", "stranger"}:
+        return "human_silhouette"
+    return "symbolic_mascot"
+
+
+def _character(draw, w: int, h: int, ink, accent, second, seed: int, archetype: str) -> None:
+    """Draw a consistent, simple recurring character silhouette with pose variation."""
+    cx, cy = w // 2, int(h * .48)
+    scale = min(w * .56, h * .42)
+    line_w = max(5, w // 150)
+    # Identity stays stable across poses: hood shape, face glow, eye spacing and accent trim.
+    if archetype in ("hooded_narrator", "mysterious_figure", "detective"):
+        head_r = scale * .23
+        hood = [(cx, cy-scale*.64), (cx-scale*.28, cy-scale*.35), (cx-scale*.24, cy+scale*.06),
+                (cx-scale*.15, cy+scale*.18), (cx+scale*.15, cy+scale*.18),
+                (cx+scale*.24, cy+scale*.06), (cx+scale*.28, cy-scale*.35)]
+        draw.polygon(hood, fill=(7, 10, 20), outline=accent)
+        draw.ellipse((cx-head_r, cy-scale*.43, cx+head_r, cy-scale*.03),
+                     fill=(12, 17, 30), outline=second, width=line_w)
+        eye_y = cy-scale*.24
+        eye_dx = scale*.09
+        glow = accent if archetype != "detective" else second
+        draw.ellipse((cx-eye_dx-scale*.035, eye_y-scale*.02, cx-eye_dx+scale*.035, eye_y+scale*.035), fill=glow)
+        draw.ellipse((cx+eye_dx-scale*.035, eye_y-scale*.02, cx+eye_dx+scale*.035, eye_y+scale*.035), fill=glow)
+        torso = [(cx-scale*.16, cy+scale*.1), (cx-scale*.36, cy+scale*.55),
+                 (cx-scale*.29, cy+scale*.72), (cx+scale*.29, cy+scale*.72),
+                 (cx+scale*.36, cy+scale*.55), (cx+scale*.16, cy+scale*.1)]
+        draw.polygon(torso, fill=(10, 15, 27), outline=accent)
+        # Repeatable left/right gesture poses.
+        pose = seed % 3
+        arm_y = cy + scale*(.25 if pose == 1 else .42)
+        if pose == 0:
+            _line(draw, [(cx-scale*.25, arm_y), (cx-scale*.43, cy+scale*.14),
+                         (cx-scale*.48, cy-scale*.02)], second, line_w)
+            _line(draw, [(cx+scale*.25, arm_y), (cx+scale*.43, cy+scale*.14),
+                         (cx+scale*.48, cy-scale*.02)], accent, line_w)
+        elif pose == 1:
+            _line(draw, [(cx-scale*.24, arm_y), (cx-scale*.42, cy+scale*.5)], second, line_w)
+            _line(draw, [(cx+scale*.24, arm_y), (cx+scale*.47, cy+scale*.03),
+                         (cx+scale*.61, cy-scale*.04)], accent, line_w)
+        else:
+            _line(draw, [(cx-scale*.24, arm_y), (cx-scale*.48, cy+scale*.02),
+                         (cx-scale*.59, cy-scale*.02)], accent, line_w)
+            _line(draw, [(cx+scale*.24, arm_y), (cx+scale*.42, cy+scale*.5)], second, line_w)
+    else:
+        # General character silhouette; same body language and visual grammar across topics.
+        _person(draw, cx, int(cy+scale*.12), scale*.85, ink, accent, frightened=False)
+        draw.ellipse((cx-scale*.22,cy-scale*.62,cx+scale*.22,cy-scale*.18),outline=second,width=line_w)
+    _glow(draw, cx, int(cy-scale*.18), int(scale*.38), second)
+
+
 def _font(size: int):
     for name in ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                  "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"):
@@ -460,20 +525,27 @@ def _diagram(im, draw, query, ink, accent, second):
         _line(draw,[(x,h*.22),(x+w*.045,h*.22)],accent,max(2,w//280))
         _line(draw,[(x,h*.82),(x+w*.045,h*.82)],second,max(2,w//280))
 
-def make_visual(query: str, image_prompt: str, destination: Path, width: int, height: int, variation: int = 0) -> str:
-    """Create a story-aware illustration or subject-matched infographic as a PNG."""
+def make_visual(
+    query: str, image_prompt: str, destination: Path, width: int, height: int,
+    variation: int = 0, mode: str | None = None, style_key: str = "",
+) -> str:
+    """Create reusable story artwork, a diagram, or a consistent character portrait."""
     destination=Path(destination); destination.parent.mkdir(parents=True,exist_ok=True)
-    seed=int(hashlib.sha1((query+"|"+image_prompt+"|variation:"+str(variation)).encode("utf-8")).hexdigest()[:8],16)
+    character_mode = (mode or "").lower() == "character"
+    seed_text = (f"character:{style_key.casefold()}" if character_mode and style_key
+                 else query + "|" + image_prompt + "|style:" + style_key + "|variation:" + str(variation))
+    seed=int(hashlib.sha1(seed_text.encode("utf-8")).hexdigest()[:8],16)
     bg,accent,second,ink=PALETTES[seed%len(PALETTES)]
     w=max(360,int(width)); h=max(640,int(height))
     im=Image.new("RGB",(w,h),bg); draw=ImageDraw.Draw(im)
-    # Subtle atmospheric background and consistent art direction across scenes.
     for i in range(44):
         x=(seed*(i+7)*31)%w; y=(seed*(i+13)*17)%h; rr=1+i%3
         draw.ellipse((x-rr,y-rr,x+rr,y+rr),fill=(31,40,60))
     draw.rounded_rectangle((w*.045,h*.035,w*.955,h*.965),radius=26,outline=(55,67,90),width=max(2,w//400))
-    kind=visual_type(query,image_prompt)
-    if kind=="diagram":
+    kind=(mode or visual_type(query,image_prompt)).lower()
+    if kind == "character":
+        _character(draw,w,h,ink,accent,second,seed,character_kind(style_key or query+" "+image_prompt))
+    elif kind == "diagram":
         _diagram(im,draw,f"{query} {image_prompt}",ink,accent,second)
     else:
         _illustration(im,draw,f"{query} {image_prompt}",ink,accent,second,seed)
