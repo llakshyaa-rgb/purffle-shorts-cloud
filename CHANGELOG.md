@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- **Background Scene-Level Creative Director.** Each video receives per-scene visual mode and prompt, camera movement, transition intent, sparse sound accents, and a concise production rationale. The plan drives media selection, Ken Burns movement and soundtrack accents, and is saved beside the render as `director.json` and `director_notes.md`. It runs without adding a visible panel to the Create screen; open **Director notes** from a completed job in Queue or from video details when you want to inspect the plan. If the planning call fails, a local rule-based plan keeps production moving.
+- **More intentional scene direction.** Directed explanatory beats prefer original diagrams, fictional beats prefer drawn illustrations, and real-world evidence beats can prioritise stock footage or editorial photos. The recurring transparent narrator and existing Script Doctor remain in the pipeline; factual/hypothetical scripts are prompted to explain cause and effect plainly without overstating certainty.
 - **A new Studio design and logo.**
   - Warm paper-and-ink colours with one signal colour, the red of a camera's tally light, in a light theme, a dark "control room" theme, or the system's choice (switch in the sidebar).
   - Schibsted Grotesk and JetBrains Mono, bundled as Latin subsets under the OFL, so nothing loads from a CDN.
