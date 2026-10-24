@@ -46,19 +46,19 @@ CAMERAS = ("push_in", "pull_out", "pan_left", "pan_right", "static", "shake")
 MODES = ("illustration", "diagram", "footage", "photo", "symbolic")
 TRANSITIONS = ("cut", "fade", "dissolve", "whip", "match_cut")
 SOUNDS = ("none", "whoosh", "pop", "hit")
-CHARACTERS = ("none", "purffle_narrator", "detective", "scientist", "explorer", "mysterious_figure")
+CHARACTERS = ("none", "purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery")
 
 
 def _character_for(text: str, style: str) -> str:
     words = set(re.findall(r"[a-z]+", text.lower()))
     if words & {"detective", "investigator", "sleuth"}:
-        return "detective"
+        return "purffle_detective"
     if words & {"scientist", "researcher", "laboratory"}:
-        return "scientist"
+        return "purffle_scientist"
     if words & {"explorer", "astronaut", "adventurer"}:
-        return "explorer"
+        return "purffle_explorer"
     if words & {"ghost", "monster", "stranger", "shadow", "mysterious", "creature"}:
-        return "mysterious_figure"
+        return "purffle_mystery"
     if style in ("story", "reddit") and words & {"narrator", "hooded", "purffle"}:
         return "purffle_narrator"
     return "none"
