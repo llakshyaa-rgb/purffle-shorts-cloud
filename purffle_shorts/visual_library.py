@@ -75,7 +75,7 @@ def character_kind(text: str) -> str:
         return "detective"
     if words & {"explorer", "astronaut", "adventurer"}:
         return "explorer"
-    if words & {"ghost", "creature", "monster", "shadow"}:
+    if words & {"ghost", "creature", "monster", "shadow", "mystery", "mysterious"}:
         return "mysterious_figure"
     if words & {"boy", "girl", "person", "character", "witness", "stranger"}:
         return "human_silhouette"
