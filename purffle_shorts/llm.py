@@ -186,7 +186,7 @@ def extract_json(text: str) -> dict[str, Any]:
         f"Model returned invalid or incomplete JSON. "
         f"Response preview: {preview!r}"
     )
-    
+
 
 class OpenAICompatible(Provider):
     def __init__(self, preset: Preset, model: str, api_key: str, base_url: str):
@@ -203,14 +203,14 @@ class OpenAICompatible(Provider):
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
-      
+
         if self._is_reasoning_model():
             payload["max_completion_tokens"] = max(max_tokens, 8000)
         else:
             payload["temperature"] = temperature
             payload["max_tokens"] = max(max_tokens, 12000)
-            
-        
+
+
         if schema and self._schema_mode:
             # Strict structured output: the reply is guaranteed to have exactly the keys and types asked for.
             payload["response_format"] = {"type": "json_schema",
