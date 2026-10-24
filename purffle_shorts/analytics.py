@@ -92,7 +92,7 @@ def insights(history: History, n: int = 5) -> str:
                 f'{views:,} views | {likes:,} likes | {comments:,} comments | '
                 f'{rate:.2f}% likes+comments per view')
     text = ("Channel evidence (videos at least 48 hours old; rank combines log views with a capped "
-            "engagement bonus, not true audience retention):\nBest performers by views/engagement signal:\n" +
+            "engagement bonus, not true audience retention):\nVideos that performed best by views/engagement signal:\n" +
             "\n".join(row(v) for v in best))
     if worst:
         text += "\nLower performers:\n" + "\n".join(row(v) for v in worst)
