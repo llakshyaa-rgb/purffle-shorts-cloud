@@ -14,6 +14,7 @@ import math
 import random
 from datetime import datetime
 from statistics import median
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .config import Settings
 from .history import History
@@ -172,16 +173,22 @@ def spearman(xs: list[float], ys: list[float]) -> float | None:
     return round(cov / (sx * sy), 3) if sx and sy else None
 
 
-def _local_hour(iso: str | None) -> int | None:
+def _local_hour(iso: str | None, timezone_name: str | None = None) -> int | None:
     if not iso:
         return None
     try:
-        return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone().hour
+        value = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        if timezone_name:
+            try:
+                return value.astimezone(ZoneInfo(timezone_name)).hour
+            except ZoneInfoNotFoundError:
+                log.warning("Unknown analytics timezone %r; using server local time", timezone_name)
+        return value.astimezone().hour
     except ValueError:
         return None
 
 
-def calibration(history: History) -> dict:
+def calibration(history: History, timezone_name: str | None = None) -> dict:
     """Calibrate script scores and summarise mature-video performance by format, topic and publish hour."""
     rows = history.results()
     scored = [r for r in rows if r.get("score") is not None]
@@ -194,7 +201,7 @@ def calibration(history: History) -> dict:
         topic = (r.get("topic") or r.get("subject") or "").strip()
         if topic:
             topics.setdefault(topic.casefold(), []).append(r)
-        h = _local_hour(r.get("publish_at") or r.get("uploaded_at"))
+        h = _local_hour(r.get("publish_at") or r.get("uploaded_at"), timezone_name)
         if h is not None:
             hours.setdefault(h, []).append(r["views"])
     style_rows = []
