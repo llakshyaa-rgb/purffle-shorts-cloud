@@ -709,7 +709,8 @@ class Studio:
         status = rec["status"]
         when = _future(rec.get("publish_at"))
         if on_youtube:
-            when = youtube.next_publish_slot(self.s, self.history.scheduled_times())
+            # A creator-selected time takes precedence over configured default slots.
+            when = _future(rec.get("publish_at")) or youtube.next_publish_slot(self.s, self.history.scheduled_times())
             status = self._to_youtube(rid, rec, meta, folder, when, result)
             if status not in ("uploaded", "scheduled"):
                 when = None
