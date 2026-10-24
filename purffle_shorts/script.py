@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import random
 import re
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -572,7 +571,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             if not query:
                 out.append(f"Scene {i} has no usable visual search query; provide a concrete subject that can be found or illustrated.")
                 break
-            if query in seen_queries and len(script.scenes) >= 4:
+            if query in seen_queries and len(script.scenes) >= 3:
                 out.append(f"Scenes {seen_queries[query]} and {i} reuse the same visual search; vary the shot when the narrated beat changes.")
                 break
             seen_queries[query] = i
@@ -597,7 +596,6 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             if repeated_lines[i] and repeated_lines[i] == repeated_lines[i - 1]:
                 out.append(f"Scenes {i} and {i + 1} repeat the same narration; remove the duplicate.")
                 break
-    ending = " ".join(sc.narration for sc in script.scenes[-2:])
     # A story payoff is more important than a call to action; CTAs are optional.
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
