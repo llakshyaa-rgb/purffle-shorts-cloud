@@ -174,7 +174,7 @@ class StudioServer:
             "tts_voice": str(p.get("voice") or "").strip()[:200] or None,
             "tts_voice_b": str(p.get("voice_b") or "").strip()[:200] or None,
             "caption_style": _choice(p.get("caption_style"), CAPTION_STYLES),
-            "caption_position": _choice(p.get("caption_position"), ("upper", "center", "lower")),
+            "caption_position": _choice(p.get("caption_position"), ("upper", "center", "lower", "bottom")),
             "color_grade": _choice(p.get("grade"), GRADES),
             "transition": _choice(p.get("transition"), ["random", "none", *TRANSITIONS]),
             "llm_provider": str(p.get("provider") or "").strip().lower() or None,
@@ -183,7 +183,7 @@ class StudioServer:
         }
         if p.get("duration"):
             try:
-                ov["target_seconds"] = max(10, min(170, int(p["duration"])))
+                ov["target_seconds"] = max(10, min(600, int(p["duration"])))
             except (TypeError, ValueError):
                 pass
         if p.get("aspect") in ASPECTS:
