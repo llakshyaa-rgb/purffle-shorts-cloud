@@ -183,7 +183,7 @@ class StudioServer:
         }
         if p.get("duration"):
             try:
-                ov["target_seconds"] = max(10, min(600, int(p["duration"])))
+                ov["target_seconds"] = max(10, min(170, int(p["duration"])))
             except (TypeError, ValueError):
                 pass
         if p.get("aspect") in ASPECTS:
