@@ -67,16 +67,18 @@ def visual_type(query: str, image_prompt: str = "") -> str:
 def character_kind(text: str) -> str:
     """Stable, reusable character archetype inferred from the explicit character brief."""
     words = _words(text)
-    if words & {"narrator", "hooded", "mascot", "host", "purffle"}:
-        return "hooded_narrator"
-    if words & {"scientist", "researcher", "laboratory"}:
-        return "scientist"
+    # Check explicit archetypes before the shared "Purffle" collection prefix;
+    # otherwise every named character would accidentally collapse into the narrator.
     if words & {"detective", "investigator", "sleuth"}:
         return "detective"
+    if words & {"scientist", "researcher", "laboratory"}:
+        return "scientist"
     if words & {"explorer", "astronaut", "adventurer"}:
         return "explorer"
     if words & {"ghost", "creature", "monster", "shadow", "mystery", "mysterious"}:
         return "mysterious_figure"
+    if words & {"narrator", "hooded", "mascot", "host", "purffle"}:
+        return "hooded_narrator"
     if words & {"boy", "girl", "person", "character", "witness", "stranger"}:
         return "human_silhouette"
     return "symbolic_mascot"
