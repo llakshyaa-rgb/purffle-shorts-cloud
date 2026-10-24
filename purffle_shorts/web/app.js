@@ -651,7 +651,7 @@ function drawEditor() {
   box.onclick = async e => {
     const fullCopy = e.target.closest("#copy-script");
     if (fullCopy) {
-      const text = [d.title, d.hook_text, ...d.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`), d.description, (d.hashtags || []).join(" ")].filter(Boolean).join("\\n\\n");
+      const text = [d.title, d.hook_text, ...d.scenes.map((scene, i) => `Scene ${i + 1}: ${scene.narration}`), d.description, (d.hashtags || []).join(" ")].filter(Boolean).join("\n\n");
       try {
         await copyText(text);
         fullCopy.innerHTML = `${I.check}Copied`;
