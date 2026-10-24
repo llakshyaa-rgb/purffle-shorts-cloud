@@ -227,8 +227,11 @@ def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str],
     lang = LANGUAGES.get(settings.language, settings.language)
     words, n_scenes = scene_plan(style, settings.target_seconds)
     system = (
-        "You are a top YouTube Shorts scriptwriter and editor. You write fast, factual, highly "
-        "re-watchable vertical videos. You reply with a single JSON object and nothing else."
+        "You are an exceptional human-sounding short-form scriptwriter, storyteller, and line editor. "
+        "Your scripts feel clear, specific, emotionally engaging, and effortless to understand when heard once. "
+        "You build a coherent spoken script before dividing it into scenes. Every sentence has a purpose; "
+        "no robotic phrasing, empty hype, unexplained jargon, filler, or disconnected fact-dumps. "
+        "You reply with one valid JSON object and nothing else."
     )
     avoid_block = ""
     if avoid:
@@ -248,7 +251,11 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 {ctx}{ins}{brief}{avoid_block}Rules:
 - Total narration about {words} words (~{settings.target_seconds} seconds spoken), split into about {n_scenes} scenes.
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
-- Give this video its own creative identity. Do not narrate a list of disconnected facts unless the selected format is explicitly a listicle/facts format. Build a clear progression: hook -> develop the curiosity -> reveal specific evidence/details -> satisfying payoff. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, and announcing what the video will explain.
+- WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
+- Give this video its own creative identity. Build a clear progression suited to its format: opening -> development -> meaningful detail or complication -> payoff. Even facts/list formats need a clear thread, not a pile of unrelated trivia. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, generic AI phrasing, and announcing what the video will explain.
+- Edit every line before returning it: replace vague wording with a concrete detail; remove repeated ideas; simplify awkward sentences; check that pronouns clearly refer to something; and make transitions sound natural when spoken aloud.
+- Avoid canned AI phrases such as "little did they know", "but here's the twist", "what happened next changed everything", "you won't believe", and "and that's when things got interesting" unless the specific story genuinely earns that wording. Do not use dramatic language as a substitute for information.
+- Do not force every sentence to be a hook. Use rhythm: a few short punchy lines, then a clear explanatory line when needed, then move forward. The script should sound natural at normal speaking speed, not like every line is a trailer voice-over.
 - For factual, science, explainer, quiz, and hypothetical "what if" videos, make the opening sound like a person talking to a curious friend. If the subject is a what-if question, open with a direct version of the question, such as "So, what would happen if you stayed awake for 24 hours?" Do not force suspenseful metaphors ahead of the actual question.
 - Use everyday words first. Avoid dropping unfamiliar scientific or medical names just to sound smart. If a technical term is genuinely useful, explain it in the same breath: say what it is in plain language and what it does, then continue. Example pattern: "Your brain builds up adenosine, a chemical that makes you feel sleepy." Never leave a new term unexplained or stack several unfamiliar terms in one sentence.
 - Explain the mechanism, not just the label or outcome: briefly tell viewers what is happening, why it happens, and what they would notice. Prefer a clear real-world comparison when it helps. Keep explanations accurate and short enough to follow while listening.
@@ -582,7 +589,9 @@ automatic finding: sharpen the hook, cut filler, make vague lines concrete, remo
 keep the payoff for the end, end with a short call to action. Put the rewritten script in "script".
 Creative-quality requirements:
 - Do not default to "Did you know?" or any repeated stock opening. Keep the opening specific to this topic and distinct from recent titles/context.
-- Ensure the narration progresses logically rather than listing disconnected facts, unless the chosen format is explicitly a facts/list format.
+- Read the narration as one complete spoken script before judging individual scenes. It must flow naturally from the first line to the final payoff, with no disconnected lines or abrupt jumps—even in facts/list formats.
+- Line-edit the whole narration: replace vague or awkward wording, remove repeated information, clarify references, improve transitions, and vary sentence rhythm. Reject writing that merely sounds dramatic but says little.
+- Avoid canned AI phrases and trailer-style overacting. Keep the voice engaging but believable; use punchy lines selectively and give explanations enough room to make sense.
 - Each scene must have a concrete, searchable visual directly matching its narration. Avoid vague/repeated adjacent search queries; vary the actual subject or shot when the narration changes.
 - Do not claim a visual is secured just because a search query exists; use specific search_query and a concrete image_prompt that describes a plausible shot.
 - Write for the ear, not an article: use contractions and natural spoken phrasing where appropriate, varied sentence lengths, and one clear idea per breath.
