@@ -619,8 +619,14 @@ class Visuals:
         # Respect explicit provider choices: Pexels/Pixabay/AI sources should be tried
         # instead of being silently bypassed by local artwork. The library remains the
         # preferred source for director-led illustrations/diagrams and when no provider exists.
+        # Factual videos should not silently substitute generic cartoon assets for real subject
+        # footage. Use the built-in library for explicit mechanism diagrams; only use illustration
+        # or symbolic artwork when no external visual provider is configured. If a provider is
+        # configured, attempt a metadata-matched asset first and keep the offline library as a
+        # last resort rather than letting a director style tag override factual relevance.
         use_library = (
-            directed_mode in ("diagram", "illustration", "symbolic")
+            directed_mode == "diagram"
+            or (directed_mode in ("illustration", "symbolic") and not self.sources)
             or (not directed_mode and visual_kind == "diagram" and not self.sources)
             or (not directed_mode and not self.sources and stable % 100 < 78)
         )
