@@ -601,11 +601,12 @@ function drawEditor() {
         <span class="num">${multi ? esc(s.speaker || "A") : String(n + 1).padStart(2, "0")}</span>
         <div class="field">
           <textarea data-i="${n}" data-s="narration" aria-label="Scene ${n + 1} narration">${esc(s.narration)}</textarea>
+          <div class="row"><span class="hint">Narration</span><span class="tools"><button class="btn ghost sm" type="button" data-copy-narration="${n}" aria-label="Copy narration for scene ${n + 1}">${I.copy}Copy narration</button></span></div>
           <div class="row">
             ${multi ? `<button class="btn ghost sm" type="button" data-act="speaker" data-i="${n}" title="Switch speaker">A/B</button>` : ""}
             <input type="text" data-i="${n}" data-s="search_query" value="${esc(s.search_query)}" placeholder="footage search" aria-label="Footage search">
             <span class="tools">
-              <button class="btn ghost sm" type="button" data-copy-scene="${n}" aria-label="Copy scene" title="Copy scene">${I.copy}Copy</button>
+              <button class="btn ghost sm" type="button" data-copy-footage="${n}" aria-label="Copy footage search for scene ${n + 1}">${I.copy}Copy footage</button>
               <button class="btn ghost sm" type="button" data-act="up" data-i="${n}" aria-label="Move up">${I.up}</button>
               <button class="btn ghost sm" type="button" data-act="down" data-i="${n}" aria-label="Move down">${I.down}</button>
               <button class="btn ghost sm" type="button" data-act="del" data-i="${n}" aria-label="Delete scene">${I.trash}</button>
@@ -630,11 +631,13 @@ function drawEditor() {
     saveDraft();
   };
   box.onclick = async e => {
-    const copyButton = e.target.closest("[data-copy-scene]");
+    const copyButton = e.target.closest("[data-copy-narration], [data-copy-footage]");
     if (copyButton) {
-      const scene = d.scenes[+copyButton.dataset.copyScene];
+      const isNarration = copyButton.hasAttribute("data-copy-narration");
+      const index = +(isNarration ? copyButton.dataset.copyNarration : copyButton.dataset.copyFootage);
+      const scene = d.scenes[index];
       if (!scene) return;
-      const text = [scene.narration, scene.search_query].filter(Boolean).join("\n");
+      const text = isNarration ? scene.narration : scene.search_query;
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
@@ -649,9 +652,9 @@ function drawEditor() {
           temp.remove();
           if (!copied) throw new Error("Clipboard unavailable");
         }
-        toast("Scene copied.", "ok", 1800);
+        toast(isNarration ? "Narration copied." : "Footage search copied.", "ok", 1800);
       } catch (_) {
-        toast("Couldn't copy this scene. Please select and copy it manually.", "error", 2600);
+        toast("Couldn't copy this text. Please select and copy it manually.", "error", 2600);
       }
       return;
     }
