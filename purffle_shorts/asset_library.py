@@ -110,6 +110,21 @@ def get_or_create_asset(
     return {**record, "path": path}
 
 
+def ensure_character_collection(root: str | Path, width: int, height: int) -> list[dict[str, Any]]:
+    """Create the canonical cast once; subsequent videos reuse the same character artwork."""
+    cast = (
+        ("purffle_narrator", "Purffle hooded narrator", "REUSABLE CHARACTER: purffle_narrator"),
+        ("purffle_detective", "Detective character", "REUSABLE CHARACTER: purffle_detective"),
+        ("purffle_scientist", "Scientist character", "REUSABLE CHARACTER: purffle_scientist"),
+        ("purffle_explorer", "Explorer character", "REUSABLE CHARACTER: purffle_explorer"),
+        ("purffle_mystery", "Mysterious figure character", "REUSABLE CHARACTER: purffle_mystery"),
+    )
+    return [
+        get_or_create_asset(root, title, prompt, width, height, mode="character", style_key=key)
+        for key, title, prompt in cast
+    ]
+
+
 def list_assets(root: str | Path, limit: int = 120) -> list[dict[str, Any]]:
     root = Path(root)
     with _LOCK:
