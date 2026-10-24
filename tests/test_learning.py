@@ -4,6 +4,7 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from purffle_shorts import analytics as A
+from purffle_shorts.config import Settings
 from purffle_shorts.history import History
 
 
@@ -89,3 +90,54 @@ def test_insights_include_topics_and_disclose_proxy_metrics(tmp_path):
 
 def test_publish_hour_conversion_uses_configured_timezone():
     assert A._local_hour("2026-10-24T12:00:00Z", "Asia/Kolkata") == 17
+
+
+def test_official_average_view_metrics_are_saved_when_analytics_api_is_available(tmp_path, monkeypatch, settings):
+    h = History(tmp_path / "retention.db")
+    vid = h.add_video(title="Retention", status="uploaded", youtube_id="retention-id",
+                      style="facts", score=80,
+                      uploaded_at=(datetime.now(timezone.utc) - timedelta(days=4)).isoformat())
+    h.set_stats("retention-id", 1000, 50, 5)
+
+    class Query:
+        def query(self, **kwargs):
+            assert kwargs["dimensions"] == "video"
+            assert "averageViewPercentage" in kwargs["metrics"]
+            return self
+
+        def execute(self):
+            return {
+                "columnHeaders": [
+                    {"name": "video"}, {"name": "averageViewDuration"},
+                    {"name": "averageViewPercentage"}, {"name": "estimatedMinutesWatched"},
+                ],
+                "rows": [["retention-id", 24.5, 87.2, 408.0]],
+            }
+
+    class API:
+        def reports(self):
+            return Query()
+
+    monkeypatch.setattr(A, "analytics_service", lambda _settings: API())
+    assert A.sync_retention(settings.with_overrides(learn_from_stats=True), h) == 1
+    saved = h.get(vid)
+    assert saved["average_view_duration"] == 24.5
+    assert saved["average_view_percentage"] == 87.2
+    assert saved["estimated_minutes_watched"] == 408.0
+
+
+def test_actual_average_view_percentage_can_break_performance_ties():
+    low = {"views": 1000, "likes": 50, "comments": 5, "average_view_percentage": 25}
+    high = {"views": 1000, "likes": 50, "comments": 5, "average_view_percentage": 85}
+    assert A._performance_signal(high) > A._performance_signal(low)
+
+
+def test_script_score_calibrates_against_average_view_percentage(tmp_path):
+    scores = [50, 60, 70, 80, 90]
+    h = _history(tmp_path, [("facts", 1000 + i, score, 100) for i, score in enumerate(scores)])
+    for i, score in enumerate(scores):
+        h.set_retention(f"y{i}", 20 + i, 20 + i * 15, 100 + i)
+    cal = A.calibration(h)
+    assert cal["retention_scored"] == 5
+    assert cal["score_vs_retention"] == 1.0
+    assert cal["styles"][0]["median_average_view_percentage"] == 50.0
