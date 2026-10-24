@@ -250,3 +250,32 @@ def test_queued_studio_jobs_survive_restart_without_replaying_running_uploads(se
     finally:
         # The test-only idle worker is a daemon and exits on its own.
         pass
+
+
+def test_manual_schedule_and_approval_are_persistent_but_upload_stays_disabled(server, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    app, port = server
+    video = tmp_path / "approved-test.mp4"
+    video.write_bytes(b"test video bytes")
+    vid = app.studio.history.add_video(
+        title="Approval test", status="rendered", folder=str(tmp_path),
+        video_path=str(video), duration=10, style="facts",
+    )
+
+    future = (datetime.now(timezone.utc) + timedelta(hours=2)).replace(microsecond=0)
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/schedule",
+                          {"publish_at": future.isoformat()}, app.token)
+    assert status == 200
+    saved = json.loads(body)["publish_at"]
+    assert saved.endswith("Z")
+    assert app.studio.history.get(vid)["publish_at"] == saved
+
+    status, _, body = req(port, "POST", f"/api/videos/{vid}/approval",
+                          {"approved": True}, app.token)
+    assert status == 200 and json.loads(body)["approval_status"] == "approved"
+    assert app.studio.history.get(vid)["approval_status"] == "approved"
+
+    # Approval is not permission to bypass UPLOAD=false; the server enforces the hard stop.
+    status, _, body = req(port, "POST", f"/api/upload/{vid}", {}, app.token)
+    assert status == 403 and "UPLOAD=false" in json.loads(body)["error"]
