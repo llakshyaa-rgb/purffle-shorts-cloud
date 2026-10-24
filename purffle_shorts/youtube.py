@@ -20,6 +20,7 @@ log = logging.getLogger("purffle")
 SCOPE_UPLOAD = "https://www.googleapis.com/auth/youtube.upload"
 SCOPE_MANAGE = "https://www.googleapis.com/auth/youtube"
 SCOPE_READONLY = "https://www.googleapis.com/auth/youtube.readonly"
+SCOPE_ANALYTICS_READONLY = "https://www.googleapis.com/auth/yt-analytics.readonly"
 SCOPE_CAPTIONS = "https://www.googleapis.com/auth/youtube.force-ssl"  # captions.insert needs this one
 RETRY_STATUS = {500, 502, 503, 504}
 
@@ -40,7 +41,11 @@ def scopes_for(settings: Settings) -> list[str]:
 
 def auth_scopes(settings: Settings) -> list[str]:
     """Everything the current settings will need; asked for once by the `auth` command."""
-    extra = [SCOPE_READONLY] if settings.learn_from_stats and not settings.youtube_api_key else []
+    extra = []
+    if settings.learn_from_stats:
+        extra.append(SCOPE_ANALYTICS_READONLY)
+        if not settings.youtube_api_key:
+            extra.append(SCOPE_READONLY)
     if settings.upload_captions:
         extra.append(SCOPE_CAPTIONS)
     return scopes_for(settings) + extra
