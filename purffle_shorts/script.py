@@ -585,9 +585,9 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             narration,
         ))
         access_explanation = bool(re.search(
-            r"\b(?:gap|hole|vent|opening|crawlspace entrance|crack|duct|pipe|loose board|broken panel|"
-            r"squeezed through|slipped through|crawled through|climbed through|fell through|"
-            r"came through|got inside|got in|entered through|wandered in|left open|from outside)\b",
+            r"\b(?:through|via|from|into) (?:a |the )?(?:gap|hole|vent|opening|crawlspace|crack|duct|pipe|loose board|broken panel)\b"
+            r"|\b(?:gap|hole|vent|opening|crack|duct|pipe|loose board|broken panel) (?:let|allowed|gave|provided|connected|led) (?:it|the animal|the kitten|the cat|the creature|a way)\b"
+            r"|\b(?:squeezed through|slipped through|crawled through|climbed through|fell through|came through|got inside|got in|entered through|wandered in|left open|from outside)\b",
             narration,
         ))
         explicit_magic = bool(re.search(
