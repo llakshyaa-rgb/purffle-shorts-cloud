@@ -52,7 +52,10 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     story_words = ("door", "room", "shadow", "dark", "heard", "knock", "footsteps", "ran", "screamed", "blood", "monster", "stranger", "alone", "silhouette")
     if any(w in text for w in diagram_words) and style not in ("story", "reddit", "chat"):
         mode = "diagram"
-    elif any(w in text for w in story_words) or style in ("story", "reddit", "chat"):
+    elif style in ("story", "reddit", "chat") or (
+        style not in ("facts", "explainer", "news", "quiz", "myth")
+        and any(w in text for w in story_words)
+    ):
         mode = "illustration"
     else:
         mode = "footage"
@@ -101,7 +104,8 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
     }
     system = (
         "You are the scene-level creative director for a vertical short-form video. "
-        "Plan every scene in the background. Return practical instructions the renderer can use, not an essay. "
+        "Return valid JSON matching the provided schema. Plan every scene in the background. "
+        "Return practical instructions the renderer can use, not an essay. "
         "Choose a visual mode scene-by-scene: diagrams for causal/mechanical explanations; original illustrations "
         "for fictional/horror beats; footage/photos for real-world evidence; symbolic visuals only when clearer. "
         "Avoid repeating the same visual treatment for every scene. The prompt must show the actual narrated subject/action, "
