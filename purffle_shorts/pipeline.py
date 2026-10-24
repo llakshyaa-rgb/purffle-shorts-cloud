@@ -20,7 +20,7 @@ from . import analytics, crosspost, ffmpeg, notify, seo, sfx, topics, tts, youtu
 from .config import Settings
 from .history import History, now_iso
 from .llm import LLM, LLMConfigError
-from .media import MediaItem, Visuals, background_item
+from .media import MediaItem, Visuals, background_item, relevance
 from .overlays import EMOJI_CREDIT, ChatMessage, build_overlays
 from .render import pick_cover, render_video, split_sizes
 from .script import (
@@ -427,8 +427,34 @@ class Studio:
                 got = dict(zip(((st.index, st.part) for st in wanted),
                                visuals.for_scenes(jobs, script.topic, work / "media", progress=self._sub)))
                 media = [got.get((st.index, st.part)) or got[(st.index, 0)] for st in shots]
-                # Keep each scene's selected visual. Reusing the nearest successful clip for every
-                # failed scene makes unrelated footage linger and undermines narration-to-visual matching.
+
+                # Adaptive fallback: reuse a previous successful visual only when its metadata
+                # strongly matches the failed scene. Prefer fresh media; don't force reuse when
+                # the match is weak, and avoid repeating the immediately previous shot unless the
+                # semantic match is especially strong.
+                for pos, (st, item) in enumerate(zip(shots, media)):
+                    if item.source != "generated":
+                        continue
+                    scene_query = script.scenes[st.index].search_query
+                    ranked_reuse = []
+                    for candidate_pos, candidate in enumerate(media):
+                        if candidate.source == "generated" or candidate_pos == pos:
+                            continue
+                        score = relevance(candidate, scene_query)
+                        if score >= 0.58:
+                            ranked_reuse.append((score, candidate_pos, candidate))
+                    ranked_reuse.sort(key=lambda row: row[0], reverse=True)
+                    for score, candidate_pos, candidate in ranked_reuse:
+                        is_adjacent_repeat = abs(candidate_pos - pos) == 1
+                        if is_adjacent_repeat and score < 0.76:
+                            continue
+                        media[pos] = candidate
+                        log.info(
+                            "Scene %d: adaptive visual reuse (match %.2f from shot %d)",
+                            pos + 1, score, candidate_pos + 1,
+                        )
+                        break
+
                 credits = visuals.credits
             by_scene = {(st.index, st.part): m for st, m in zip(shots, media)}
 
