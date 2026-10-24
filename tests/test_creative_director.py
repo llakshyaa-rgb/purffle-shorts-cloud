@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from purffle_shorts.creative_director import apply_to_script, direct, notes_markdown
+from purffle_shorts.creative_director import _fallback, apply_to_script, direct, notes_markdown
 from purffle_shorts.script import Scene, Script
 
 
