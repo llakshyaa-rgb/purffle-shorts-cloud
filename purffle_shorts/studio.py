@@ -404,7 +404,7 @@ class StudioServer:
         from .script import LANGUAGES, STYLES
         ready = set(available_providers(self.settings))
         return {"styles": STYLES, "languages": LANGUAGES, "aspects": list(ASPECTS),
-                "caption_styles": list(CAPTION_STYLES), "grades": list(GRADES),
+                "caption_styles": ["auto", *CAPTION_STYLES], "grades": list(GRADES),
                 "transitions": ["random", "none", *TRANSITIONS],
                 "providers": [{"name": n, "label": p.label, "ready": n in ready or p.local}
                               for n, p in PRESETS.items()],
