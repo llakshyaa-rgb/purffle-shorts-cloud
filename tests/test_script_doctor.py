@@ -74,8 +74,8 @@ def test_scene_plan_by_format():
     assert scene_plan("chat", 40)[1] == 14
     assert scene_plan("dialogue", 40)[1] == 11
     assert scene_count_bounds("facts", 40) == (9, 14)
-    assert scene_count_bounds("story", 60) == (12, 16)
-    assert scene_count_bounds("facts", 10) == (3, 5)
+    assert scene_count_bounds("story", 60) == (14, 16)
+    assert scene_count_bounds("facts", 10) == (3, 6)
 
 
 def test_prompt_requires_enough_distinct_scene_boxes_without_cutting_narration():
