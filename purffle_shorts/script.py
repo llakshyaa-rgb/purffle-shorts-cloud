@@ -90,12 +90,12 @@ SCRIPT_SCHEMA = {
 # The Script Doctor grades six things separately (0-10 each); the retention score is their weighted sum.
 # Separate, concrete questions give steadier and more explainable scores than one overall number.
 RUBRIC = {
-    "hook": (0.30, "the first line stops the scroll within 2 seconds (bold claim, question or surprise)"),
-    "curiosity": (0.15, "open loops that make the viewer need the next line"),
-    "pacing": (0.15, "no filler, no slow moment, every line moves forward"),
-    "specificity": (0.15, "concrete names, numbers and details instead of vague statements"),
-    "payoff": (0.15, "the ending delivers on the hook and lands a satisfying final beat"),
-    "accuracy": (0.10, "every claim is well established (10 = no risk of a false or exaggerated claim)"),
+    "hook": (0.30, "the first line stops the scroll within 2 seconds and makes a clear, honest promise"),
+    "curiosity": (0.15, "specific open loops make the viewer need the next beat; suspense is earned, not vague"),
+    "pacing": (0.15, "no filler, repeated meaning, redundant wording, or slow moment; every line advances the video"),
+    "specificity": (0.15, "distinct concrete details, actions, and images instead of vague claims or decorative adjectives"),
+    "payoff": (0.15, "the ending fulfils the opening and makes the reveal understandable, causally earned, and consequential"),
+    "accuracy": (0.10, "factual claims are well established; fiction is internally coherent and does not pass invention off as fact"),
 }
 RUBRIC_SCHEMA = {
     "type": "object",
@@ -265,6 +265,9 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - SPOKEN-NARRATION TEST (mandatory): silently read the entire narration aloud at ordinary conversational speed. Rewrite any line that sounds like a caption, essay, plot summary, slogan, trailer, or AI trying to sound profound. It must sound like a sharp human creator telling this particular story to one interested person. Use natural contractions and ordinary speech where appropriate; vary sentence length; let ideas flow across scene boundaries. Short fragments are for impact, not the default rhythm. If a line looks impressive but sounds awkward when spoken, replace it.
 - NATURAL VOICE, NOT CHATBOT VOICE: avoid generic narrator scaffolding ("Here is the thing", "little did I know", "what I didn't realize", "but everything was about to change", "the truth was shocking"), vague emotional summaries ("a strange mix of gratitude and loss"), and tidy moral statements ("he learned it was about potential") unless the actual story earns them. Show emotion through a specific reaction, choice, remembered detail, or consequence. Don't explain what a scene already makes obvious; don't hide information behind vague poetic wording either.
 - STORY DETAILS MUST PAY OFF: a striking object or detail introduced early should matter later. Every reveal must be supported by planted clues and followed by a clear human reaction or consequence. Do not add a second twist just to make the ending sound bigger. The viewer should be able to retell what happened and why after one listen.
+- NO WORD-ECHO OR MEANING-ECHO: never write constructions like "a bustling city ... bustles", "he whispered quietly", "a tiny miniature", or repeat an idea with a synonym in the same beat. Adjectives must add information, not decorate a noun with a duplicate meaning. After drafting, scan every sentence for repeated roots, tautologies, and two clauses that say the same thing; rewrite the weaker wording.
+- FICTION LOGIC AUDIT: every extraordinary premise needs a clear internal rule. If someone is a future/past version of a character, show how that connection is known and why the warning can reach the present. A warning must identify a concrete danger and the story must show how the protagonist's action changes the outcome. Do not use "it was his future self" or "they warned him" as a substitute for explaining the connection, danger, and consequence. Prefer one original, coherent reveal over several unrelated spooky images.
+- ORIGINALITY OVER STOCK TWISTS: avoid defaulting to an identical twin, evil clone, future self, shadow under the bed, or "it was inside the room all along" unless the premise specifically earns it with clues. Do not merely replace nouns in a familiar template. Find the most distinctive consequence of this exact premise and build the story around it.
 - CONTINUITY BETWEEN SCENES: after drafting, temporarily join all scene narration into one continuous passage and check it without scene numbers or visuals. Repair abrupt time jumps, unexplained motivations, point-of-view changes, repeated information, and lines that only make sense when read as separate cards. Then split it at natural breath and visual changes. Scene boundaries must never dictate sentence structure.
 - TITLE / HOOK / STORY ALIGNMENT: the title, on-screen hook, and spoken opening must honestly describe the same central subject. Never pair an unrelated clickbait title with a different story, and never let a visual motif (such as a tiny chef) replace the promised answer or central question.
 - For factual, science, explainer, quiz, and hypothetical "what if" videos, make the opening sound like a person talking to a curious friend. If the subject is a what-if question, open with a direct version of the question, such as "So, what would happen if you stayed awake for 24 hours?" Do not force suspenseful metaphors ahead of the actual question.
@@ -597,6 +600,42 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             if repeated_lines[i] and repeated_lines[i] == repeated_lines[i - 1]:
                 out.append(f"Scenes {i} and {i + 1} repeat the same narration; remove the duplicate.")
                 break
+
+        # Catch morphology-based word echoes inside a sentence ("a bustling city ... bustles")
+        # without flagging ordinary repeated nouns across separate story beats.
+        def echo_root(token: str) -> str:
+            if len(token) > 6 and token.endswith("ing"):
+                return token[:-3]
+            if len(token) > 5 and token.endswith("es"):
+                return token[:-2]
+            if len(token) > 4 and token.endswith("s"):
+                return token[:-1]
+            if len(token) > 5 and token.endswith("ed"):
+                return token[:-2]
+            return token
+
+        for scene_no, sc in enumerate(script.scenes, 1):
+            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\\s+", sc.narration) if x.strip()]
+            found_echo = False
+            for sentence in sentences:
+                words = re.findall(r"[a-z]+", sentence.lower())
+                roots = [(i, w, echo_root(w)) for i, w in enumerate(words)]
+                for idx, word, root in roots:
+                    if len(root) < 4 or root in _STOP or word == root:
+                        continue
+                    for other_idx, other_word, other_root in roots[idx + 1:idx + 8]:
+                        if root == other_root and word != other_word:
+                            out.append(
+                                f"Scene {scene_no} has a word-echo ('{word}' and '{other_word}') that repeats the same idea; rewrite the sentence."
+                            )
+                            found_echo = True
+                            break
+                    if found_echo:
+                        break
+                if found_echo:
+                    break
+            if found_echo:
+                break
     # A story payoff is more important than a call to action; CTAs are optional.
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
@@ -670,6 +709,9 @@ Creative-quality requirements:
 - Avoid canned AI phrases and trailer-style overacting. Keep the voice engaging but believable; use punchy lines selectively and give explanations enough room to make sense.
 - MANDATORY READ-ALOUD EDIT: mentally read the complete narration at normal speaking speed. Rewrite any sentence that sounds like an essay, caption, generic AI narration, slogan, or a collection of dramatic fragments. The final script should sound like a real person telling this exact story to one interested viewer, with natural contractions, varied sentence lengths, smooth transitions, and no fake profundity.
 - Cut vague emotional labels and replace them with specific reactions or consequences. Remove generic scaffolding, repeated explanations, empty suspense, and a second twist that has not been earned. Every important object or detail should pay off, and the viewer must understand the central event after one listen.
+- Run a sentence-level redundancy audit: catch repeated word roots and meaning echoes (for example, "a bustling city ... bustles", "whispered quietly", or "tiny miniature"). Rewrite tautologies rather than merely deleting one adjective at random.
+- For fiction, audit the premise's rules and causal chain: what makes the reveal true, what evidence plants it, what exact danger exists, why the protagonist's choice matters, and what changes because of it? A future-self reveal or warning must explain its connection and consequence in spoken narration, not leave the viewer to invent the missing logic.
+- Reject generic stock twists and familiar horror imagery unless the particular setup earns them. The story should be recognizably about this exact premise, not a template with swapped nouns.
 - After editing, join all scene narration into one continuous passage and check chronology, point of view, motivations, transitions, and repeated information. Split it back into scenes only at natural spoken/visual beats; never make the prose sound chopped up to fit cards.
 - Verify that title, on-screen hook, and spoken opening promise the same story. Reject a mismatched clickbait title or an unrelated visual gimmick.
 - Each scene must have a concrete, searchable visual directly matching its narration. Avoid vague/repeated adjacent search queries; vary the actual subject or shot when the narration changes.
