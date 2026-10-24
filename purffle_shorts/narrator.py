@@ -84,7 +84,8 @@ def _callout(path: Path, width: int, height: int, text: str) -> Path:
     for word in words[:8]:
         trial = (line+" "+word).strip()
         if d.textbbox((0,0),trial,font=font)[2] > max_width and line:
-            lines.append(line); line=word
+            lines.append(line)
+            line = word
         else:
             line=trial
     if line:
