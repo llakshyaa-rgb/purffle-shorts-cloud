@@ -9,8 +9,16 @@ def test_story_scene_uses_illustration_not_diagram():
     assert visual_type("A boy hears three knocks behind a sealed wardrobe") == "illustration"
 
 
+def test_story_word_inside_does_not_force_diagram():
+    assert visual_type("A tiny room inside the wardrobe glowed in the dark") == "illustration"
+
+
 def test_explanatory_scene_can_choose_diagram():
     assert visual_type("A diagram explaining how the engine mechanism works") == "diagram"
+
+
+def test_explicit_process_diagram_is_selected():
+    assert visual_type("A step by step diagram of the water cycle") == "diagram"
 
 
 def test_library_creates_vertical_nonphotographic_png(tmp_path: Path):
@@ -24,6 +32,21 @@ def test_library_creates_vertical_nonphotographic_png(tmp_path: Path):
     )
     assert kind == "illustration"
     assert target.is_file()
+    with Image.open(target) as image:
+        assert image.size == (360, 640)
+        assert image.format == "PNG"
+
+
+def test_library_creates_diagram_png(tmp_path: Path):
+    target = tmp_path / "diagram.png"
+    kind = make_visual(
+        "A diagram showing how an engine mechanism works",
+        "clean infographic",
+        target,
+        360,
+        640,
+    )
+    assert kind == "diagram"
     with Image.open(target) as image:
         assert image.size == (360, 640)
         assert image.format == "PNG"
