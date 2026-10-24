@@ -39,6 +39,16 @@ OBJECTS = {
     "planet":"planet", "moon":"planet", "mars":"planet", "earth":"planet", "space":"planet",
     "brain":"brain", "heart":"heart", "fire":"fire", "flame":"fire", "water":"ocean",
     "car":"car", "engine":"gear", "machine":"gear", "gear":"gear", "skull":"skull",
+    "stairs":"stairs", "staircase":"stairs", "city":"city", "building":"city", "street":"city",
+    "laboratory":"lab", "lab":"lab", "science":"lab", "microscope":"microscope",
+    "atom":"atom", "electricity":"circuit", "circuit":"circuit", "computer":"computer",
+    "robot":"robot", "airplane":"airplane", "plane":"airplane", "train":"train", "railway":"train",
+    "bridge":"bridge", "cave":"cave", "tunnel":"cave", "storm":"storm", "lightning":"storm",
+    "rain":"storm", "cloud":"storm", "dog":"animal", "cat":"animal", "bird":"animal", "wolf":"animal",
+    "fish":"animal", "snake":"animal", "dinosaur":"animal", "insect":"animal",
+    "dna":"dna", "cell":"cell", "bacteria":"cell", "virus":"cell", "plant":"plant", "flower":"plant",
+    "book":"book", "document":"letter", "map":"map", "compass":"compass", "rocket":"rocket",
+    "satellite":"satellite", "volcano":"volcano", "desert":"desert", "snow":"snow",
 }
 
 def _words(text: str) -> set[str]:
@@ -152,6 +162,21 @@ def _illustration(im, draw, text, ink, accent, second, seed):
         _line(draw,[(w*.23,h*.45),(w*.77,h*.45)],second,max(3,w//220))
         if obj=="mirror":
             _person(draw,w//2,int(h*.48),min(w*.30,h*.30),ink,second,True)
+    elif obj=="stairs":
+        for i in range(7):
+            x0=w*(.2+i*.075); y0=h*(.66-i*.055)
+            _line(draw,[(x0,y0),(w*.76,y0)],accent,max(3,w//200))
+            _line(draw,[(x0,y0),(x0,y0+h*.055)],second,max(3,w//200))
+        _glow(draw,int(w*.69),int(h*.27),int(w*.11),second)
+        draw.polygon([(w*.59,h*.45),(w*.59,h*.23),(w*.79,h*.23),(w*.79,h*.45)],fill=(8,12,24),outline=accent)
+    elif obj in ("city","lab","microscope","computer","robot","airplane","train","bridge","cave","storm","animal","dna","cell","plant","map","compass","rocket","satellite","volcano","desert","snow"):
+        _symbol(draw,obj,w//2,int(h*.46),min(w*.46,h*.40),ink,accent,second)
+        # Add a small secondary element to make the scene feel composed, not like a lone icon.
+        _line(draw,[(w*.16,h*.72),(w*.84,h*.72)],(63,74,96),max(3,w//240))
+        if obj in ("city","train","airplane","rocket","satellite"):
+            for i in range(5):
+                x=w*(.16+i*.16); y=h*(.76+(i%2)*.035)
+                draw.ellipse((x,y,x+w*.018,y+w*.018),fill=second)
     else:
         cx,cy=w//2,int(h*.46); s=min(w*.43,h*.42); sw=max(4,w//180)
         if obj=="phone":
@@ -220,6 +245,119 @@ def _symbol(draw, kind, cx, cy, s, ink, accent, second):
         elif kind=="key":
             draw.ellipse((cx-r,cy-r*.5,cx,cy+r*.5),outline=accent,width=lw); _line(draw,[(cx,cy),(cx+r,cy)],accent,lw)
             _line(draw,[(cx+r*.55,cy),(cx+r*.55,cy+r*.3)],second,lw); _line(draw,[(cx+r*.82,cy),(cx+r*.82,cy+r*.23)],second,lw)
+        elif kind=="stairs":
+            for i in range(6):
+                x=cx-r+i*r*.28; y=cy+r-i*r*.28
+                _line(draw,[(x,y),(cx+r,y)],accent,lw)
+                _line(draw,[(x,y),(x,y-r*.28)],second,lw)
+        elif kind=="city":
+            for i,(dx,bh) in enumerate([(-.85,.55),(-.48,.9),(-.08,.68),(.32,1),(.68,.62)]):
+                x=cx+dx*r; bw=r*.29; top=cy+r*.55-bh*r
+                draw.rectangle((x,top,x+bw,cy+r*.55),fill=(20,28,46),outline=accent,width=max(2,lw//2))
+                for wy in range(3):
+                    for wx in range(2):
+                        xx=x+bw*(.22+wx*.42); yy=top+bh*r*(.18+wy*.22)
+                        draw.rectangle((xx,yy,xx+bw*.1,yy+bw*.12),fill=second)
+        elif kind=="lab":
+            _line(draw,[(cx-r*.35,cy-r),(cx+r*.35,cy-r)],accent,lw)
+            _line(draw,[(cx-r*.2,cy-r),(cx-r*.2,cy-r*.25),(cx-r*.65,cy+r*.55),(cx-r*.5,cy+r*.8),(cx+r*.5,cy+r*.8),(cx+r*.65,cy+r*.55),(cx+r*.2,cy-r*.25),(cx+r*.2,cy-r)],accent,lw)
+            draw.polygon([(cx-r*.52,cy+r*.35),(cx+r*.52,cy+r*.35),(cx+r*.42,cy+r*.68),(cx-r*.42,cy+r*.68)],fill=(20,91,94))
+            for dx,dy in [(-.2,.5),(.1,.43),(.25,.58)]: draw.ellipse((cx+dx*r-r*.06,cy+dy*r-r*.06,cx+dx*r+r*.06,cy+dy*r+r*.06),fill=second)
+        elif kind=="microscope":
+            _line(draw,[(cx-r*.4,cy-r*.8),(cx+r*.05,cy-r*.8),(cx+r*.25,cy-r*.35),(cx+r*.05,cy-r*.2)],accent,lw)
+            _line(draw,[(cx+r*.05,cy-r*.2),(cx-r*.25,cy+r*.05),(cx-r*.18,cy+r*.45),(cx+r*.25,cy+r*.45)],second,lw)
+            _line(draw,[(cx-r*.5,cy+r*.65),(cx+r*.55,cy+r*.65)],accent,lw)
+        elif kind=="atom":
+            for angle in (0,60,120):
+                draw.ellipse((cx-r,cy-r*.38,cx+r,cy+r*.38),outline=accent,width=lw)
+                # Rotate the orbital ellipse around the nucleus.
+                layer=Image.new("RGBA",(int(r*2.4),int(r*2.4)),(0,0,0,0))
+                ld=ImageDraw.Draw(layer); ld.ellipse((r*.2,r*.7,r*2.2,r*1.7),outline=second,width=lw)
+                layer=layer.rotate(angle,expand=False)
+                draw._image if False else None
+            draw.ellipse((cx-r*.12,cy-r*.12,cx+r*.12,cy+r*.12),fill=ink)
+        elif kind=="circuit":
+            for yy in (-.55,0,.55):
+                _line(draw,[(cx-r,cy+yy*r),(cx-r*.35,cy+yy*r),(cx-r*.1,cy+yy*r*.4),(cx+r*.2,cy+yy*r*.4),(cx+r*.45,cy+yy*r),(cx+r,cy+yy*r)],accent,lw)
+                for xx in (-.72,.7): draw.ellipse((cx+xx*r-r*.08,cy+yy*r-r*.08,cx+xx*r+r*.08,cy+yy*r+r*.08),fill=second)
+        elif kind=="computer":
+            draw.rounded_rectangle((cx-r,cy-r*.75,cx+r,cy+r*.45),radius=int(r*.08),outline=accent,width=lw)
+            _line(draw,[(cx,cy+r*.45),(cx,cy+r*.75),(cx-r*.4,cy+r*.75),(cx+r*.4,cy+r*.75)],second,lw)
+            draw.rectangle((cx-r*.75,cy-r*.55,cx+r*.75,cy+r*.25),fill=(17,34,49))
+        elif kind=="robot":
+            draw.rounded_rectangle((cx-r*.62,cy-r*.75,cx+r*.62,cy+r*.05),radius=int(r*.12),outline=accent,width=lw)
+            draw.ellipse((cx-r*.35,cy-r*.45,cx-r*.12,cy-r*.22),fill=second); draw.ellipse((cx+r*.12,cy-r*.45,cx+r*.35,cy-r*.22),fill=second)
+            _line(draw,[(cx,cy-r*.75),(cx,cy-r),(cx+r*.22,cy-r)],accent,lw)
+            draw.rounded_rectangle((cx-r*.45,cy+r*.12,cx+r*.45,cy+r*.68),radius=int(r*.1),outline=second,width=lw)
+            _line(draw,[(cx-r*.45,cy+r*.22),(cx-r*.8,cy+r*.55)],accent,lw); _line(draw,[(cx+r*.45,cy+r*.22),(cx+r*.8,cy+r*.55)],accent,lw)
+        elif kind=="airplane":
+            _line(draw,[(cx-r,cy),(cx+r,cy)],accent,lw)
+            _line(draw,[(cx-r*.1,cy),(cx-r*.35,cy-r*.65),(cx+r*.05,cy-r*.25),(cx+r*.45,cy-r*.2),(cx+r*.8,cy-r*.4),(cx+r*.7,cy),(cx+r*.8,cy+r*.4),(cx+r*.45,cy+r*.2),(cx+r*.05,cy+r*.25),(cx-r*.35,cy+r*.65),(cx-r*.1,cy)],second,lw)
+        elif kind=="train":
+            draw.rounded_rectangle((cx-r*.75,cy-r*.65,cx+r*.75,cy+r*.48),radius=int(r*.12),outline=accent,width=lw)
+            for dx in (-.45,0,.45): draw.rectangle((cx+dx*r-r*.13,cy-r*.4,cx+dx*r+r*.13,cy-r*.08),outline=second,width=max(2,lw//2))
+            for dx in (-.45,.45): draw.ellipse((cx+dx*r-r*.15,cy+r*.35,cx+dx*r+r*.15,cy+r*.65),fill=ink,outline=accent,width=max(2,lw//2))
+        elif kind=="bridge":
+            _line(draw,[(cx-r,cy+r*.5),(cx+r,cy+r*.5)],accent,lw)
+            _line(draw,[(cx-r*.75,cy-r*.4),(cx-r*.75,cy+r*.5)],second,lw); _line(draw,[(cx+r*.75,cy-r*.4),(cx+r*.75,cy+r*.5)],second,lw)
+            draw.arc((cx-r*.75,cy-r*.65,cx+r*.75,cy+r*.75),180,360,fill=accent,width=lw)
+            for dx in (-.5,-.25,0,.25,.5): _line(draw,[(cx+dx*r,cy-r*.1),(cx+dx*r,cy+r*.5)],second,max(2,lw//2))
+        elif kind=="cave":
+            draw.arc((cx-r,cy-r,cx+r,cy+r),180,360,fill=accent,width=lw)
+            draw.polygon([(cx-r,cy+r*.65),(cx-r*.72,cy-r*.25),(cx-r*.25,cy-r*.75),(cx+r*.2,cy-r*.4),(cx+r*.55,cy-r*.7),(cx+r,cy+r*.65)],fill=(10,14,25),outline=accent)
+            _glow(draw,cx+r*.15,cy+r*.25,int(r*.17),second)
+        elif kind=="storm":
+            draw.ellipse((cx-r*.75,cy-r*.4,cx-r*.05,cy+r*.1),outline=accent,width=lw)
+            draw.ellipse((cx-r*.3,cy-r*.65,cx+r*.35,cy+r*.05),outline=accent,width=lw)
+            draw.ellipse((cx+r*.05,cy-r*.35,cx+r*.75,cy+r*.1),outline=accent,width=lw)
+            _line(draw,[(cx+r*.1,cy),(cx-r*.2,cy+r*.45),(cx+r*.08,cy+r*.35),(cx-r*.1,cy+r*.8)],second,lw)
+        elif kind=="animal":
+            draw.ellipse((cx-r*.5,cy-r*.45,cx+r*.5,cy+r*.4),outline=accent,width=lw)
+            draw.ellipse((cx-r*.7,cy-r*.65,cx-r*.25,cy-r*.25),outline=second,width=lw); draw.ellipse((cx+r*.25,cy-r*.65,cx+r*.7,cy-r*.25),outline=second,width=lw)
+            draw.ellipse((cx-r*.2,cy-r*.1,cx-r*.08,cy+.02*r),fill=ink); draw.ellipse((cx+r*.08,cy-r*.1,cx+r*.2,cy+.02*r),fill=ink)
+            draw.arc((cx-r*.2,cy+ r*.05,cx+r*.2,cy+r*.3),0,180,fill=second,width=max(2,lw//2))
+        elif kind=="dna":
+            for i in range(9):
+                yy=cy-r+i*r*.25; x1=cx+math.sin(i*.8)*r*.55; x2=cx-math.sin(i*.8)*r*.55
+                _line(draw,[(x1,yy),(x2,yy)],second,max(2,lw//2))
+            _line(draw,[(cx+math.sin(i*.8)*r*.55,cy-r+i*r*.25) for i in range(9)],accent,lw)
+            _line(draw,[(cx-math.sin(i*.8)*r*.55,cy-r+i*r*.25) for i in range(9)],accent,lw)
+        elif kind=="cell":
+            draw.ellipse((cx-r,cy-r*.75,cx+r,cy+r*.75),outline=accent,width=lw)
+            draw.ellipse((cx-r*.25,cy-r*.2,cx+r*.15,cy+r*.2),outline=second,width=lw)
+            for dx,dy in [(-.5,-.2),(.5,-.3),(.45,.35),(-.35,.4)]: draw.ellipse((cx+dx*r-r*.07,cy+dy*r-r*.07,cx+dx*r+r*.07,cy+dy*r+r*.07),fill=ink)
+        elif kind=="plant":
+            _line(draw,[(cx,cy+r*.75),(cx,cy-r*.45)],accent,lw)
+            draw.ellipse((cx-r*.65,cy-r*.5,cx,cy+r*.02),outline=second,width=lw); draw.ellipse((cx,cy-r*.7,cx+r*.65,cy-r*.15),outline=accent,width=lw)
+            draw.ellipse((cx-r*.3,cy-r*.9,cx+r*.3,cy-r*.35),outline=second,width=lw)
+        elif kind=="map":
+            draw.rounded_rectangle((cx-r,cy-r*.7,cx+r,cy+r*.7),radius=8,outline=accent,width=lw)
+            pts=[(cx-r*.65,cy-r*.35),(cx-r*.15,cy-r*.05),(cx+r*.15,cy-r*.4),(cx+r*.62,cy-r*.15),(cx+r*.4,cy+r*.45)]
+            _line(draw,pts,second,lw)
+            draw.ellipse((pts[-1][0]-r*.1,pts[-1][1]-r*.1,pts[-1][0]+r*.1,pts[-1][1]+r*.1),fill=ink)
+        elif kind=="compass":
+            draw.ellipse((cx-r,cy-r,cx+r,cy+r),outline=accent,width=lw)
+            _line(draw,[(cx,cy-r*.72),(cx-r*.2,cy),(cx,cy+r*.72),(cx+r*.2,cy),(cx,cy-r*.72)],second,lw)
+        elif kind=="rocket":
+            draw.polygon([(cx,cy-r),(cx+r*.42,cy-r*.2),(cx+r*.35,cy+r*.4),(cx,cy+r*.7),(cx-r*.35,cy+r*.4),(cx-r*.42,cy-r*.2)],outline=accent)
+            draw.ellipse((cx-r*.13,cy-r*.2,cx+r*.13,cy+r*.05),outline=second,width=lw)
+            _line(draw,[(cx-r*.2,cy+r*.45),(cx-r*.45,cy+r*.8),(cx,cy+r*.62),(cx+r*.45,cy+r*.8),(cx+r*.2,cy+r*.45)],second,lw)
+        elif kind=="satellite":
+            draw.rectangle((cx-r*.2,cy-r*.2,cx+r*.2,cy+r*.2),outline=accent,width=lw)
+            draw.rectangle((cx-r,cy-r*.45,cx-r*.25,cy+r*.45),outline=second,width=lw)
+            draw.rectangle((cx+r*.25,cy-r*.45,cx+r,cy+r*.45),outline=second,width=lw)
+            _line(draw,[(cx,cy-r*.2),(cx+r*.35,cy-r*.7)],accent,lw)
+        elif kind=="volcano":
+            _line(draw,[(cx-r,cy+r*.65),(cx-r*.4,cy-r*.45),(cx-r*.12,cy-r*.2),(cx+r*.12,cy-r*.2),(cx+r*.4,cy-r*.45),(cx+r,cy+r*.65)],accent,lw)
+            for dx in (-.2,0,.2): draw.ellipse((cx+dx*r-r*.05,cy-r*.55,cx+dx*r+r*.05,cy-r*.4),fill=second)
+        elif kind=="desert":
+            _line(draw,[(cx-r,cy+r*.35),(cx-r*.45,cy-r*.2),(cx+r*.15,cy+r*.25),(cx+r*.7,cy-r*.35),(cx+r,cy+r*.35)],accent,lw)
+            draw.ellipse((cx+r*.2,cy-r*.85,cx+r*.55,cy-r*.5),outline=second,width=lw)
+        elif kind=="snow":
+            for dx,dy in [(-.45,-.35),(.2,-.55),(.55,.05)]:
+                x=cx+dx*r; y=cy+dy*r
+                _line(draw,[(x-r*.16,y),(x+r*.16,y)],second,lw); _line(draw,[(x,y-r*.16),(x,y+r*.16)],second,lw)
+                _line(draw,[(x-r*.11,y-r*.11),(x+r*.11,y+r*.11)],accent,max(2,lw//2))
         elif kind=="skull":
             draw.ellipse((cx-r*.65,cy-r*.8,cx+r*.65,cy+r*.35),outline=accent,width=lw)
             for dx in (-.27,.27): draw.ellipse((cx+(dx-.12)*r,cy-r*.18,cx+(dx+.12)*r,cy+r*.08),fill=second)
