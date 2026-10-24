@@ -140,8 +140,16 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
     """Apply the director's visual choices to the actual media prompts."""
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
+        mode = str(beat.get("visual_mode", "illustration")).strip().lower()
+        prefix = {
+            "diagram": "DIAGRAM / EXPLANATORY GRAPHIC: ",
+            "illustration": "ORIGINAL DRAWN ILLUSTRATION: ",
+            "symbolic": "SYMBOLIC VISUAL METAPHOR: ",
+            "footage": "REAL-WORLD DOCUMENTARY FOOTAGE: ",
+            "photo": "REALISTIC EDITORIAL PHOTOGRAPH: ",
+        }.get(mode, "")
         if prompt:
-            scene.image_prompt = prompt
+            scene.image_prompt = prefix + prompt
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
