@@ -815,6 +815,9 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
         best_rubric, best_issues = new_rubric, new_issues  # never show the draft's sub-scores for the rewrite
         if best_score is not None and best_score >= settings.script_target_score:
             break
+    # Preserve the best verified result before the optional narrative-payoff pass. If that
+    # extra provider call fails, the already-graded rewrite and its score must remain intact.
+    best.score, best.rubric, best.review = best_score, best_rubric, best_issues
     best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings)
     best.score, best.rubric = best_score, best_rubric
     best.review = _with_checks(best_issues, best, settings)
