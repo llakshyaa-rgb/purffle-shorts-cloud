@@ -1052,8 +1052,8 @@ function calibrationCard(c) {
   const rho = c.score_vs_views;
   const tone = rho == null ? "" : rho >= 0.5 ? "ok" : rho >= 0.25 ? "accent" : "bad";
   return `<section class="card">${sh("02", "Do the predictions hold up?")}
-    <p>${rho != null ? `<span class="chip ${tone}">ρ = ${rho.toFixed(2)}</span> ` : ""}Retention score vs real views: ${esc(c.verdict)}.
-      <span class="muted">Spearman rank correlation over ${c.scored} scored video(s) that have been public for 2+ days.</span></p>
+    <p>${rho != null ? `<span class="chip ${tone}">ρ = ${rho.toFixed(2)}</span> ` : ""}Script Doctor score vs real views: ${esc(c.verdict)}.
+      <span class="muted">Spearman rank correlation over ${c.scored} scored videos public for 2+ days. This measures script-quality calibration, not YouTube audience retention.</span></p>
     ${c.hours.length ? `<p class="muted">Best publish hours (your time): ${c.hours.map(h => `<b>${String(h.hour).padStart(2, "0")}:00</b> ${fmtNum(h.median_views)}`).join(" · ")}</p>` : ""}
   </section>`;
 }
@@ -1078,10 +1078,11 @@ async function viewChannel() {
   </div>
   ${ch.calibration && ch.calibration.videos ? calibrationCard(ch.calibration) : ""}
   ${ch.videos.length ? `<div class="grid2">
-    <section class="card">${sh("03", "Average views by format")}${ch.by_style.map(s => `<div class="hbar"><span>${esc(s.style)}</span><span class="track"><i data-w="${100 * s.avg_views / top}"></i></span><span class="num">${fmtNum(s.avg_views)}</span></div>`).join("")}</section>
-    <section class="card">${sh("04", "Best performer")}${(() => { const v = ch.videos[0]; return `<h3>${esc(v.title)}</h3><p class="muted">${fmtNum(v.views)} views · ${fmtNum(v.likes)} likes · ${esc(v.style || "")}</p><button class="btn sm" type="button" data-open="${v.id}">${I.play}Open</button>`; })()}</section>
+    <section class="card">${sh("03", "Average views by format")}${ch.by_style.map(s => { const metric = (ch.calibration?.styles || []).find(x => x.style === s.style); return \`<div class="hbar"><span>${esc(s.style)}</span><span class="track"><i data-w="${100 * s.avg_views / top}"></i></span><span class="num">${fmtNum(s.avg_views)}</span></div>${metric?.median_engagement_percent != null ? \`<p class="hint">${esc(s.style)} · median likes + comments per view: ${metric.median_engagement_percent.toFixed(2)}% (${metric.videos} mature videos)</p>\` : ""}\`; }).join("")}</section>
+    <section class="card">${sh("04", "Best performer")}${(() => { const v = ch.videos[0]; return \`<h3>${esc(v.title)}</h3><p class="muted">${fmtNum(v.views)} views · ${fmtNum(v.likes)} likes · ${esc(v.style || "")}</p><button class="btn sm" type="button" data-open="${v.id}">${I.play}Open</button>\`; })()}</section>
   </div>
-  <section class="card">${sh("05", "Videos")}<table><thead><tr><th>Title</th><th>Format</th><th class="num">Score</th><th class="num">Views</th><th class="num">Likes</th></tr></thead>
+  ${(ch.calibration?.topics || []).length ? \`<section class="card">${sh("05", "Topics with repeat evidence")}<p class="hint">Only topics with at least two mature videos are shown. This is a signal, not proof a topic caused the views.</p><div class="grid2">${ch.calibration.topics.map(t => \`<div class="metric-row"><b>${esc(t.topic)}</b><span>${fmtNum(t.median_views)} median views</span><small>${t.videos} videos${t.median_engagement_percent == null ? "" : \` · ${t.median_engagement_percent.toFixed(2)}% likes + comments per view\`}</small></div>\`).join("")}</div></section>\` : ""}
+  <section class="card">${sh("06", "Videos")}<table><thead><tr><th>Title</th><th>Format</th><th class="num">Score</th><th class="num">Views</th><th class="num">Likes</th></tr></thead>
     <tbody>${ch.videos.map(v => `<tr><td><a href="#library" data-open="${v.id}">${esc(v.title)}</a></td><td>${esc(v.style || "")}</td><td class="num">${v.score ?? "–"}</td><td class="num">${fmtNum(v.views)}</td><td class="num">${fmtNum(v.likes)}</td></tr>`).join("")}</tbody></table></section>`
     : empty("NO DATA YET", "No stats yet", "Publish some videos, then refresh. View counts need a day or two to mean something.")}`;
   paint(main);
