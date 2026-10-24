@@ -107,8 +107,63 @@ class StudioServer:
         self._voices: dict[str, list] = {}
         self.version = 0                       # bumped on every job change; the event stream waits on it
         self._changed = threading.Condition()
+        self._restore_jobs()
         logging.getLogger().addHandler(_JobLog(self))
         threading.Thread(target=self._worker, name="studio-worker", daemon=True).start()
+
+    JOBS_META_KEY = "studio_jobs_v1"
+
+    def _persist_jobs(self) -> None:
+        """Persist a bounded queue snapshot so queued work survives Studio restarts."""
+        try:
+            rows = []
+            for job in sorted(self.jobs.values(), key=lambda item: item.id)[-100:]:
+                rows.append({
+                    "id": job.id, "kind": job.kind, "params": job.params, "label": job.label,
+                    "status": job.status, "stage": job.stage, "pct": job.pct, "message": job.message,
+                    "log": job.log[-80:], "result": job.result, "created": job.created,
+                    "started": job.started, "finished": job.finished,
+                })
+            self.studio.history.set_meta(self.JOBS_META_KEY, json.dumps(rows, ensure_ascii=False, default=str))
+        except Exception:
+            log.warning("Could not persist Studio queue snapshot", exc_info=True)
+
+    def _restore_jobs(self) -> None:
+        """Resume jobs that never started; mark in-flight jobs interrupted rather than risking duplicate uploads."""
+        try:
+            raw = self.studio.history.get_meta(self.JOBS_META_KEY)
+            rows = json.loads(raw or "[]")
+            if not isinstance(rows, list):
+                return
+            for data in rows[-100:]:
+                if not isinstance(data, dict) or data.get("kind") not in {"make", "draft", "clip", "plan", "upload", "stats"}:
+                    continue
+                try:
+                    job = Job(
+                        id=int(data["id"]), kind=data["kind"], params=data.get("params") or {},
+                        label=str(data.get("label") or data["kind"]),
+                        status=str(data.get("status") or "queued"), stage=str(data.get("stage") or ""),
+                        pct=int(data.get("pct") or 0), message=str(data.get("message") or ""),
+                        log=list(data.get("log") or [])[-80:], result=data.get("result") or {},
+                        created=float(data.get("created") or time.time()),
+                        started=data.get("started"), finished=data.get("finished"),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if job.status == "running":
+                    job.status = "failed"
+                    job.finished = time.time()
+                    job.message = "Studio restarted while this job was running. Check the Library before retrying to avoid duplicate uploads."
+                    job.result = {"error": job.message, "interrupted": True}
+                elif job.status not in {"queued", "done", "failed", "cancelled"}:
+                    continue
+                self.jobs[job.id] = job
+                self._next = max(self._next, job.id + 1)
+                if job.status == "queued":
+                    self.queue.put(job)
+            self._persist_jobs()
+        except Exception:
+            log.warning("Could not restore Studio queue snapshot", exc_info=True)
 
     def changed(self) -> None:
         with self._changed:
@@ -133,6 +188,7 @@ class StudioServer:
                 if self.jobs[old].status not in ("queued", "running"):
                     del self.jobs[old]
         self.queue.put(job)
+        self._persist_jobs()
         self.changed()
         return job
 
@@ -144,6 +200,7 @@ class StudioServer:
         job = self.jobs.get(jid)
         if job and job.status == "queued":
             job.status, job.finished = "cancelled", time.time()
+            self._persist_jobs()
             self.changed()
             return True
         if job and job.status == "running" and job is self.current:
@@ -245,6 +302,7 @@ class StudioServer:
                 continue
             CANCEL.clear()
             self.current, job.status, job.started = job, "running", time.time()
+            self._persist_jobs()
             self.changed()
             p = job.params
             try:
@@ -273,6 +331,7 @@ class StudioServer:
                     job.pct = 100
                 self.current = None
                 CANCEL.clear()
+                self._persist_jobs()
                 self.changed()
 
     def _run(self, job: Job, studio, s: Settings, p: dict) -> bool:
