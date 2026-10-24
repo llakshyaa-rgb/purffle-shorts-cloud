@@ -401,12 +401,19 @@ class Studio:
             # off-target runtime. Keep the same topic/style and ask the script writer for a tighter
             # word budget, then synthesize the revised narration once.
             target = max(1, int(s.target_seconds))
-            if abs(total - target) / target > 0.20 and self.llm is not None and not s.offline:
+            repair_llm = None
+            if abs(total - target) / target > 0.20 and not s.offline:
+                try:
+                    repair_llm = self.llm
+                except LLMConfigError:
+                    # A supplied script file is renderable without an LLM; simply skip optional repair.
+                    repair_llm = None
+            if repair_llm is not None:
                 try:
                     log.warning("Narration runtime %.1fs misses %ss target; attempting one script repair",
                                 total, target)
                     repaired = write_script(
-                        self.llm, script.topic, s, source=pick.source, style=script.style,
+                        repair_llm, script.topic, s, source=pick.source, style=script.style,
                         context=(f"Original title: {script.title}. Preserve the original factual topic, "
                                  "central reveal, and intended audience."),
                         creative_brief=(
@@ -418,7 +425,7 @@ class Studio:
                             "Use concise, natural spoken sentences and keep every scene visually concrete."
                         ),
                     )
-                    repaired = review_script(self.llm, repaired, s)
+                    repaired = review_script(repair_llm, repaired, s)
                     repaired_speech = self._speak(repaired, work, s)
                     repaired_total = round(repaired_speech.duration + END_PAD, 3)
                     if abs(repaired_total - target) < abs(total - target):
