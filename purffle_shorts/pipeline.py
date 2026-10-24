@@ -419,14 +419,13 @@ class Studio:
                         ),
                     )
                     repaired = review_script(self.llm, repaired, s)
-                    repaired_path = folder / "script.json"
-                    repaired_path.write_text(
-                        json.dumps(repaired.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
-                    )
                     repaired_speech = self._speak(repaired, work, s)
                     repaired_total = round(repaired_speech.duration + END_PAD, 3)
                     if abs(repaired_total - target) < abs(total - target):
                         script, speech, total = repaired, repaired_speech, repaired_total
+                        (folder / "script.json").write_text(
+                            json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+                        )
                         log.info("Runtime repair improved duration to %.1fs (target %ss)", total, target)
                     else:
                         log.warning("Runtime repair did not improve duration (%.1fs -> %.1fs)",
