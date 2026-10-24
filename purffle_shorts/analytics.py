@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import math
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from statistics import median
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -36,6 +36,70 @@ def _fetch_with_oauth(ids: list[str], settings: Settings) -> list[dict]:
     return yt.videos().list(part="statistics", id=",".join(ids), maxResults=50).execute().get("items", [])
 
 
+def analytics_service(settings: Settings):
+    """Build the official YouTube Analytics API client without opening an interactive auth flow."""
+    from googleapiclient.discovery import build
+    from . import youtube
+    credentials = youtube.get_credentials(
+        settings, interactive=False, extra_scopes=[youtube.SCOPE_ANALYTICS_READONLY]
+    )
+    return build("youtubeAnalytics", "v2", credentials=credentials, cache_discovery=False)
+
+
+def sync_retention(settings: Settings, history: History) -> int:
+    """Read average-view/watch-time metrics for our own videos when Analytics OAuth is available.
+
+    This is optional: missing scope, disabled API, or private/unavailable reports leave the
+    existing public-statistics learning loop usable and never trigger an interactive login.
+    """
+    ids = history.live_video_ids()
+    if not ids:
+        return 0
+    api = None
+    try:
+        api = analytics_service(settings)
+    except Exception as exc:
+        log.info("YouTube Analytics metrics unavailable; continuing with public stats: %s", redact(exc))
+        return 0
+
+    today = datetime.now(timezone.utc).date()
+    start_date = (today - timedelta(days=365)).isoformat()
+    end_date = (today - timedelta(days=2)).isoformat()  # Analytics reports can lag by a day or two.
+    updated = 0
+    for i in range(0, len(ids), 50):
+        batch = ids[i:i + 50]
+        try:
+            report = api.reports().query(
+                ids="channel==MINE",
+                startDate=start_date,
+                endDate=end_date,
+                metrics="averageViewDuration,averageViewPercentage,estimatedMinutesWatched",
+                dimensions="video",
+                filters="video==" + ",".join(batch),
+                maxResults=50,
+            ).execute()
+        except Exception as exc:
+            log.info("Could not read YouTube average-view metrics for batch: %s", redact(exc))
+            continue
+        headers = [str(item.get("name") or "") for item in report.get("columnHeaders", [])]
+        for row in report.get("rows", []):
+            values = dict(zip(headers, row))
+            video_id = str(values.get("video") or "")
+            if video_id not in batch:
+                continue
+            try:
+                avg_duration = float(values["averageViewDuration"])
+                avg_percentage = float(values["averageViewPercentage"])
+                minutes = float(values["estimatedMinutesWatched"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            history.set_retention(video_id, avg_duration, avg_percentage, minutes)
+            updated += 1
+    if updated:
+        log.info("YouTube Analytics average-view metrics refreshed for %d video(s)", updated)
+    return updated
+
+
 def sync_stats(settings: Settings, history: History) -> int:
     """Refresh stats for every uploaded video (1 quota unit per 50 videos). Returns how many were updated."""
     ids = history.live_video_ids()
@@ -55,6 +119,8 @@ def sync_stats(settings: Settings, history: History) -> int:
             updated += 1
     if updated:
         log.info("Channel stats refreshed for %d video(s)", updated)
+    if settings.learn_from_stats:
+        sync_retention(settings, history)
     return updated
 
 
