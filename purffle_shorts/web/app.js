@@ -634,7 +634,7 @@ function drawEditor() {
     if (copyButton) {
       const scene = d.scenes[+copyButton.dataset.copyScene];
       if (!scene) return;
-      const text = [scene.narration, scene.search_query].filter(Boolean).join("\\n");
+      const text = [scene.narration, scene.search_query].filter(Boolean).join("\n");
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
