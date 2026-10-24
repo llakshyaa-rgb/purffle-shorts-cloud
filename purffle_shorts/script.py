@@ -922,12 +922,20 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
             log.warning("Script Doctor could not grade its rewrite (%s); using it", e)
             best = better
             break
-        if new_score is not None and best_score is not None and new_score < best_score:
+        # A verified fix to a concrete story-logic gap outranks a tiny rubric-score drop.
+        # Otherwise the score guard could preserve a more polished but causally broken draft.
+        continuity_before = [x for x in lint_script(best, settings) if x.startswith("Fiction continuity:")]
+        continuity_after = [x for x in lint_script(better, settings) if x.startswith("Fiction continuity:")]
+        continuity_improved = len(continuity_after) < len(continuity_before)
+        if new_score is not None and best_score is not None and new_score < best_score and not continuity_improved:
             log.info("Script Doctor rewrite scored %d, below the draft's %d: kept the draft", new_score, best_score)
             break
         best, best_score = better, new_score if new_score is not None else best_score
         best_rubric, best_issues = new_rubric, new_issues  # never show the draft's sub-scores for the rewrite
-        if best_score is not None and best_score >= settings.script_target_score:
+        remaining_logic_gaps = any(
+            x.startswith("Fiction continuity:") for x in lint_script(best, settings)
+        )
+        if best_score is not None and best_score >= settings.script_target_score and not remaining_logic_gaps:
             break
     # Preserve the best verified result before the optional narrative-payoff pass. If that
     # extra provider call fails, the already-graded rewrite and its score must remain intact.
