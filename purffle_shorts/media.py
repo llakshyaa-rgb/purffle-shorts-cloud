@@ -616,10 +616,13 @@ class Visuals:
         # must actually try that source for ordinary scenes. The built-in library is the
         # default when local artwork is requested, for explicit director illustration/
         # diagram choices, and as the final fallback when no source yields a usable match.
+        # Respect explicit provider choices: Pexels/Pixabay/AI sources should be tried
+        # instead of being silently bypassed by local artwork. The library remains the
+        # preferred source for director-led illustrations/diagrams and when no provider exists.
         use_library = (
             directed_mode in ("diagram", "illustration", "symbolic")
-            or (not directed_mode and visual_kind == "diagram")
-            or (not directed_mode and "local" in self.sources and stable % 100 < 78)
+            or (not directed_mode and visual_kind == "diagram" and not self.sources)
+            or (not directed_mode and not self.sources and stable % 100 < 78)
         )
         character_marker = "REUSABLE CHARACTER:"
         character_mode = character_marker in (image_prompt or "").upper()
@@ -745,7 +748,28 @@ class Visuals:
 
             log.info("Scene %d: %s %s (%r)", idx + 1, item.source, item.kind, q)
             return item
-        log.info("Scene %d: no footage found for %r — using an animated background", idx + 1, query)
+        # Last resort: meaningful offline artwork beats a generic gradient, especially on
+        # low-cost deployments with no usable external footage or image API.
+        try:
+            library_root = Path(self.s.media_dir) / ".purffle_assets"
+            asset = get_or_create_asset(
+                library_root, query or topic, image_prompt, self.s.width, self.s.height,
+                variation=idx, mode=directed_mode or visual_kind, style_key=self.s.visual_style,
+            )
+            library_path = dest_dir / f"scene{idx:02d}_library_fallback.png"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(asset["path"], library_path)
+            log.info("Scene %d: offline visual-library fallback (%s)", idx + 1, asset["id"])
+            return MediaItem(
+                "library", library_path.name, "image", path=library_path,
+                width=self.s.width, height=self.s.height, query=query or topic,
+                text=f"offline {asset['visual_type']} artwork",
+                extra={"visual_type": asset["visual_type"], "asset_id": asset["id"],
+                       "character": asset.get("character")},
+            )
+        except Exception as e:
+            log.warning("Offline visual fallback failed for scene %d: %s", idx + 1, redact(e))
+        log.info("Scene %d: no usable visual found for %r — using an animated background", idx + 1, query)
         return MediaItem("generated", f"gradient-{idx}", "generated", query=query)
 
     def for_scenes(self, jobs: list[tuple[str, str, float]], topic: str, dest_dir: Path,
