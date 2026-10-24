@@ -357,6 +357,36 @@ def test_fiction_logic_audits_check_survival_time_and_handwavy_explanations():
     assert "explicit supernatural rule" in editor
 
 
+def test_lint_flags_unexplained_animal_entry_and_knocking_mechanism():
+    draft = normalize({"title": "The Tiny Door Behind My Wardrobe", "scenes": [
+        {"narration": "Behind my wardrobe a tiny sealed door hid silently.",
+         "search_query": "wardrobe tiny door",
+         "image_prompt": "A tiny sealed wooden door behind a bedroom wardrobe, wide shot, dim light."},
+        {"narration": "Every night at two a loud sharp knock echoed.",
+         "search_query": "tiny door at night",
+         "image_prompt": "A small wooden door rattling in a dark bedroom, medium shot, moonlight."},
+        {"narration": "I pressed my ear and heard faint scratching.",
+         "search_query": "ear against wooden door",
+         "image_prompt": "A person listening against a tiny wooden door, close shot, dark bedroom."},
+        {"narration": "Curiosity won, so I pried it open with an old screwdriver.",
+         "search_query": "screwdriver opening tiny door",
+         "image_prompt": "A hand prying open a tiny wooden door with an old screwdriver, close-up."},
+        {"narration": "Inside a shivering kitten's tiny paw was stuck on a nail.",
+         "search_query": "kitten paw rusty nail",
+         "image_prompt": "A shivering kitten with one paw caught on a rusty nail in a narrow wall gap, close-up."},
+        {"narration": "I freed the paw and the kitten bolted out.",
+         "search_query": "kitten escaping wall gap",
+         "image_prompt": "A small kitten darting out of a narrow wall cavity into a bedroom, low angle."},
+        {"narration": "The knocking stopped completely, replaced by a soft purr.",
+         "search_query": "kitten purring bedroom",
+         "image_prompt": "A rescued kitten purring on a bedroom floor, medium shot, warm light."},
+    ]}, "kitten behind wardrobe", "story", "en")
+
+    findings = lint_script(draft, Settings(target_seconds=30))
+    assert any("never explains how it entered" in finding for finding in findings)
+    assert any("knocking is not physically connected" in finding for finding in findings)
+
+
 def test_story_scene_architecture_prompt_is_explicit():
     _, writer = build_prompt("a door behind a wardrobe that knocks back", "story", Settings(), [])
     assert "STORY SCENE ARCHITECTURE" in writer
