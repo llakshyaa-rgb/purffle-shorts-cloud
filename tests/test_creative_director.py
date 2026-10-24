@@ -65,7 +65,7 @@ def test_director_marks_reusable_archetypes_for_the_asset_library():
     script.style = "story"
     script.scenes[0].narration = "The detective opened the hidden door."
     plan = direct(script, None)
-    assert plan[0]["character"] == "detective"
+    assert plan[0]["character"] == "purffle_detective"
     apply_to_script(script, plan)
-    assert "REUSABLE CHARACTER: detective" in script.scenes[0].image_prompt
+    assert "REUSABLE CHARACTER: purffle_detective" in script.scenes[0].image_prompt
     assert "REUSABLE CHARACTER:" not in script.scenes[1].image_prompt
