@@ -640,11 +640,7 @@ def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[st
 def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
     """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
     if script.style not in {"story", "reddit", "chat"}:
-        try:
-            score, rubric, issues = _grade(llm, script, settings)
-            return script, score, rubric, issues
-        except Exception:
-            return script, script.score, script.rubric, list(script.review or [])
+        return script, script.score, script.rubric, list(script.review or [])
 
     try:
         score, rubric, issues = _grade(llm, script, settings)
