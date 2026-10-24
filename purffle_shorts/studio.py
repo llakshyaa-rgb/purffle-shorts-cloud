@@ -533,6 +533,8 @@ class StudioServer:
         rec = self.studio.history.get(vid)
         if not rec or not rec.get("video_path") or not Path(rec["video_path"]).is_file():
             raise ValueError("Video file is missing; render it again before scheduling.")
+        if rec.get("youtube_id"):
+            raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
         raw = (value or "").strip()
         if not raw:
             self.studio.history.set_publish_at(vid, None)
@@ -548,8 +550,6 @@ class StudioServer:
         dt = dt.astimezone(timezone.utc)
         if dt < datetime.now(timezone.utc) + timedelta(minutes=15):
             raise ValueError("Choose a publish time at least 15 minutes in the future (required by YouTube scheduling).")
-        if rec.get("youtube_id"):
-            raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
         for reserved in self.studio.history.scheduled_times():
             try:
                 reserved_dt = datetime.fromisoformat(reserved.replace("Z", "+00:00")).astimezone(timezone.utc)
