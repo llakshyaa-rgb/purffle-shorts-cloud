@@ -191,3 +191,18 @@ def test_upload_false_is_a_hard_stop_for_direct_upload(settings, monkeypatch, tm
     )
     monkeypatch.setattr(P.youtube, "upload", lambda *args, **kwargs: pytest.fail("must never upload"))
     assert studio.upload_record(vid) == "disabled"
+
+
+
+def test_adaptive_reuse_preserves_intentional_gradient():
+    from purffle_shorts.media import MediaItem
+
+    deliberate = MediaItem(
+        "generated", "intentional-gradient-2", "generated",
+        extra={"intentional_gradient": True},
+    )
+    missing = MediaItem("generated", "fallback-gradient-2", "generated")
+    real = MediaItem("pexels", "video-1", "video")
+    assert not P._can_adaptively_reuse(deliberate)
+    assert P._can_adaptively_reuse(missing)
+    assert not P._can_adaptively_reuse(real)

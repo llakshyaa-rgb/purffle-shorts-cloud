@@ -46,6 +46,13 @@ from .utils import Cancelled, check_cancel, redact, slugify, truncate_words
 log = logging.getLogger("purffle")
 
 END_PAD = 0.6          # seconds of breathing room after the last word
+
+
+def _can_adaptively_reuse(item: MediaItem) -> bool:
+    """Only replace failed generated placeholders; preserve deliberate gradient art direction."""
+    return item.source == "generated" and not bool(item.extra.get("intentional_gradient"))
+
+
 REUSABLE_SOURCES = {"generated", "local", "library", "background", "openai-images", "ai", "dalle", "gpt-image", "pollinations"}
 AI_SOURCES = {"openai-images", "ai", "dalle", "gpt-image", "pollinations"}
 
@@ -524,7 +531,9 @@ class Studio:
                 # the match is weak, and avoid repeating the immediately previous shot unless the
                 # semantic match is especially strong.
                 for pos, (st, item) in enumerate(zip(shots, media)):
-                    if item.source != "generated":
+                    # A director-requested gradient is the chosen visual, not a missing asset.
+                    # Never replace it with a vaguely related photo from the same scene.
+                    if not _can_adaptively_reuse(item):
                         continue
                     scene_query = script.scenes[st.index].search_query
                     ranked_reuse = []
