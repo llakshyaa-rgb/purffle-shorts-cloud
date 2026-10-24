@@ -191,17 +191,17 @@ def pick_style(settings: Settings, source: str) -> str:
 
 
 def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
-    """(words, scenes) for a target length. Chat messages are short, so a chat has more of them."""
+    """Return a word target and a flexible scene-count suggestion, never a scene-count requirement."""
     words = int(target_seconds * WORDS_PER_SECOND)
     if style == "chat":
-        return words, max(6, min(18, round(target_seconds / 2.8)))
-    if style == "dialogue":
-        return words, max(6, min(14, round(target_seconds / 3.5)))
-    if style == "reddit":
-        return words, max(6, min(14, round(target_seconds / 3.2)))
-    # Short videos need more distinct visual/story beats; keep scenes brief enough
-    # for meaningful escalation and a separate payoff rather than compressing into 5 blocks.
-    return words, max(6, min(14, round(target_seconds / 3.2)))
+        suggested = round(target_seconds / 2.8)
+    elif style == "dialogue":
+        suggested = round(target_seconds / 3.5)
+    else:
+        suggested = round(target_seconds / 3.8)
+    # Guidance for the writer, not a quota: the prompt permits fewer or more scenes
+    # whenever the story's natural beats, pacing, or runtime calls for it.
+    return words, max(3, min(14, suggested))
 
 
 def _format_rules(style: str) -> str:
@@ -251,7 +251,7 @@ Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
 {ctx}{ins}{brief}{avoid_block}Rules:
-- Total narration about {words} words (~{settings.target_seconds} seconds spoken), split into {n_scenes} distinct scenes. Aim for this scene count; do not collapse the story into five broad blocks when more beats are requested.
+- Total narration about {words} words (~{settings.target_seconds} seconds spoken). Suggested scene count: {n_scenes}, but this is flexible guidance, NOT a quota. Use as many or as few scenes as the content naturally needs (often 3-8 for a short); never add filler scenes to hit a number and never merge distinct important beats just to hit a number. Keep each scene a clean, visually meaningful spoken beat and let story rhythm determine scene boundaries.
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - Give this video its own creative identity. Build a clear progression suited to its format: opening -> development -> meaningful detail or complication -> payoff. Even facts/list formats need a clear thread, not a pile of unrelated trivia. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, generic AI phrasing, and announcing what the video will explain.
