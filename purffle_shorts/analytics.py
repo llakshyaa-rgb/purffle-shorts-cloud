@@ -1,5 +1,6 @@
-"""Channel learning loop: use mature-video views, likes and comments as imperfect performance signals.
-These metrics guide format/topic experiments; they do not reveal actual watch time or audience retention.
+"""Channel learning loop using mature-video engagement plus optional official average-view metrics.
+Public views/likes/comments are proxies. YouTube Analytics can add average view duration and percentage,
+but neither metric provides the full second-by-second audience-retention curve.
 
     LEARN_FROM_STATS=true
     YOUTUBE_API_KEY=...     optional: a plain API key reads public stats without touching your OAuth token.
