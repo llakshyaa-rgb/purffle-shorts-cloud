@@ -85,3 +85,7 @@ def test_insights_include_topics_and_disclose_proxy_metrics(tmp_path):
     cal = A.calibration(h)
     assert cal["topics"] and cal["topics"][0]["topic"] == "space"
     assert cal["styles"][0]["median_engagement_percent"] is not None
+
+
+def test_publish_hour_conversion_uses_configured_timezone():
+    assert A._local_hour("2026-10-24T12:00:00Z", "Asia/Kolkata") == 17
