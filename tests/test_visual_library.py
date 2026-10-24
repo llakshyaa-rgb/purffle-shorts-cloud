@@ -50,3 +50,36 @@ def test_library_creates_diagram_png(tmp_path: Path):
     with Image.open(target) as image:
         assert image.size == (360, 640)
         assert image.format == "PNG"
+
+
+
+def test_specialized_diagrams_render_for_different_subjects(tmp_path: Path):
+    cases = [
+        ("A diagram of the water cycle", "cycle"),
+        ("A timeline of history", "timeline"),
+        ("A diagram of the solar system orbit", "orbit"),
+        ("A map route between locations", "map"),
+        ("A network diagram showing connected nodes", "network"),
+    ]
+    for index, (query, _) in enumerate(cases):
+        target = tmp_path / f"diagram_{index}.png"
+        assert make_visual(query, "clear infographic", target, 360, 640) == "diagram"
+        with Image.open(target) as image:
+            assert image.size == (360, 640)
+            assert image.format == "PNG"
+
+
+def test_more_scene_subjects_create_illustrations(tmp_path: Path):
+    cases = [
+        "A robot standing in a dark laboratory",
+        "A storm above a mountain",
+        "A rocket flying through space",
+        "A wolf in a snowy forest",
+        "A circuit board glowing in the dark",
+    ]
+    for index, query in enumerate(cases):
+        target = tmp_path / f"scene_{index}.png"
+        assert make_visual(query, "stylized vector illustration", target, 360, 640) == "illustration"
+        with Image.open(target) as image:
+            assert image.size == (360, 640)
+            assert image.format == "PNG"
