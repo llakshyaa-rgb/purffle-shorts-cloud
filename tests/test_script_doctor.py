@@ -7,6 +7,7 @@ from purffle_shorts.script import (
     Script,
     build_prompt,
     lint_script,
+    scene_count_bounds,
     normalize,
     offline_script,
     review_script,
@@ -72,6 +73,16 @@ def test_scene_plan_by_format():
     assert scene_plan("facts", 40) == (104, 11)
     assert scene_plan("chat", 40)[1] == 14
     assert scene_plan("dialogue", 40)[1] == 11
+    assert scene_count_bounds("facts", 40) == (9, 14)
+    assert scene_count_bounds("story", 60) == (12, 16)
+    assert scene_count_bounds("facts", 10) == (3, 5)
+
+
+def test_prompt_requires_enough_distinct_scene_boxes_without_cutting_narration():
+    _, user = build_prompt("a lost dog", "story", Settings(target_seconds=40), [])
+    assert "do NOT compress the entire script into 3–5 oversized scene boxes" in user
+    assert "divide it across more scenes instead of cutting text" in user
+    assert "acceptable range is 9–14" in user
 
 
 def test_prompt_carries_format_rules_and_channel_insights():
