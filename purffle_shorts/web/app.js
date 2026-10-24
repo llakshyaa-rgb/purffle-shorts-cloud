@@ -777,7 +777,7 @@ async function openVideo(id) {
           <button class="btn sm" type="button" id="d-approval">${v.approval_status === "approved" ? "Revoke approval" : "Approve publishing"}</button>
         </div>
         <div class="field"><label for="d-publish-at">Publish time (your device's local time, optional)</label>
-          <input id="d-publish-at" type="datetime-local" value="${esc(localDateTimeValue(v.publish_at))}" min="${esc(localDateTimeValue(new Date(Date.now() + 5 * 60000).toISOString()))}">
+          <input id="d-publish-at" type="datetime-local" value="${esc(localDateTimeValue(v.publish_at))}" min="${esc(localDateTimeValue(new Date(Date.now() + 15 * 60000).toISOString()))}">
           <p class="hint">Save a future time, then approve the video. Nothing uploads until you press Publish and publishing is enabled.</p>
         </div>
         <div class="actions">
@@ -833,7 +833,7 @@ async function openVideo(id) {
   const scheduleSave = $("#d-save-schedule");
   if (scheduleSave && schedule) scheduleSave.onclick = () => {
     if (!schedule.value) return toast("Choose a future date and time, or use Clear time.", "bad");
-    if (new Date(schedule.value).getTime() <= Date.now()) return toast("Choose a future time.", "bad");
+    if (new Date(schedule.value).getTime() <= Date.now()) return toast("Choose a time at least 15 minutes in the future.", "bad");
     saveSchedule(schedule.value);
   };
   const scheduleClear = $("#d-clear-schedule");
