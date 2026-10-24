@@ -510,3 +510,17 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 .grid2 > .card + .card, .grid3 > .card + .card, .create > .card + .card { margin-top: 0; }
 @media (max-width: 860px) { .toolbar input[type=search] { max-width: none; margin-left: 0; } }
 .monitor + .card { margin-top: 14px; }
+
+
+/* Clear-field controls for Topic and Creative direction */
+.clearable-input { position: relative; width: 100%; }
+.clearable-input > input, .clearable-input > textarea { width: 100%; padding-right: 42px; }
+.clearable-input > .clear-field {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--rule); border-radius: 999px; background: var(--well);
+  color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.clearable-input > .clear-field:hover { background: var(--sheet); }
+.clearable-textarea > textarea { min-height: 88px; }
+.clearable-textarea > .clear-field { top: 7px; }
