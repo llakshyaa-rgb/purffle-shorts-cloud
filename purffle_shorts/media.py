@@ -618,7 +618,8 @@ class Visuals:
         character_mode = character_marker in (image_prompt or "").upper()
         style_key = ""
         if character_mode:
-            style_key = (image_prompt or "").split(character_marker, 1)[-1].splitlines()[0].strip()[:160]
+            parts = re.split(re.escape(character_marker), image_prompt or "", maxsplit=1, flags=re.IGNORECASE)
+            style_key = (parts[-1].splitlines()[0].strip() if len(parts) > 1 else "")[:160]
             directed_mode = "character"
             use_library = True
         if use_library:
