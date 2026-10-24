@@ -127,17 +127,6 @@ class History:
         """Save a validated UTC publish time without uploading anything by itself."""
         self._exec("UPDATE videos SET publish_at = ? WHERE id = ?", (publish_at, vid))
 
-    def set_approval(self, vid: int, approved: bool) -> None:
-        """Persist a human publishing decision; rendering never implies approval."""
-        self._exec(
-            "UPDATE videos SET approval_status = ?, approved_at = ? WHERE id = ?",
-            ("approved" if approved else "pending", now_iso() if approved else None, vid),
-        )
-
-    def set_publish_at(self, vid: int, publish_at: str | None) -> None:
-        """Save a validated UTC publish time without uploading anything by itself."""
-        self._exec("UPDATE videos SET publish_at = ? WHERE id = ?", (publish_at, vid))
-
     def recent_titles(self, limit: int = 40) -> list[str]:
         return [r["title"] for r in self._all(
             "SELECT title FROM videos WHERE title IS NOT NULL ORDER BY id DESC LIMIT ?", (limit,))]
