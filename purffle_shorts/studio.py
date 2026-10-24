@@ -497,6 +497,38 @@ class StudioServer:
                         out.append(item)
         return out
 
+    def approve_video(self, vid: int, approved: bool) -> bool:
+        rec = self.studio.history.get(vid)
+        if not rec or not rec.get("video_path") or not Path(rec["video_path"]).is_file():
+            return False
+        self.studio.history.set_approval(vid, approved)
+        return True
+
+    def schedule_video(self, vid: int, value: str) -> str | None:
+        """Validate and store a future publish timestamp. No upload is triggered here."""
+        from datetime import datetime, timezone
+        rec = self.studio.history.get(vid)
+        if not rec or not rec.get("video_path") or not Path(rec["video_path"]).is_file():
+            raise ValueError("Video file is missing; render it again before scheduling.")
+        raw = (value or "").strip()
+        if not raw:
+            self.studio.history.set_publish_at(vid, None)
+            return None
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("Enter a valid date and time.") from exc
+        if dt.tzinfo is None:
+            raise ValueError("Choose a date and time with a timezone.")
+        dt = dt.astimezone(timezone.utc)
+        if dt <= datetime.now(timezone.utc):
+            raise ValueError("The publish time must be in the future.")
+        if rec.get("youtube_id"):
+            raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
+        self.studio.history.set_publish_at(vid, dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        self.studio.history.set_approval(vid, False)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     def assets(self, query: str = "", kind: str = "") -> list[dict]:
         from .asset_library import ensure_character_collection, list_assets
         root = Path(self.settings.media_dir) / ".purffle_assets"
@@ -768,6 +800,19 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
             if m:
                 h.delete_idea(int(m.group(1)))
                 return self._json({"ok": True})
+            m = re.fullmatch(r"/api/videos/(\d+)/approval", path)
+            if m:
+                approved = body.get("approved") is True
+                if not app.approve_video(int(m.group(1)), approved):
+                    return self._json({"error": "video or local file not found"}, 404)
+                return self._json({"ok": True, "approval_status": "approved" if approved else "pending"})
+            m = re.fullmatch(r"/api/videos/(\d+)/schedule", path)
+            if m:
+                try:
+                    publish_at = app.schedule_video(int(m.group(1)), str(body.get("publish_at") or ""))
+                except ValueError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                return self._json({"ok": True, "publish_at": publish_at})
             m = re.fullmatch(r"/api/upload/(\d+)", path)
             if m:
                 rec = h.get(int(m.group(1)))
