@@ -134,7 +134,7 @@ def test_actual_average_view_percentage_can_break_performance_ties():
 def test_script_score_calibrates_against_average_view_percentage(tmp_path):
     scores = [50, 60, 70, 80, 90]
     h = _history(tmp_path, [("facts", 1000 + i, score, 100) for i, score in enumerate(scores)])
-    for i, score in enumerate(scores):
+    for i, _score in enumerate(scores):
         h.set_retention(f"y{i}", 20 + i, 20 + i * 15, 100 + i)
     cal = A.calibration(h)
     assert cal["retention_scored"] == 5
