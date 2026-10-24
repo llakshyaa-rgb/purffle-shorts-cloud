@@ -428,10 +428,7 @@ class Studio:
             )
             log.info("Creative Director: planned %d scenes; notes saved to director_notes.md",
                      len(director_plan))
-            for beat in director_plan:
-                log.info("Director · scene %02d: %s | %s | camera=%s | sound=%s — %s",
-                         beat["scene"], beat["visual_mode"], beat["purpose"], beat["camera"],
-                         beat["sound"], beat["reason"])
+            # Per-scene rationale stays in director_notes.md and is shown only when requested in Studio.
 
             # A chat story's picture is mostly the phone screen: more cuts behind it would only cost time.
             shots = split_shots(timeline, speech.words, 0 if chat else s.max_shot_seconds)
