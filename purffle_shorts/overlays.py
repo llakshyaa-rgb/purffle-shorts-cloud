@@ -935,6 +935,33 @@ class OverlayPlan:
     emoji: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) emoji popping up above the captions
 
 
+def _auto_caption_style(settings: Settings, chunks: list[Chunk], chat: list[ChatMessage] | None = None) -> str:
+    """Choose a readable caption treatment from the content format and visual tone."""
+    kind = (settings.style or "").lower()
+    grade = (settings.color_grade or "").lower()
+    if chat or kind == "chat":
+        return "boxed"
+    if kind in {"quiz", "listicle"}:
+        return "boxed"
+    if kind in {"explainer", "facts", "news", "educational"}:
+        return "clean"
+    if kind in {"story", "myth", "reddit", "dialogue"}:
+        return "bold"
+    if grade == "neon":
+        return "neon"
+    return "bold"
+
+
+def _auto_caption_font(settings: Settings, caption_style: CapStyle) -> CapStyle:
+    """Match typeface personality to format while keeping captions legible."""
+    kind = (settings.style or "").lower()
+    if kind in {"facts", "explainer", "news", "educational"}:
+        return replace(caption_style, font="sans")
+    if kind in {"quiz", "listicle", "story", "myth", "reddit"}:
+        return replace(caption_style, font="anton")
+    return caption_style
+
+
 def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_text: str, work: Path, *,
                    labels: dict[str, str] | None = None, chat: list[ChatMessage] | None = None,
                    contact: str = "", card: tuple[str, str, str] | None = None,
@@ -947,7 +974,12 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     emoji: (start, end, emoji) shown above the captions."""
     emphasis = (set(emphasis or ()) if settings.caption_emphasis else None)
     emoji_plan = emoji_pops(settings, emoji, total, work / "emoji") if emoji and settings.caption_emoji else None
-    style = CAPTION_STYLES.get(settings.caption_style, CAPTION_STYLES["bold"])
+    selected_style = settings.caption_style
+    if selected_style == "auto":
+        selected_style = _auto_caption_style(settings, chunks, chat)
+    style = CAPTION_STYLES.get(selected_style, CAPTION_STYLES["bold"])
+    if settings.caption_style == "auto":
+        style = _auto_caption_font(settings, style)
     if not settings.caption_uppercase and style.font == "anton":
         style = replace(style, font="sans")
     font_path, family = resolve_font(settings, style.font)
