@@ -825,6 +825,19 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 except ValueError as exc:
                     return self._json({"error": str(exc)}, 400)
                 return self._json({"ok": True, "publish_at": publish_at})
+            m = re.fullmatch(r"/api/videos/(\d+)/approval", path)
+            if m:
+                approved = body.get("approved") is True
+                if not app.approve_video(int(m.group(1)), approved):
+                    return self._json({"error": "video or local file not found"}, 404)
+                return self._json({"ok": True, "approval_status": "approved" if approved else "pending"})
+            m = re.fullmatch(r"/api/videos/(\d+)/schedule", path)
+            if m:
+                try:
+                    publish_at = app.schedule_video(int(m.group(1)), str(body.get("publish_at") or ""))
+                except ValueError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                return self._json({"ok": True, "publish_at": publish_at})
             m = re.fullmatch(r"/api/upload/(\d+)", path)
             if m:
                 if not app.settings.upload:
