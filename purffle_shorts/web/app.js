@@ -555,8 +555,8 @@ function drawEditor() {
   const j = currentCreateJob();
   if (!d) {
     if (j && (j.status === "running" || j.status === "queued")) { box.innerHTML = ""; return; }
-    const shape = { "9:16": "s916", "16:9": "s169", "1:1": "s11", "4:5": "s45" }[f.aspect] || "s916";
-    const res = { "9:16": "1080×1920", "16:9": "1920×1080", "1:1": "1080×1080", "4:5": "1080×1350" }[f.aspect] || "";
+    const shape = { "9:16": "s916", "16:9": "s169", "1:1": "s11", "4:5": "s45", "2:3": "s23", "3:2": "s32", "3:4": "s34", "21:9": "s219" }[f.aspect] || "s916";
+    const res = { "9:16": "1080×1920", "16:9": "1920×1080", "1:1": "1080×1080", "4:5": "1080×1350", "2:3": "1080×1620", "3:2": "1620×1080", "3:4": "1080×1440", "21:9": "1920×823" }[f.aspect] || "";
     box.innerHTML = `<div class="monitor" aria-label="Preview">
       <div class="mhead"><span>Program monitor</span><span class="rec">Preview</span></div>
       <div class="frame ${shape}"><div class="bar"></div><div class="wm">${esc(S.info.channel || "")}</div><div class="ph-hook">This animal has 3 hearts</div>${capSample(f.caption_style, f.caption_position)}<span class="tc">00:00:02:14</span></div>
