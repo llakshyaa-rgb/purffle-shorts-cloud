@@ -680,7 +680,7 @@ function drawEditor() {
 // ------------------------------------------------------------------ LIBRARY
 function viewLibrary() {
   $("#main").innerHTML = `
-  ${head("library", "Library", "Everything you have made. Open a video to watch it, edit and re-render it, publish it or delete it.")}
+  ${head("library", "Library", "Everything you have made. Open a video to watch it, edit and re-render it, publish it or delete it.", '<button class="btn" id="open-assets" type="button">'+I.bulb+'Visual assets</button>')}
   <div class="toolbar">${seg("lib", [["", "All"], ["rendered", "Ready"], ["scheduled", "Scheduled"], ["uploaded", "Uploaded"], ["queued", "Queued"], ["failed", "Failed"]], S.lib.status)}
     <input type="search" id="lib-q" placeholder="Search titles" value="${esc(S.lib.q)}" aria-label="Search"></div>
   <div class="lib" id="lib"></div>`;
@@ -693,6 +693,7 @@ function viewLibrary() {
   });
   let t;
   $("#lib-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { S.lib.q = e.target.value; drawLibrary(); }, 200); };
+  $("#open-assets").onclick = viewAssets;
   drawLibrary();
   const deep = +(location.hash.split("/")[1] || 0);  // #library/12 opens video 12: a link to one video
   if (deep) openVideo(deep);
