@@ -533,8 +533,8 @@ class StudioServer:
         if dt.tzinfo is None:
             raise ValueError("Choose a date and time with a timezone.")
         dt = dt.astimezone(timezone.utc)
-        if dt <= datetime.now(timezone.utc):
-            raise ValueError("The publish time must be in the future.")
+        if dt < datetime.now(timezone.utc) + __import__("datetime").timedelta(minutes=15):
+            raise ValueError("Choose a publish time at least 15 minutes in the future (required by YouTube scheduling).")
         if rec.get("youtube_id"):
             raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
         self.studio.history.set_publish_at(vid, dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
