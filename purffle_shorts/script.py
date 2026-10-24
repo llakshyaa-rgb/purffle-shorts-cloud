@@ -615,7 +615,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             return token
 
         for scene_no, sc in enumerate(script.scenes, 1):
-            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\\s+", sc.narration) if x.strip()]
+            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\s+", sc.narration) if x.strip()]
             found_echo = False
             for sentence in sentences:
                 words = re.findall(r"[a-z]+", sentence.lower())
