@@ -426,10 +426,25 @@ class Studio:
                                   self.history.used_media())
                 got = dict(zip(((st.index, st.part) for st in wanted),
                                visuals.for_scenes(jobs, script.topic, work / "media", progress=self._sub)))
-                media = [got.get((st.index, st.part)) or got[(st.index, 0)] for st in shots]
+                media = []
+                for st in shots:
+                    exact = got.get((st.index, st.part))
+                    if exact is not None:
+                        media.append(exact)
+                        continue
+                    base = got.get((st.index, 0))
+                    # Reuse the scene's first shot only if it is real, usable media.
+                    # Never turn a failed later shot into a forced repeat of a generated background.
+                    if base is not None and base.source != "generated":
+                        media.append(base)
+                    else:
+                        media.append(MediaItem(
+                            "generated", f"gradient-{st.index}-{st.part}", "generated",
+                            query=script.scenes[st.index].search_query,
+                        ))
 
                 # Adaptive fallback: reuse a previous successful visual only when its metadata
-                # strongly matches the failed scene. Prefer fresh media; don't force reuse when
+                # strongly matches the failed shot. Prefer fresh media; don't force reuse when
                 # the match is weak, and avoid repeating the immediately previous shot unless the
                 # semantic match is especially strong.
                 for pos, (st, item) in enumerate(zip(shots, media)):
