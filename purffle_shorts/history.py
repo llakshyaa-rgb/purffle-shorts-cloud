@@ -47,8 +47,6 @@ VIDEO_COLUMNS = {
     "views": "INTEGER", "likes": "INTEGER", "comments": "INTEGER", "stats_at": "TEXT",
     "approval_status": "TEXT NOT NULL DEFAULT 'pending'",
     "approved_at": "TEXT",
-    "approval_status": "TEXT NOT NULL DEFAULT 'pending'",
-    "approved_at": "TEXT",
 }
 
 
