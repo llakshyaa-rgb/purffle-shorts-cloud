@@ -587,6 +587,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             if not sc.search_query.strip() or len(sc.search_query.split()) < 2:
                 out.append(f"Scene {i} has a vague visual search; use 2–5 concrete English words matching the narrated subject.")
                 break
+        for i, sc in enumerate(script.scenes, 1):
             if not sc.image_prompt.strip() or len(sc.image_prompt.split()) < 7:
                 out.append(f"Scene {i} needs a specific visual prompt with subject, visible action, setting, and framing.")
                 break
@@ -714,6 +715,10 @@ def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[st
 
 def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
     """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
+    # Non-narrative formats already receive the normal review. Avoid spending an extra grade call
+    # (and accidentally replacing a valid score if a provider fails) on facts, explainers, etc.
+    if script.style not in {"story", "reddit", "chat"}:
+        return script, script.score, script.rubric, list(script.review or [])
     try:
         score, rubric, issues = _grade(llm, script, settings)
     except Exception as e:
@@ -722,7 +727,7 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
 
     quality_dimensions = ("payoff", "specificity", "pacing", "curiosity")
     weak_dimensions = [key for key in quality_dimensions if rubric.get(key, 5) < 7]
-    if script.style not in {"story", "reddit", "chat"} or not weak_dimensions:
+    if not weak_dimensions:
         return script, score, rubric, issues
 
     forced_checks = lint_script(script, settings) + [
