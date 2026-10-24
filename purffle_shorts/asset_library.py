@@ -18,6 +18,9 @@ from .visual_library import character_kind, make_visual
 _LOCK = threading.RLock()
 _INDEX = "index.json"
 MAX_ASSETS = 300
+CANONICAL_CHARACTERS = {
+    "purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery",
+}
 
 
 def _now() -> str:
@@ -93,7 +96,8 @@ def get_or_create_asset(
         # Keep the persistent library bounded on low-cost devices and small cloud disks.
         if len(index) > MAX_ASSETS:
             oldest = sorted(
-                (r for r in index.values() if r.get("id") != key),
+                (r for r in index.values()
+                 if r.get("id") != key and r.get("style_key") not in CANONICAL_CHARACTERS),
                 key=lambda r: r.get("last_used_at") or r.get("created_at") or "",
             )[:len(index) - MAX_ASSETS]
             for old in oldest:
