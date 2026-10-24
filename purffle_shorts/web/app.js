@@ -1098,10 +1098,14 @@ async function drawAssets() {
 function calibrationCard(c) {
   const rho = c.score_vs_views;
   const tone = rho == null ? "" : rho >= 0.5 ? "ok" : rho >= 0.25 ? "accent" : "bad";
+  const retentionRho = c.score_vs_retention;
+  const retentionTone = retentionRho == null ? "" : retentionRho >= 0.5 ? "ok" : retentionRho >= 0.25 ? "accent" : "bad";
   return `<section class="card">${sh("02", "Do the predictions hold up?")}
     <p>${rho != null ? `<span class="chip ${tone}">ρ = ${rho.toFixed(2)}</span> ` : ""}Script Doctor score vs real views: ${esc(c.verdict)}.
-      <span class="muted">Spearman rank correlation over ${c.scored} scored videos public for 2+ days. This measures script-quality calibration, not YouTube audience retention.</span></p>
-    <p class="hint">Format selection starts adapting after at least 8 mature videos have stats. Views and engagement are imperfect signals; they cannot show watch time or true retention.</p>
+      <span class="muted">Spearman rank correlation over ${c.scored} scored videos public for 2+ days. This measures script-quality calibration, not a per-second audience-retention curve.</span></p>
+    ${retentionRho != null ? `<p><span class="chip ${retentionTone}">ρ = ${retentionRho.toFixed(2)}</span> Script Doctor score vs YouTube average-view percentage, across ${c.retention_scored} scored videos.</p>` :
+      `<p class="hint">YouTube average-view metrics are available for ${c.retention_scored || 0} videos. To enable them, turn on YouTube Analytics API in Google Cloud and run <span class="mono">purffle-shorts auth</span> again to grant Analytics read access.</p>`}
+    <p class="hint">Format selection starts adapting after at least 8 mature videos have stats. Views and engagement are proxies; average-view percentage is used when available, but it is not the full second-by-second retention curve.</p>
     ${c.hours.length ? `<p class="muted">Best publish hours (${esc(c.timezone || "server local time")}): ${c.hours.map(h => `<b>${String(h.hour).padStart(2, "0")}:00</b> ${fmtNum(h.median_views)}`).join(" · ")}</p>` : ""}
   </section>`;
 }
