@@ -502,7 +502,8 @@ class Studio:
                                      message_starts=speech.line_starts if messages else None,
                                      hook=bool(plan.hook_until or plan.card_until))
             render_video(s, media, [st.duration for st in shots], speech.audio, total, plan, video, work, joins,
-                         progress=self._sub, effects=effects, background=background if split else None)
+                         progress=self._sub, effects=effects, background=background if split else None,
+                         narrator_topic=script.topic)
 
             self._step("check")
             info = ffmpeg.probe(video)
