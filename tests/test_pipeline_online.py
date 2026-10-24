@@ -131,3 +131,22 @@ def test_youtube_refusal_pauses_uploads_until_the_reset(online, monkeypatch):
     assert first.status == second.status == "queued" and len(calls) == 1  # the second one was not even tried
     assert studio.quota_left() == 0                                     # so autopilot sleeps instead of piling up
     assert len(studio.history.pending_uploads()) == 2
+
+
+@needs_ffmpeg
+def test_creator_publish_time_overrides_configured_slot(online, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    s, _ = online
+    uploads = []
+    monkeypatch.setattr(P.youtube, "upload", lambda settings, video, body: uploads.append(body) or {"id": "manual"})
+    s = s.with_overrides(publish_times=["09:00"], keep_videos=True)
+    studio = P.Studio(s)
+    made = studio.make(upload=False)
+    assert made.ok and made.record_id
+    chosen = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0)
+    chosen_iso = chosen.strftime("%Y-%m-%dT%H:%M:%SZ")
+    studio.history.update_video(made.record_id, publish_at=chosen_iso)
+    status = studio.upload_record(made.record_id)
+    assert status == "scheduled"
+    assert uploads[0]["status"]["publishAt"] == chosen_iso
