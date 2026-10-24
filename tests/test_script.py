@@ -143,3 +143,5 @@ def test_script_prompt_sets_strong_runtime_length_target():
     system, user = build_prompt("Saturn density", "facts", settings, [])
     assert "HARD LENGTH TARGET" in user
     assert "25-second video" in user
+    assert "FACTUAL OPENING" in user
+    assert "NATURAL NARRATION FLOW" in user
