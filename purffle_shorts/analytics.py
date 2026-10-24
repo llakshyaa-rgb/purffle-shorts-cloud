@@ -1,6 +1,5 @@
-"""Channel learning loop: read the view, like and comment counts of the videos PurffleShorts uploaded,
-and show the LLM which ones worked and which flopped, so new scripts lean toward what your audience
-actually watches.
+"""Channel learning loop: use mature-video views, likes and comments as imperfect performance signals.
+These metrics guide format/topic experiments; they do not reveal actual watch time or audience retention.
 
     LEARN_FROM_STATS=true
     YOUTUBE_API_KEY=...     optional: a plain API key reads public stats without touching your OAuth token.
