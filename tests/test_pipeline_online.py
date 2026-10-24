@@ -177,3 +177,17 @@ def test_creator_publish_time_overrides_configured_slot(online, monkeypatch, tmp
     )
     assert studio.upload_record(vid) == "scheduled"
     assert uploads[0]["status"]["publishAt"] == manual_iso
+
+
+def test_upload_false_is_a_hard_stop_for_direct_upload(settings, monkeypatch, tmp_path):
+    s = settings.with_overrides(upload=False, keep_videos=True)
+    studio = P.Studio(s)
+    folder = tmp_path / "upload-disabled"
+    folder.mkdir()
+    video = folder / "short.mp4"
+    video.write_bytes(b"test-video")
+    vid = studio.history.add_video(
+        title="Must stay local", status="rendered", folder=str(folder), video_path=str(video),
+    )
+    monkeypatch.setattr(P.youtube, "upload", lambda *args, **kwargs: pytest.fail("must never upload"))
+    assert studio.upload_record(vid) == "disabled"
