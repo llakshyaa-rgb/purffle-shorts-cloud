@@ -31,7 +31,10 @@ def test_named_character_is_stable_across_scene_prompts(tmp_path: Path):
 def test_character_collection_seeds_canonical_cast_once(tmp_path: Path):
     root = tmp_path / ".purffle_assets"
     cast = ensure_character_collection(root, 360, 640)
+    second = ensure_character_collection(root, 360, 640)
     assert len(cast) == 5
+    assert {item["id"] for item in cast} == {item["id"] for item in second}
+    assert {item["uses"] for item in cast} == {item["uses"] for item in second}
     assert {item["character"] for item in cast} >= {
         "hooded_narrator", "detective", "scientist", "explorer", "mysterious_figure"
     }
