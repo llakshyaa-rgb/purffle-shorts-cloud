@@ -141,7 +141,8 @@ def test_scene_timeline_clamps_non_monotonic_and_out_of_range_starts():
     words = _words([("First", 0.0, 0.3), ("Second", 1.0, 1.3), ("Third", 2.0, 2.3)])
     timeline = scene_timeline(scenes, words, total=3.0, starts=[0.0, 2.5, 1.2])
     assert timeline[0].start == 0.0
-    assert timeline[1].start <= timeline[2].start
+    assert len(timeline) >= 2  # the final sub-1.2s scene may be merged into its neighbour
+    assert all(a.start <= b.start for a, b in zip(timeline, timeline[1:]))
     assert all(0 <= shot.start <= shot.end <= 3.0 for shot in timeline)
 
 
