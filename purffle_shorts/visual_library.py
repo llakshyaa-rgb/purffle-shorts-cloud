@@ -169,7 +169,7 @@ def _illustration(im, draw, text, ink, accent, second, seed):
             _line(draw,[(x0,y0),(x0,y0+h*.055)],second,max(3,w//200))
         _glow(draw,int(w*.69),int(h*.27),int(w*.11),second)
         draw.polygon([(w*.59,h*.45),(w*.59,h*.23),(w*.79,h*.23),(w*.79,h*.45)],fill=(8,12,24),outline=accent)
-    elif obj in ("city","lab","microscope","computer","robot","airplane","train","bridge","cave","storm","animal","dna","cell","plant","map","compass","rocket","satellite","volcano","desert","snow"):
+    elif obj in ("city","lab","microscope","atom","circuit","computer","robot","airplane","train","bridge","cave","storm","animal","dna","cell","plant","map","compass","rocket","satellite","volcano","desert","snow"):
         _symbol(draw,obj,w//2,int(h*.46),min(w*.46,h*.40),ink,accent,second)
         # Add a small secondary element to make the scene feel composed, not like a lone icon.
         _line(draw,[(w*.16,h*.72),(w*.84,h*.72)],(63,74,96),max(3,w//240))
@@ -370,40 +370,98 @@ def _symbol(draw, kind, cx, cy, s, ink, accent, second):
         draw.rounded_rectangle((cx-r*.65,cy-r,cx+r*.65,cy+r),radius=10,outline=accent,width=lw)
 
 def _diagram(im, draw, query, ink, accent, second):
+    """Render a subject-specific infographic layout rather than one universal flowchart."""
     w,h=im.size; text=query.lower()
     if any(k in text for k in ("orbit","planet","solar system","moon")):
-        title="ORBITAL PATH"; labels=["STAR","ORBIT","PLANET"]
+        title="ORBITAL SYSTEM"; mode="orbit"; labels=["STAR","ORBIT","PLANET"]
     elif any(k in text for k in ("brain","neuron","memory","nervous system")):
-        title="SIGNAL PATH"; labels=["INPUT","PROCESSING","RESPONSE"]
-    elif any(k in text for k in ("engine","machine","mechanism","gear")):
-        title="MECHANISM"; labels=["INPUT","MOVING PARTS","OUTPUT"]
-    elif any(k in text for k in ("water","cycle","ocean")):
-        title="WATER CYCLE"; labels=["EVAPORATION","CONDENSATION","RAINFALL"]
+        title="SIGNAL PATHWAY"; mode="flow"; labels=["SIGNAL IN","PROCESSING","RESPONSE"]
+    elif any(k in text for k in ("engine","machine","mechanism","gear","how it works")):
+        title="HOW IT WORKS"; mode="flow"; labels=["INPUT","MECHANISM","OUTPUT"]
+    elif any(k in text for k in ("water cycle","life cycle","cycle of","cycle")):
+        title="REPEATING CYCLE"; mode="cycle"; labels=["START","TRANSFORM","RETURN"]
     elif any(k in text for k in ("food chain","ecosystem")):
-        title="FOOD CHAIN"; labels=["ENERGY SOURCE","CONSUMER","PREDATOR"]
+        title="FOOD CHAIN"; mode="flow"; labels=["ENERGY SOURCE","CONSUMER","PREDATOR"]
     elif any(k in text for k in ("timeline","history","evolution")):
-        title="TIMELINE"; labels=["ORIGIN","CHANGE","OUTCOME"]
-    elif any(k in text for k in ("floor plan","room","house","layout","map")):
-        title="SPACE LAYOUT"; labels=["ENTRY","CENTRAL AREA","HIDDEN SPACE"]
+        title="TIMELINE"; mode="timeline"; labels=["ORIGIN","CHANGE","OUTCOME"]
+    elif any(k in text for k in ("floor plan","room layout","house layout","map","route")):
+        title="SPACE & ROUTE"; mode="map"; labels=["START","LANDMARK","DESTINATION"]
+    elif any(k in text for k in ("network","system architecture","internet")):
+        title="CONNECTED NETWORK"; mode="network"; labels=["NODE A","NODE B","NODE C"]
+    elif any(k in text for k in ("anatomy","cross section","structure of","cell")):
+        title="STRUCTURE"; mode="structure"; labels=["OUTER LAYER","INNER PART","CORE"]
     else:
-        title="HOW IT CONNECTS"; labels=["TRIGGER","PROCESS","RESULT"]
-    _center(draw,(w/2,h*.12),title,_font(max(18,w//22)),ink)
-    draw.rounded_rectangle((w*.09,h*.19,w*.91,h*.84),radius=24,outline=(61,72,94),width=max(3,w//200))
-    node_w=w*.62; node_h=h*.105; ys=[h*.31,h*.51,h*.71]
-    for i,(label,yy) in enumerate(zip(labels,ys)):
-        x0=(w-node_w)/2; y0=yy-node_h/2
-        draw.rounded_rectangle((x0,y0,x0+node_w,y0+node_h),radius=18,fill=(24,31,49),outline=accent if i!=1 else second,width=max(3,w//220))
-        _center(draw,(w/2,y0+node_h*.25),label,_font(max(14,w//34)),ink)
-        # A tiny pictogram makes the node feel like an illustrated infographic.
-        xx=x0+w*.08; rr=w*.025
-        draw.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),outline=second if i==1 else accent,width=max(2,w//280))
-        if i<2:
-            _line(draw,[(w/2,y0+node_h+6),(w/2,ys[i+1]-node_h*.65)],second,max(3,w//240))
-            draw.polygon([(w/2,ys[i+1]-node_h*.42),(w/2-w*.025,ys[i+1]-node_h*.62),(w/2+w*.025,ys[i+1]-node_h*.62)],fill=second)
-    # Accent corner marks and an understated footer rule; no fabricated explanatory prose.
-    for x in (w*.15,w*.85):
-        _line(draw,[(x,h*.23),(x+w*.05,h*.23)],accent,max(2,w//280))
-        _line(draw,[(x,h*.8),(x+w*.05,h*.8)],second,max(2,w//280))
+        title="CAUSE & EFFECT"; mode="flow"; labels=["TRIGGER","PROCESS","RESULT"]
+    _center(draw,(w/2,h*.105),title,_font(max(18,w//22)),ink)
+    draw.rounded_rectangle((w*.07,h*.17,w*.93,h*.88),radius=24,outline=(61,72,94),width=max(3,w//200))
+    lw=max(3,w//220)
+    if mode=="orbit":
+        cx,cy=w*.5,h*.49; r=min(w*.29,h*.19)
+        draw.ellipse((cx-r,cy-r,cx+r,cy+r),outline=accent,width=lw)
+        draw.ellipse((cx-r*.67,cy-r*.67,cx+r*.67,cy+r*.67),outline=second,width=max(2,lw-1))
+        draw.ellipse((cx-r*.16,cy-r*.16,cx+r*.16,cy+r*.16),fill=(255,187,93),outline=ink,width=lw)
+        draw.ellipse((cx+r*.88,cy-r*.12,cx+r*1.12,cy+r*.12),fill=second,outline=ink,width=lw)
+        _center(draw,(w*.5,h*.74),labels[0]+"  •  "+labels[1]+"  •  "+labels[2],_font(max(13,w//38)),ink)
+    elif mode=="timeline":
+        yy=h*.49; _line(draw,[(w*.18,yy),(w*.82,yy)],accent,lw)
+        for i,label in enumerate(labels):
+            xx=w*(.2+i*.3); draw.ellipse((xx-w*.025,yy-w*.025,xx+w*.025,yy+w*.025),fill=second if i==1 else accent)
+            _line(draw,[(xx,yy-w*.025),(xx,yy-h*.1)],second,lw)
+            _center(draw,(xx,yy-h*.17),label,_font(max(12,w//38)),ink)
+        _center(draw,(w*.5,h*.68),"THEN  →  NOW  →  NEXT",_font(max(12,w//40)),second)
+    elif mode=="cycle":
+        cx,cy=w*.5,h*.49; r=min(w*.27,h*.18)
+        pts=[]
+        for a in (-90,30,150):
+            rad=math.radians(a); pts.append((cx+math.cos(rad)*r,cy+math.sin(rad)*r))
+        for i in range(3):
+            p1=pts[i]; p2=pts[(i+1)%3]
+            _line(draw,[p1,p2],accent,lw)
+            mx=(p1[0]+p2[0])*.5; my=(p1[1]+p2[1])*.5
+            _glow(draw,int(mx),int(my),int(w*.035),second)
+        for (xx,yy),label in zip(pts,labels):
+            draw.ellipse((xx-w*.075,yy-w*.055,xx+w*.075,yy+w*.055),fill=(24,31,49),outline=second,width=lw)
+            _center(draw,(xx,yy-h*.012),label,_font(max(10,w//46)),ink)
+    elif mode=="map":
+        # Schematic map with route, blocks and a clear destination pin.
+        for row in range(4):
+            for col in range(3):
+                x0=w*(.15+col*.24); y0=h*(.27+row*.12)
+                draw.rounded_rectangle((x0,y0,x0+w*.16,y0+h*.075),radius=7,fill=(21,30,46),outline=(55,70,91),width=2)
+        pts=[(w*.2,h*.72),(w*.35,h*.6),(w*.48,h*.65),(w*.62,h*.43),(w*.8,h*.3)]
+        _line(draw,pts,accent,max(4,lw+1))
+        for i,(xx,yy) in enumerate((pts[0],pts[2],pts[-1])):
+            draw.ellipse((xx-w*.025,yy-w*.025,xx+w*.025,yy+w*.025),fill=second if i==2 else accent)
+        _center(draw,(w*.5,h*.79),"START  →  LANDMARK  →  END",_font(max(11,w//42)),ink)
+    elif mode=="network":
+        pts=[(w*.5,h*.34),(w*.27,h*.51),(w*.73,h*.51),(w*.35,h*.72),(w*.65,h*.72)]
+        for i in range(1,len(pts)):
+            _line(draw,[pts[0],pts[i]],(78,103,132),lw)
+        for i,(xx,yy) in enumerate(pts):
+            rr=w*(.035 if i==0 else .027)
+            draw.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),fill=accent if i==0 else (24,31,49),outline=second,width=lw)
+    elif mode=="structure":
+        cx,cy=w*.5,h*.49
+        for scale,col in ((.28,accent),(.19,second),(.09,ink)):
+            rr=min(w,h)*scale
+            draw.ellipse((cx-rr,cy-rr,cx+rr,cy+rr),outline=col,width=lw)
+        _line(draw,[(cx+min(w,h)*.28,cy),(w*.8,cy-h*.12)],second,lw)
+        _line(draw,[(cx+min(w,h)*.19,cy),(w*.8,cy)],accent,lw)
+        _line(draw,[(cx+min(w,h)*.09,cy),(w*.8,cy+h*.12)],ink,lw)
+    else:
+        node_w=w*.62; node_h=h*.105; ys=[h*.31,h*.51,h*.71]
+        for i,(label,yy) in enumerate(zip(labels,ys)):
+            x0=(w-node_w)/2; y0=yy-node_h/2
+            draw.rounded_rectangle((x0,y0,x0+node_w,y0+node_h),radius=18,fill=(24,31,49),outline=accent if i!=1 else second,width=lw)
+            _center(draw,(w/2,y0+node_h*.25),label,_font(max(13,w//34)),ink)
+            xx=x0+w*.08; rr=w*.025
+            draw.ellipse((xx-rr,yy-rr,xx+rr,yy+rr),outline=second if i==1 else accent,width=max(2,w//280))
+            if i<2:
+                _line(draw,[(w/2,y0+node_h+6),(w/2,ys[i+1]-node_h*.65)],second,lw)
+                draw.polygon([(w/2,ys[i+1]-node_h*.42),(w/2-w*.025,ys[i+1]-node_h*.62),(w/2+w*.025,ys[i+1]-node_h*.62)],fill=second)
+    for x in (w*.14,w*.84):
+        _line(draw,[(x,h*.22),(x+w*.045,h*.22)],accent,max(2,w//280))
+        _line(draw,[(x,h*.82),(x+w*.045,h*.82)],second,max(2,w//280))
 
 def make_visual(query: str, image_prompt: str, destination: Path, width: int, height: int) -> str:
     """Create a story-aware illustration or subject-matched infographic as a PNG."""
