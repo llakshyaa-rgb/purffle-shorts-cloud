@@ -737,7 +737,10 @@ class Studio:
                 language=s.language, title=title, description=description, tags=script.tags,
                 folder=str(folder), video_path=str(video), duration=info["duration"],
                 llm=meta["llm"], voice=meta["voice"],
-                status="rendered" if publish_ready else "needs-review",
+                # A failed publishing gate is a review state only when publication was requested.
+                # A local/offline render is still a completed render; its quality report retains
+                # the gate failure and automatic publishing remains blocked.
+                status="needs-review" if upload and not publish_ready else "rendered",
                 score=script.score, parent_id=parent_id)
             state["record_id"] = rid
             if not media_map:
