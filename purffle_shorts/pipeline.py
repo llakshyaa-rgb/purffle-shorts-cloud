@@ -44,7 +44,7 @@ from .utils import Cancelled, check_cancel, redact, slugify, truncate_words
 log = logging.getLogger("purffle")
 
 END_PAD = 0.6          # seconds of breathing room after the last word
-REUSABLE_SOURCES = {"generated", "local", "background", "openai-images", "ai", "dalle", "gpt-image", "pollinations"}
+REUSABLE_SOURCES = {"generated", "local", "library", "background", "openai-images", "ai", "dalle", "gpt-image", "pollinations"}
 AI_SOURCES = {"openai-images", "ai", "dalle", "gpt-image", "pollinations"}
 
 # Rough share of the work done when each stage starts (for progress bars before any timing is learned).
