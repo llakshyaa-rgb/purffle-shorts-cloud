@@ -619,13 +619,22 @@ class Studio:
             # Record actual visual coverage, not just the number of requested scenes. This makes
             # fallback-heavy renders visible in the library and gives the next quality pass real data.
             visual_total = len(media)
-            # The persistent artwork library is a fallback, not evidence of a scene-specific
-            # match. Count fetched/created scene assets, but not generic gradients or library reuse.
-            visual_real = sum(
-                1 for m in media
-                if m.source not in ("generated", "library")
-                and m.path is not None and m.path.is_file()
-            )
+            # A file existing is not enough: downloaded stock must have a meaningful metadata
+            # match to its own scene. Prompt-generated AI images are scene-directed by construction;
+            # generic library art and gradients never count as evidence.
+            scene_matches = 0
+            for shot, item in zip(shots, media):
+                scene_query = script.scenes[shot.index].search_query if shot.index < len(script.scenes) else script.topic
+                is_ai_visual = item.source in AI_SOURCES and item.path is not None and item.path.is_file()
+                is_matched_stock = (
+                    item.source not in ("generated", "library") and item.source not in AI_SOURCES
+                    and item.path is not None and item.path.is_file()
+                    and bool(item.text or item.extra.get("description") or item.extra.get("categories"))
+                    and relevance(item, scene_query) >= 0.58
+                )
+                if is_ai_visual or is_matched_stock:
+                    scene_matches += 1
+            visual_real = scene_matches
             visual_coverage = round(100 * visual_real / visual_total) if visual_total else 0
             if visual_coverage < 80:
                 log.warning("Visual coverage is only %d%% (%d/%d shots have real media)",
@@ -683,7 +692,9 @@ class Studio:
                 subject=pick.subject, source=pick.source, topic=script.topic, style=script.style,
                 language=s.language, title=title, description=description, tags=script.tags,
                 folder=str(folder), video_path=str(video), duration=info["duration"],
-                llm=meta["llm"], voice=meta["voice"], status="rendered", score=script.score, parent_id=parent_id)
+                llm=meta["llm"], voice=meta["voice"],
+                status="rendered" if publish_ready else "needs-review",
+                score=script.score, parent_id=parent_id)
             state["record_id"] = rid
             if not media_map:
                 self.history.mark_media([m.key for m in media if m.source not in REUSABLE_SOURCES])
@@ -709,8 +720,11 @@ class Studio:
 
             for lang in [x for x in dict.fromkeys(languages or []) if x != s.language]:
                 self._step("translate", lang)
-                result.variants.append(self._translation(script, pick, writer, lang, s, by_scene, credits,
-                                                         rid, upload))
+                # A translated copy must not bypass a failed quality gate on the source video.
+                result.variants.append(self._translation(
+                    script, pick, writer, lang, s, by_scene, credits, rid,
+                    upload and publish_ready,
+                ))
             self._step("done", title)
             return result
         finally:
