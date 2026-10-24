@@ -64,6 +64,25 @@ def test_simplify_query():
     assert M.simplify_query("The octopus in the deep ocean") == "octopus deep"
 
 
+def test_director_search_query_extracts_subject_and_action_not_style_boilerplate():
+    query = M._director_search_query(
+        "REAL-WORLD DOCUMENTARY FOOTAGE: A Saturn-like planet floating in a giant ocean. "
+        "Documentary-style footage, portrait 9:16 framing; no text, no collage."
+    )
+    assert query.lower().startswith("a saturn-like planet floating in a giant ocean")
+    assert "documentary-style" not in query.lower()
+    assert "portrait" not in query.lower()
+
+
+def test_director_search_query_handles_empty_and_character_suffix():
+    assert M._director_search_query("") == ""
+    query = M._director_search_query(
+        "A detective opens a locked wooden door. Cinematic lighting.\\nREUSABLE CHARACTER: purffle_detective"
+    )
+    assert "detective" in query.lower() and "door" in query.lower()
+    assert "purffle" not in query.lower()
+
+
 def test_no_footage_falls_back_to_generated(tmp_path):
     v = M.Visuals(Settings(visual_sources=["local"], media_dir=str(tmp_path / "none")))
     item = v.for_scene(0, "octopus", "octopus", "sea", 3.0, tmp_path)
