@@ -4,7 +4,6 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from purffle_shorts import analytics as A
-from purffle_shorts.config import Settings
 from purffle_shorts.history import History
 
 
