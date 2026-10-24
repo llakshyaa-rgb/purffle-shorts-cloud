@@ -731,6 +731,13 @@ function toPublish(v, m) {
   const done = m.published || {};
   return (S.info.publish_to || ["youtube"]).filter(p => p === "youtube" ? !v.youtube_id : !POSTED.has((done[p] || {}).status));
 }
+
+function localDateTimeValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
 function postsHtml(published) {
   const items = Object.entries(published || {});
   if (!items.length) return "";
@@ -762,8 +769,24 @@ async function openVideo(id) {
       ${v.youtube_id ? `<p><a class="btn sm" href="https://youtube.com/shorts/${esc(v.youtube_id)}" target="_blank" rel="noopener">${I.yt}Open on YouTube</a>${v.publish_at ? ` <span class="muted">goes public ${esc(new Date(v.publish_at).toLocaleString())}</span>` : ""}</p>` : ""}
       ${postsHtml(m.published)}
       ${v.error ? `<div class="banner">${I.info}<p>${esc(v.error)}</p></div>` : ""}
+      ${v.video && !v.youtube_id ? `<section class="card approval-card">
+        <p class="eyebrow">Publishing controls</p>
+        <p><span class="chip ${v.approval_status === "approved" ? "ok" : "accent"}">${esc(v.approval_status || "pending")} approval</span>
+          <span class="hint">${S.info.upload ? "Publishing is enabled in settings." : "Publishing is disabled (UPLOAD=false); approving will not upload."}</span></p>
+        <div class="actions">
+          <button class="btn sm" type="button" id="d-approval">${v.approval_status === "approved" ? "Revoke approval" : "Approve publishing"}</button>
+        </div>
+        <div class="field"><label for="d-publish-at">Publish time (your device's local time, optional)</label>
+          <input id="d-publish-at" type="datetime-local" value="${esc(localDateTimeValue(v.publish_at))}" min="${esc(localDateTimeValue(new Date(Date.now() + 5 * 60000).toISOString()))}">
+          <p class="hint">Save a future time, then approve the video. Nothing uploads until you press Publish and publishing is enabled.</p>
+        </div>
+        <div class="actions">
+          <button class="btn sm" type="button" id="d-save-schedule">Save schedule</button>
+          <button class="btn ghost sm" type="button" id="d-clear-schedule">Clear time</button>
+        </div>
+      </section>` : ""}
       <div class="actions">
-        ${v.video && toPublish(v, m).length ? `<button class="btn primary sm" type="button" id="d-up">${I.upload}Publish${toPublish(v, m).length < (S.info.publish_to || []).length ? " the rest" : ""}</button>` : ""}
+        ${v.video && toPublish(v, m).length && v.approval_status === "approved" && S.info.upload ? `<button class="btn primary sm" type="button" id="d-up">${I.upload}Publish${toPublish(v, m).length < (S.info.publish_to || []).length ? " the rest" : ""}</button>` : ""}
         ${sc ? `<button class="btn sm" type="button" id="d-edit">${I.pen}Edit & re-render</button>` : ""}
         ${v.has_director_notes ? `<button class="btn sm" type="button" id="d-director">${I.doc}Director notes</button>` : ""}
         <button class="btn sm danger" type="button" id="d-del">${I.trash}Delete</button>
@@ -786,7 +809,35 @@ async function openVideo(id) {
   $("#drawer").hidden = false;
   document.body.style.overflow = "hidden";
   const up = $("#d-up");
-  if (up) up.onclick = async () => { up.disabled = true; try { await post("/api/upload/" + id); toast("Upload queued — follow it in Queue.", "info"); tick(); } catch (e) { toast(esc(e.message), "bad"); } };
+  if (up) up.onclick = async () => { up.disabled = true; try { await post("/api/upload/" + id); toast("Upload queued — follow it in Queue.", "info"); tick(); } catch (e) { up.disabled = false; toast(esc(e.message), "bad"); } };
+  const approval = $("#d-approval");
+  if (approval) approval.onclick = async () => {
+    approval.disabled = true;
+    try {
+      await post(`/api/videos/${id}/approval`, { approved: v.approval_status !== "approved" });
+      toast(v.approval_status === "approved" ? "Approval revoked." : "Publishing approved.", "ok");
+      await openVideo(id);
+      drawLibrary();
+    } catch (e) { approval.disabled = false; toast(esc(e.message), "bad"); }
+  };
+  const saveSchedule = async (value) => {
+    try {
+      const publish_at = value ? new Date(value).toISOString() : "";
+      await post(`/api/videos/${id}/schedule`, { publish_at });
+      toast(value ? "Publish time saved. Approve separately before publishing." : "Publish time cleared.", "ok");
+      await openVideo(id);
+      drawLibrary();
+    } catch (e) { toast(esc(e.message), "bad"); }
+  };
+  const schedule = $("#d-publish-at");
+  const scheduleSave = $("#d-save-schedule");
+  if (scheduleSave && schedule) scheduleSave.onclick = () => {
+    if (!schedule.value) return toast("Choose a future date and time, or use Clear time.", "bad");
+    if (new Date(schedule.value).getTime() <= Date.now()) return toast("Choose a future time.", "bad");
+    saveSchedule(schedule.value);
+  };
+  const scheduleClear = $("#d-clear-schedule");
+  if (scheduleClear) scheduleClear.onclick = () => saveSchedule("");
   const director = $("#d-director");
   if (director) director.onclick = () => openDirectorNotes(id);
   const ed = $("#d-edit");
