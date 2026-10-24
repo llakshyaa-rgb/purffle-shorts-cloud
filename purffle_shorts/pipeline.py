@@ -542,6 +542,15 @@ class Studio:
             effects = sfx.events_for(scene_starts=[st.start for st, j in zip(shots[1:], joins) if not j],
                                      message_starts=speech.line_starts if messages else None,
                                      hook=bool(plan.hook_until or plan.card_until))
+            # Add sparse director-picked accents only when they will not collide with an existing cue.
+            if s.sound_effects and s.sfx_volume > 0 and not messages:
+                last_directed_sound = -10.0
+                for beat, tm in zip(director_plan, timeline):
+                    cue = beat.get("sound", "none")
+                    if cue in ("hit", "pop", "whoosh") and tm.start - last_directed_sound >= 1.4:
+                        if cue == "hit" or not any(abs(t - tm.start) < 0.35 for t, _ in effects):
+                            effects.append((max(0.05, tm.start), cue))
+                            last_directed_sound = tm.start
             render_video(s, media, [st.duration for st in shots], speech.audio, total, plan, video, work, joins,
                          progress=self._sub, effects=effects, background=background if split else None,
                          narrator_topic=script.topic)
