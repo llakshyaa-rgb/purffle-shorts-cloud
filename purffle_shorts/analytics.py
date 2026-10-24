@@ -58,20 +58,57 @@ def sync_stats(settings: Settings, history: History) -> int:
     return updated
 
 
+def _engagement(v: dict) -> float:
+    """A modest engagement bonus; it is not a substitute for actual retention/watch-time data."""
+    views = max(0, int(v.get("views") or 0))
+    if views <= 0:
+        return 0.0
+    likes = max(0, int(v.get("likes") or 0))
+    comments = max(0, int(v.get("comments") or 0))
+    return min(0.8, 4.0 * likes / views) + min(0.4, 8.0 * comments / views)
+
+
+def _performance_signal(v: dict) -> float:
+    # Views remain the main signal; engagement can break ties and discourage empty reach.
+    return _log_views(v) + _engagement(v)
+
+
 def insights(history: History, n: int = 5) -> str:
-    """A prompt block that shows the LLM the channel's winners and losers (empty until there is data)."""
-    best = history.performers(n, best=True)
-    if len(best) < 3:
+    """Evidence-backed prompt guidance from mature videos; empty until there is enough data."""
+    rows = [r for r in history.results() if r.get("views") is not None]
+    if len(rows) < 3:
         return ""
-    worst = [w for w in history.performers(n, best=False) if w["id"] not in {b["id"] for b in best}]
+    best = sorted(rows, key=_performance_signal, reverse=True)[:n]
+    best_ids = {r["id"] for r in best}
+    worst = sorted((r for r in rows if r["id"] not in best_ids), key=_performance_signal)[:3]
 
     def row(v: dict) -> str:
-        return f'- "{v["title"]}" ({v["style"] or "?"}): {v["views"]:,} views, {v["likes"] or 0:,} likes'
-    text = "What performed best on this channel so far:\n" + "\n".join(row(v) for v in best)
+        views = max(0, int(v.get("views") or 0))
+        likes = max(0, int(v.get("likes") or 0))
+        comments = max(0, int(v.get("comments") or 0))
+        rate = 100 * (likes + comments) / views if views else 0.0
+        topic = (v.get("topic") or v.get("subject") or "topic not recorded").strip()
+        return (f'- "{v["title"]}" | topic: {topic[:100]} | format: {v["style"] or "?"} | '
+                f'{views:,} views | {likes:,} likes | {comments:,} comments | '
+                f'{rate:.2f}% likes+comments per view')
+    text = ("Channel evidence (videos at least 48 hours old; rank combines log views with a capped "
+            "engagement bonus, not true audience retention):\nBest performers:\n" +
+            "\n".join(row(v) for v in best))
     if worst:
-        text += "\nWhat performed worst:\n" + "\n".join(row(v) for v in worst[:3])
-    text += ("\nLearn from this: give the new video the kind of hook, subject and angle the winners have. "
-             "Don't copy their titles.")
+        text += "\nLower performers:\n" + "\n".join(row(v) for v in worst)
+    topic_totals: dict[str, list[float]] = {}
+    for v in rows:
+        topic = (v.get("topic") or v.get("subject") or "").strip()
+        if topic:
+            topic_totals.setdefault(topic.casefold(), []).append(_performance_signal(v))
+    topic_rows = sorted(((key, len(vals), sum(vals) / len(vals)) for key, vals in topic_totals.items()),
+                        key=lambda x: (-x[2], -x[1]))
+    repeated = [t for t in topic_rows if t[1] >= 2][:3]
+    if repeated:
+        text += "\nTopics with repeated evidence (at least 2 mature videos): " + "; ".join(
+            f"{t[0]} ({t[1]} videos)" for t in repeated)
+    text += ("\nUse these as weak guidance, not guarantees. Prefer patterns repeated across videos, "
+             "preserve topic accuracy and novelty, and do not copy winning titles or infer causation from one upload.")
     return text
 
 
@@ -94,13 +131,13 @@ def choose_style(history: History, candidates: list[str], rng: random.Random | N
     rows = [r for r in history.results() if r.get("style")]
     if len(rows) < MIN_RESULTS:
         return None
-    values = [_log_views(r) for r in rows]
+    values = [_performance_signal(r) for r in rows]
     mean0 = sum(values) / len(values)
     sd0 = max(0.35, math.sqrt(sum((x - mean0) ** 2 for x in values) / max(1, len(values) - 1)))
     prior = 2.0  # the channel average counts like two videos of evidence
     best, best_draw = None, -math.inf
     for style in candidates:
-        xs = [_log_views(r) for r in rows if r["style"] == style]
+        xs = [_performance_signal(r) for r in rows if r["style"] == style]
         n = len(xs)
         mean = (prior * mean0 + sum(xs)) / (prior + n)
         draw = rng.gauss(mean, sd0 / math.sqrt(prior + n))
