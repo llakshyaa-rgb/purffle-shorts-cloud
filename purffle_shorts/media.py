@@ -595,8 +595,23 @@ class Visuals:
         # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
         # while a smaller share can still use real footage/photos for realism and variety.
         visual_kind = visual_type(query or topic, image_prompt)
+        directed_mode = ""
+        for marker, mode in (
+            ("DIAGRAM / EXPLANATORY GRAPHIC:", "diagram"),
+            ("ORIGINAL DRAWN ILLUSTRATION:", "illustration"),
+            ("SYMBOLIC VISUAL METAPHOR:", "symbolic"),
+            ("REAL-WORLD DOCUMENTARY FOOTAGE:", "footage"),
+            ("REALISTIC EDITORIAL PHOTOGRAPH:", "photo"),
+        ):
+            if marker in (image_prompt or "").upper():
+                directed_mode = mode
+                break
+        if directed_mode in ("diagram", "illustration", "symbolic"):
+            visual_kind = directed_mode
         stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode("utf-8")).hexdigest()[:8], 16)
-        use_library = visual_kind == "diagram" or (stable % 100 < 78)
+        # Explicit director choices override the usual library/stock balance; otherwise keep variety.
+        use_library = (directed_mode in ("diagram", "illustration", "symbolic")
+                       or (not directed_mode and (visual_kind == "diagram" or stable % 100 < 78)))
         if use_library:
             try:
                 library_path = dest_dir / f"scene{idx:02d}_library.png"
