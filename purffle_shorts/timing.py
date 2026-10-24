@@ -241,8 +241,11 @@ def split_shots(timeline: list[SceneTiming], words: list[Word], max_len: float,
             pool = [c for c in cands if c[0] - prev >= min_len and st.end - c[0] >= min_len * (k - j)]
             if pool:
                 t = min(pool, key=lambda c: abs(c[0] - ideal) - min(0.8, 2.0 * max(0.0, c[1])))[0]
-            elif not cands and ideal - prev >= min_len:
-                t = ideal  # no words to snap to (silence, music): cut evenly
+            elif ideal - prev >= min_len and st.end - ideal >= min_len * (k - j):
+                # If the narration has no usable word boundary near the ideal cut, still
+                # keep the picture moving. A missed boundary must not leave a long scene
+                # as one static shot for the rest of the narration.
+                t = ideal
             else:
                 continue
             cuts.append(t)
