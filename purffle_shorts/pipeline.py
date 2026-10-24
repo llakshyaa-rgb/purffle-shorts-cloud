@@ -590,6 +590,39 @@ class Studio:
             else:
                 log.info("Visual coverage: %d%% (%d/%d shots have real media)",
                          visual_coverage, visual_real, visual_total)
+            target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
+            duration_ok = target_delta <= 0.20
+            visuals_ok = visual_coverage >= 60
+            publish_ready = duration_ok and visuals_ok
+            quality_report = {
+                "target_seconds": s.target_seconds,
+                "actual_seconds": round(info["duration"], 2),
+                "duration_deviation_percent": round(target_delta * 100, 1),
+                "duration_ok": duration_ok,
+                "visual_coverage_percent": visual_coverage,
+                "visual_coverage_ok": visuals_ok,
+                "publish_ready": publish_ready,
+                "reasons": [
+                    reason for condition, reason in (
+                        (duration_ok, ""),
+                        (visuals_ok, ""),
+                    ) if not condition
+                ],
+            }
+            if not duration_ok:
+                quality_report["reasons"].append(
+                    f"Runtime differs from requested {s.target_seconds}s by more than 20%; revise narration."
+                )
+                log.warning("Quality gate: rendered runtime %.2fs is too far from target %ss",
+                            info["duration"], s.target_seconds)
+            if not visuals_ok:
+                quality_report["reasons"].append(
+                    "Fewer than 60% of shots use downloaded/local media; inspect fallback visuals."
+                )
+                log.warning("Quality gate: visual coverage is only %d%%", visual_coverage)
+            (folder / "quality_report.json").write_text(
+                json.dumps(quality_report, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
             meta = {
                 "title": title, "description": description, "tags": script.tags,
                 "category_id": script.category_id, "language": s.language,
@@ -601,6 +634,7 @@ class Studio:
                 "voice": f"{speech.engine}:{speech.voice}", "timing": speech.timing,
                 "visual_coverage_percent": visual_coverage,
                 "visual_real_shots": visual_real, "visual_total_shots": visual_total,
+                "quality": quality_report,
                 "visuals": [{"source": m.source, "id": m.id, "kind": m.kind, "query": m.query}
                             for m in media + ([background] if split else [])],
                 "parent_id": parent_id, "created_at": now_iso(),
@@ -624,9 +658,14 @@ class Studio:
             log.info("Rendered %s (%.1fs video) in %.0fs -> %s", title, info["duration"], took, video)
             result = Result(True, title, folder, video, "rendered", seconds=took, record_id=rid,
                             score=script.score, language=s.language)
-            if upload:
+            if upload and publish_ready:
                 self._step("upload")
                 self.upload_record(rid, result)
+            elif upload:
+                result.status = "needs-review"
+                result.reason = "; ".join(quality_report["reasons"])
+                log.error("Publishing blocked by quality gate: %s", result.reason)
+                notify.send(s, "failed", title=title, detail="Publishing blocked for review: " + result.reason)
             else:
                 notify.send(s, "rendered", title=title, detail=str(video))
 
