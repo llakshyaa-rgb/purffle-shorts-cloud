@@ -631,7 +631,7 @@ function drawEditor() {
             </span>
           </div>
         </div>
-      </div>).join("")}</div>
+      </div>`).join("")}</div>
     <div class="actions"><button class="btn ghost sm" type="button" data-act="add">${I.plus}Add scene</button></div></div>
     <div class="field"><label>Description</label><textarea data-k="description">${esc(d.description)}</textarea></div>
     <div class="field"><label>Hashtags</label><input type="text" data-tags value="${esc((d.hashtags || []).join(" "))}"></div>
