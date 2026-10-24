@@ -198,8 +198,10 @@ def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
     if style == "dialogue":
         return words, max(6, min(14, round(target_seconds / 3.5)))
     if style == "reddit":
-        return words, max(5, min(12, round(target_seconds / 4.5)))
-    return words, max(5, min(12, round(target_seconds / 4.2)))
+        return words, max(6, min(14, round(target_seconds / 3.2)))
+    # Short videos need more distinct visual/story beats; keep scenes brief enough
+    # for meaningful escalation and a separate payoff rather than compressing into 5 blocks.
+    return words, max(6, min(14, round(target_seconds / 3.2)))
 
 
 def _format_rules(style: str) -> str:
@@ -249,7 +251,7 @@ Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
 {ctx}{ins}{brief}{avoid_block}Rules:
-- Total narration about {words} words (~{settings.target_seconds} seconds spoken), split into about {n_scenes} scenes.
+- Total narration about {words} words (~{settings.target_seconds} seconds spoken), split into {n_scenes} distinct scenes. Aim for this scene count; do not collapse the story into five broad blocks when more beats are requested.
 {_format_rules(style)}- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - WRITE THE SCRIPT AS A WHOLE BEFORE SPLITTING IT INTO SCENES. The narration must read like one polished spoken piece from beginning to end, not a set of independent lines. Each scene should continue the thought, answer something raised earlier, or create a clear reason to hear the next scene.
 - Give this video its own creative identity. Build a clear progression suited to its format: opening -> development -> meaningful detail or complication -> payoff. Even facts/list formats need a clear thread, not a pile of unrelated trivia. Keep the voice natural and conversational; avoid "fact babbling", repetitive filler, generic AI phrasing, and announcing what the video will explain.
@@ -277,7 +279,7 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - Every line earns its place: use concrete details, names, comparisons, actions, and well-established facts. No invented statistics, fake certainty, or sensational claims unsupported by evidence.
 - QUALITY BAR: aim for a publishable script, not merely valid JSON or a plausible draft. Before returning, do a silent full-pass edit for logic, grammar, pronoun clarity, originality, spoken rhythm, emotional impact, and payoff. Replace any phrase that sounds like compressed notes rather than natural speech (e.g. "the lock refused, leaving mystery"). Never trade clarity for a dramatic-sounding sentence.
 - CAUSE-AND-EFFECT TEST: every important action must have a reason and consequence. Do not introduce a key, person, object, note, or relationship only in the final line unless the opening planted it or the ending clearly explains it. If a detail is called "missing", establish that it went missing earlier. Pronouns such as he/she/they/her must have an unambiguous referent.
-- FINAL TWO SCENES: use the penultimate scene to reveal the answer and the last scene to explain its meaning or show a concrete consequence/reaction. Do not use the final line merely to restate the reveal, introduce another mystery, or sound ominous. The audience should understand what happened without inventing missing logic themselves.
+- FINAL TWO SCENES: reserve the penultimate scene for the reveal and the last scene for its meaning, consequence, or emotional reaction. For a 20-second fiction story, use at least 6 scenes when the requested scene plan allows it; do not spend all scenes on setup and discovery. Do not use the final line merely to restate the reveal, introduce another mystery, or sound ominous. The audience should understand what happened without inventing missing logic themselves.
 - VISUAL STORYBOARD QUALITY: write each scene as a distinct shot that changes the information or emotion. The image_prompt should specify subject, visible action, setting, framing, and a useful detail; search_query should describe the actual visible subject, not abstract mood. Avoid reusing the same generic shot across scenes. For fictional animation, keep character identity, clothing, scale, props, and location consistent across the script by repeating concise visual continuity cues in each relevant image_prompt.
 - SCENE-TO-SCENE CONTINUITY: keep point of view, tense, character names, object ownership, and physical geography consistent. Each scene must follow naturally from the previous one. Do not change "I" to "he" without a clear reason, and do not make the narrator know something they could not know.
 - LENGTH AND DENSITY: target the requested runtime without padding. Each scene should contain one clean spoken beat; keep sentences easy to follow on first listen. If the premise needs more explanation than the runtime allows, simplify the premise rather than cutting essential cause-and-effect.
