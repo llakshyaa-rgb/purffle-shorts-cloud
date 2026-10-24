@@ -286,7 +286,7 @@ class Chunk:
         return self.words[0].speaker if self.words else "A"
 
 
-def caption_chunks(words: list[Word], max_words: int = 3, max_chars: int = 20, total: float | None = None) -> list[Chunk]:
+def caption_chunks(words: list[Word], max_words: int = 4, max_chars: int = 24, total: float | None = None) -> list[Chunk]:
     """Group words into short on-screen captions. Breaks at sentence ends, long pauses and length limits."""
     chunks: list[Chunk] = []
     cur: list[Word] = []
