@@ -602,9 +602,10 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             )
         has_knocking = bool(re.search(r"\b(?:knock|knocks|knocked|knocking|rattle|rattled|taps|tapped)\b", narration))
         physical_sound_cause = bool(re.search(
-            r"\b(?:paw|paws|claw|claws|struck|hit|banged|bumping|"
-            r"body|tail|thumped|kicked|pushed against|moving against|rattled the panel|"
-            r"hit the wood|struck the door)\b",
+            r"\b(?:struck|hit|banged|thumped|kicked) (?:the )?(?:door|panel|wood|frame|wall|board)\b"
+            r"|\b(?:pawed|scratched|clawed|bumped|thumped) (?:at|against|on) (?:the )?(?:door|panel|wood|frame|wall|board)\b"
+            r"|\b(?:body|tail|paw|claw) (?:struck|hit|banged|thumped|bumped) (?:the )?(?:door|panel|wood|frame|wall|board)\b"
+            r"|\b(?:rattled|shook|banged against) (?:the )?(?:door|panel|wood|frame|wall|board)\b",
             narration,
         ))
         if has_animal and has_knocking and not physical_sound_cause and not explicit_magic:
