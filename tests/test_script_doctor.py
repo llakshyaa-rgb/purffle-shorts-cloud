@@ -274,3 +274,28 @@ def test_lint_flags_cta_only_ending_and_underspecified_visuals():
     assert "final beat leans on a CTA" in findings
     assert "vague visual search" in findings
     assert "specific visual prompt" in findings
+
+
+def test_lint_flags_word_echoes_inside_a_sentence():
+    script = normalize({"title": "The Tiny City", "scenes": [
+        {"narration": "A bustling city bustles behind the wardrobe door.",
+         "search_query": "miniature city wardrobe", "image_prompt": "A miniature city glowing behind a wardrobe door, close-up."},
+        {"narration": "Its leader points to a crack in the wall.",
+         "search_query": "tiny leader wall crack", "image_prompt": "A tiny leader pointing at a crack in a miniature wall."},
+    ]}, "wardrobe mystery", "story", "en")
+    findings = " ".join(lint_script(script, Settings(target_seconds=8)))
+    assert "word-echo" in findings
+
+
+def test_story_prompts_require_logic_and_originality_audits():
+    _, writer = build_prompt("a tiny door behind a wardrobe", "story", Settings(), [])
+    assert "FICTION LOGIC AUDIT" in writer
+    assert "ORIGINALITY OVER STOCK TWISTS" in writer
+    script = normalize({"title": "The Tiny City", "scenes": [
+        {"narration": "A tiny city appeared behind the wardrobe.", "search_query": "tiny city wardrobe",
+         "image_prompt": "A tiny city glowing behind a wardrobe, wide shot."},
+    ]}, "wardrobe mystery", "story", "en")
+    from purffle_shorts.script import review_prompt
+    _, editor = review_prompt(script, Settings(), rewrite=True)
+    assert "sentence-level redundancy audit" in editor
+    assert "causal chain" in editor
