@@ -67,7 +67,7 @@ def test_simplify_query():
 def test_no_footage_falls_back_to_generated(tmp_path):
     v = M.Visuals(Settings(visual_sources=["local"], media_dir=str(tmp_path / "none")))
     item = v.for_scene(0, "octopus", "octopus", "sea", 3.0, tmp_path)
-    assert item.kind == "generated"
+    assert item.source == "library" and item.kind == "image"
 
 
 def test_pollinations_payment_required_stops_asking(monkeypatch, tmp_path, caplog):
@@ -79,7 +79,7 @@ def test_pollinations_payment_required_stops_asking(monkeypatch, tmp_path, caplo
     monkeypatch.setattr(M, "pollinations_image", refuse)
     v = M.Visuals(Settings(visual_sources=["pollinations"], pollinations_api_key="pk_x"))
     items = [v.for_scene(i, "cat", "a cat", "cats", 3.0, tmp_path) for i in range(4)]
-    assert calls == ["pk_x"] and all(i.kind == "generated" for i in items)
+    assert calls == ["pk_x"] and all(i.source == "library" for i in items)
     assert "POLLINATIONS_API_KEY" in caplog.text and caplog.text.count("refused") == 1
 
 
