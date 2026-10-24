@@ -907,7 +907,6 @@ function drawJobs() {
         <div class="t"><b>${esc(r.title || j.label)}</b><small><span class="status-pill ${j.status}">${j.status}</span>${running && stage ? ` · ${esc(stage)}` : ""}${running ? ` · ${esc(progressText(j))}` : ""}${running && j.message ? ` · ${esc(j.message)}` : ""}${took != null ? ` · ${fmtSec(took)}` : ""}</small></div>
         <span class="acts">${j.status === "queued" || running ? `<button class="btn ghost sm" type="button" data-cancel="${j.id}">Cancel</button>` : ""}
         ${j.status === "done" && r.id ? `<button class="btn sm" type="button" data-open="${r.id}">${I.play}Watch</button>` : ""}
-        ${j.status === "done" && j.kind === "make" && r.id ? `<button class="btn ghost sm" type="button" data-director-notes="${r.id}">${I.doc}Director notes</button>` : ""}
         ${j.status === "done" && j.kind === "draft" ? `<a class="btn sm" href="#create">${I.pen}Edit</a>` : ""}
         <button class="btn ghost sm" type="button" data-log="${j.id}">${open ? "Hide log" : "Log"}</button></span>
       </div>
@@ -916,7 +915,7 @@ function drawJobs() {
       ${j.status !== "cancelled" ? `<div class="pbar"><i data-w="${j.status === "failed" ? 100 : j.pct}"></i></div>` : ""}
       ${r.error ? `<div class="err">${esc(r.error)}</div>` : ""}
       ${r.clips ? `<div class="chips">${r.clips.map(c => `<span class="chip ${c.ok ? "ok" : "bad"}"${c.id ? ` data-open="${c.id}"` : ""}${c.reason ? ` title="${esc(c.reason)}"` : ""}>${esc(shortTitle(c.title) || "clip")}${c.score != null ? ` · <b>${c.score}</b>` : ""}</span>`).join("")}</div>` : ""}
-      ${open ? `<pre class="log" data-id="${j.id}">${esc(j.log.join("\n")) || "…"}</pre>` : ""}
+      ${open ? `${j.status === "done" && j.kind === "make" && r.id ? `<div class="log-tools"><button class="btn ghost sm" type="button" data-director-notes="${r.id}">${I.doc}Director notes</button></div>` : ""}<pre class="log" data-id="${j.id}">${esc(j.log.join("\n")) || "…"}</pre>` : ""}
     </div>`;
   }).join("");
   paint(box);
