@@ -715,10 +715,6 @@ def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[st
 
 def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
     """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
-    # Non-narrative formats already receive the normal review. Avoid spending an extra grade call
-    # (and accidentally replacing a valid score if a provider fails) on facts, explainers, etc.
-    if script.style not in {"story", "reddit", "chat"}:
-        return script, script.score, script.rubric, list(script.review or [])
     try:
         score, rubric, issues = _grade(llm, script, settings)
     except Exception as e:
@@ -727,7 +723,7 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
 
     quality_dimensions = ("payoff", "specificity", "pacing", "curiosity")
     weak_dimensions = [key for key in quality_dimensions if rubric.get(key, 5) < 7]
-    if not weak_dimensions:
+    if script.style not in {"story", "reddit", "chat"} or not weak_dimensions:
         return script, score, rubric, issues
 
     forced_checks = lint_script(script, settings) + [
@@ -818,7 +814,8 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
     # Preserve the best verified result before the optional narrative-payoff pass. If that
     # extra provider call fails, the already-graded rewrite and its score must remain intact.
     best.score, best.rubric, best.review = best_score, best_rubric, best_issues
-    best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings)
+    if best.style in {"story", "reddit", "chat"}:
+        best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings)
     best.score, best.rubric = best_score, best_rubric
     best.review = _with_checks(best_issues, best, settings)
     changed = "rewritten" if best is not script else "kept"
