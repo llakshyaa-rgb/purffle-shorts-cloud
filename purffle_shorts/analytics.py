@@ -39,8 +39,8 @@ def _fetch_with_oauth(ids: list[str], settings: Settings) -> list[dict]:
 
 def analytics_service(settings: Settings):
     """Build the official YouTube Analytics API client without opening an interactive auth flow."""
-    from googleapiclient.discovery import build
     from . import youtube
+    from googleapiclient.discovery import build
     credentials = youtube.get_credentials(
         settings, interactive=False, extra_scopes=[youtube.SCOPE_ANALYTICS_READONLY]
     )
