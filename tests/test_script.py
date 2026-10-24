@@ -99,3 +99,37 @@ def test_prompt_includes_creator_creative_direction():
     assert "CREATOR CREATIVE DIRECTION" in user
     assert "cinematic cold open" in user
     assert "prioritize real close-up footage" in user
+
+
+
+def test_lint_splits_sentences_correctly():
+    from purffle_shorts.script import Scene, Script, lint_script
+
+    script = Script(
+        topic="test", title="A test", hook_text="A strange door.",
+        scenes=[
+            Scene("A strange door appeared. I opened it.", "tiny door in wardrobe",
+                  "A tiny wooden door behind a wardrobe, close-up shot."),
+            Scene("Inside was a note. It had my name.", "handwritten note on tiny cot",
+                  "A handwritten note resting on a tiny cot, overhead shot."),
+        ],
+        description="", style="story", language="en",
+    )
+    checks = lint_script(script, Settings(target_seconds=10))
+    assert not any("word sentence" in item for item in checks)
+
+
+def test_lint_flags_repeated_visual_search_and_weak_prompt():
+    from purffle_shorts.script import Scene, Script, lint_script
+
+    script = Script(
+        topic="test", title="A test", hook_text="A strange door.",
+        scenes=[
+            Scene("A strange door appeared.", "tiny door", "tiny door"),
+            Scene("I opened it carefully.", "tiny door", "A door"),
+        ],
+        description="", style="story", language="en",
+    )
+    checks = lint_script(script, Settings(target_seconds=10))
+    assert any("same footage search" in item for item in checks)
+    assert any("underspecified visual prompt" in item for item in checks)
