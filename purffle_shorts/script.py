@@ -485,9 +485,13 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
         out.append("The ending has no call to action (comment, follow or a question).")
     if lang not in ("zh", "ja"):
         for k, sc in enumerate(script.scenes, 1):
-            longest = max((len(x.split()) for x in re.split(r"[.!?]+", sc.narration)), default=0)
-            if longest > 28:
-                out.append(f"Scene {k} has a {longest}-word sentence; split it so it can be followed by ear.")
+            sentences = [x.strip() for x in re.split(r"(?<=[.!?])\\s+", sc.narration) if x.strip()]
+            longest = max((len(x.split()) for x in sentences), default=0)
+            if longest > 22:
+                out.append(f"Scene {k} has a {longest}-word sentence; shorten it for natural spoken delivery.")
+                break
+            if len(sc.narration.split()) > 34:
+                out.append(f"Scene {k} has {len(sc.narration.split())} words; break the narration into shorter spoken beats.")
                 break
     if english:
         topic = {w.lower() for w in re.findall(r"[A-Za-z]+", script.topic)}
@@ -551,6 +555,11 @@ Creative-quality requirements:
 - Ensure the narration progresses logically rather than listing disconnected facts, unless the chosen format is explicitly a facts/list format.
 - Each scene must have a concrete, searchable visual directly matching its narration. Avoid vague/repeated adjacent search queries; vary the actual subject or shot when the narration changes.
 - Do not claim a visual is secured just because a search query exists; use specific search_query and a concrete image_prompt that describes a plausible shot.
+- Write for the ear, not an article: use contractions and natural spoken phrasing where appropriate, varied sentence lengths, and one clear idea per breath.
+- Avoid long sentences with multiple clauses. Prefer sentences around 8-18 words; split a sentence when a listener would need to mentally rewind.
+- Use punctuation to support natural TTS pauses, but do not add ellipses or commas everywhere. Do not include stage directions in narration.
+- Keep transitions between scenes logical: each line should connect to the previous thought or set up the next, not feel like disconnected facts.
+- Do not pad the target length with filler. If a script is short, add a meaningful example, mechanism, or consequence instead.
 Format rules to keep:
 {_format_rules(script.style)}""" if rewrite else 'Return only "rubric" and "issues".')
     user = f"""Review this YouTube Short script ({STYLES[script.style]}).
