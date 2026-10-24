@@ -30,8 +30,9 @@ DIRECTOR_SCHEMA = {
                     "transition": {"type": "string", "enum": ["cut", "fade", "dissolve", "whip", "match_cut"]},
                     "sound": {"type": "string", "enum": ["none", "whoosh", "pop", "hit"]},
                     "reason": {"type": "string"},
+                    "character": {"type": "string", "enum": ["none", "purffle_narrator", "detective", "scientist", "explorer", "mysterious_figure"]},
                 },
-                "required": ["scene", "purpose", "visual_mode", "visual_prompt", "camera", "transition", "sound", "reason"],
+                "required": ["scene", "purpose", "visual_mode", "visual_prompt", "camera", "transition", "sound", "reason", "character"],
                 "additionalProperties": False,
             },
         }
@@ -44,6 +45,22 @@ CAMERAS = ("push_in", "pull_out", "pan_left", "pan_right", "static", "shake")
 MODES = ("illustration", "diagram", "footage", "photo", "symbolic")
 TRANSITIONS = ("cut", "fade", "dissolve", "whip", "match_cut")
 SOUNDS = ("none", "whoosh", "pop", "hit")
+CHARACTERS = ("none", "purffle_narrator", "detective", "scientist", "explorer", "mysterious_figure")
+
+
+def _character_for(text: str, style: str) -> str:
+    words = set(text.lower().replace("-", " ").split())
+    if words & {"detective", "investigator", "sleuth"}:
+        return "detective"
+    if words & {"scientist", "researcher", "laboratory"}:
+        return "scientist"
+    if words & {"explorer", "astronaut", "adventurer"}:
+        return "explorer"
+    if words & {"ghost", "monster", "stranger", "shadow", "mysterious", "creature"}:
+        return "mysterious_figure"
+    if style in ("story", "reddit") and words & {"narrator", "hooded", "purffle"}:
+        return "purffle_narrator"
+    return "none"
 
 
 def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
@@ -84,6 +101,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "transition": transition,
         "sound": sound,
         "reason": f"Use {mode} to make the narrated beat immediately legible; {camera.replace('_', ' ')} keeps the shot alive without distracting from the words.",
+        "character": _character_for(text, style),
     }
 
 
@@ -131,6 +149,8 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                                  ("transition", TRANSITIONS), ("sound", SOUNDS)):
                 if row.get(key) in allowed:
                     clean[key] = row[key]
+            if row.get("character") in CHARACTERS:
+                clean["character"] = row["character"]
             clean["scene"] = i
             merged.append(clean)
         return merged
@@ -152,7 +172,9 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
             "photo": "REALISTIC EDITORIAL PHOTOGRAPH: ",
         }.get(mode, "")
         if prompt:
-            scene.image_prompt = prefix + prompt
+            character = str(beat.get("character", "none")).strip().lower()
+            character_note = f"\\nREUSABLE CHARACTER: {character}" if character in CHARACTERS and character != "none" else ""
+            scene.image_prompt = prefix + prompt + character_note
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
@@ -164,6 +186,7 @@ def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
             f"## Scene {i}: {beat.get('purpose', 'beat').title()}",
             f"- **Narration:** {narration}",
             f"- **Visual:** {beat.get('visual_mode', 'illustration').title()} — {beat.get('visual_prompt', '')}",
+            f"- **Reusable character:** {beat.get('character', 'none')}",
             f"- **Camera:** {beat.get('camera', 'static').replace('_', ' ').title()}",
             f"- **Transition:** {beat.get('transition', 'cut').replace('_', ' ').title()}",
             f"- **Sound accent:** {beat.get('sound', 'none').title()}",
