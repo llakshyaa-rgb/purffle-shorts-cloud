@@ -58,5 +58,5 @@ def test_director_notes_are_concise_and_match_scene_count():
     notes = notes_markdown(script, plan)
     assert "Director's Notes" in notes
     assert "Scene 1" in notes and "Scene 2" in notes
-    assert "not private reasoning" in notes
+    assert "not private chain-of-thought" in notes
     assert notes.count("**Why:**") == len(script.scenes)
