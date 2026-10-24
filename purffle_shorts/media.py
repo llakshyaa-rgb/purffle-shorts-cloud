@@ -696,7 +696,7 @@ class Visuals:
         # Search first for the script's chosen subject, then for the director's concrete visible
         # action. Broad topic-only searches come last so they cannot dominate scene-specific results.
         directed_query = _director_search_query(image_prompt)
-        for q in (query, simplify_query(query), directed_query, simplify_query(topic), topic):
+        for q in (directed_query, query, simplify_query(query), simplify_query(topic), topic):
             q = (q or "").strip()
             if q and q.lower() not in [x.lower() for x in queries]:
                 queries.append(q)
