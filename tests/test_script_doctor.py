@@ -299,3 +299,26 @@ def test_story_prompts_require_logic_and_originality_audits():
     _, editor = review_prompt(script, Settings(), rewrite=True)
     assert "sentence-level redundancy audit" in editor
     assert "causal chain" in editor
+
+
+
+def test_story_prompt_checks_physical_logic_and_dangling_implications():
+    _, writer = build_prompt("a trapped sparrow behind a tiny wardrobe door", "story", Settings(), [])
+    assert "physical geography and scale" in writer
+    assert "connect its presence to the opening disturbance" in writer
+    from purffle_shorts.script import review_prompt
+    draft = normalize({"title": "The Sparrow Behind My Wardrobe", "scenes": [
+        {"narration": "Behind my wardrobe was a door the size of a cereal box.", "search_query": "tiny wardrobe door",
+         "image_prompt": "A tiny wooden door hidden behind a bedroom wardrobe, close-up."},
+        {"narration": "Every night at two, I heard three knocks.", "search_query": "bedroom clock night",
+         "image_prompt": "A bedside clock showing two at night beside a wardrobe."},
+        {"narration": "I found a sparrow trapped inside and let it fly out the window.", "search_query": "sparrow flying bedroom window",
+         "image_prompt": "A small sparrow flying through an open bedroom window at night."},
+        {"narration": "The knocking stopped. I leave the window open, just in case.", "search_query": "open bedroom window",
+         "image_prompt": "An open bedroom window with curtains moving in the night breeze."},
+    ]}, "tiny door sparrow", "story", "en")
+    findings = " ".join(lint_script(draft, Settings(target_seconds=12)))
+    assert "vague dangling implication" in findings
+    _, editor = review_prompt(draft, Settings(), rewrite=True)
+    assert "Check physical scale, access, object placement" in editor
+    assert "what the character fears and why" in editor
