@@ -335,6 +335,28 @@ def test_story_prompt_checks_physical_logic_and_dangling_implications():
     assert "what the character fears and why" in editor
 
 
+def test_fiction_logic_audits_check_survival_time_and_handwavy_explanations():
+    _, writer = build_prompt("a hamster trapped behind a tiny door all summer", "story", Settings(), [])
+    assert "physical geography and scale" in writer
+    assert "could plausibly know and do" in writer
+    assert "survive the stated duration" in writer
+    assert "Never patch a contradiction with a hand-wavy line" in writer
+
+    draft = normalize({"title": "The Hamster Behind My Wardrobe", "scenes": [
+        {"narration": "My hamster vanished in June.", "search_query": "empty hamster cage",
+         "image_prompt": "An empty hamster cage in a bedroom, wide shot, morning light."},
+        {"narration": "In September, I found him trapped behind a tiny door, alive on crumbs.", "search_query": "hamster tiny door",
+         "image_prompt": "A thin hamster behind a tiny wooden door inside a wall, close-up, dim light."},
+        {"narration": "I carried him back to his cage and he slept.", "search_query": "hamster cage",
+         "image_prompt": "A tired hamster resting in a clean cage, medium shot, soft bedroom light."},
+    ]}, "hamster behind wardrobe", "story", "en")
+    from purffle_shorts.script import review_prompt
+    _, editor = review_prompt(draft, Settings(), rewrite=True)
+    assert "HARD PLAUSIBILITY CHECK" in editor
+    assert "biologically impossible duration" in editor
+    assert "explicit supernatural rule" in editor
+
+
 def test_story_scene_architecture_prompt_is_explicit():
     _, writer = build_prompt("a door behind a wardrobe that knocks back", "story", Settings(), [])
     assert "STORY SCENE ARCHITECTURE" in writer
