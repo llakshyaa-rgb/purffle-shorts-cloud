@@ -398,6 +398,39 @@ class Studio:
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
                                       starts=speech.line_starts, min_len=4.5 if chat else 1.2)
+
+            # Run the Scene-Level Creative Director silently during production. Its visual prompts
+            # are consumed by media selection, while camera/sound choices are applied downstream.
+            try:
+                director_llm = self.llm
+            except Exception as director_error:
+                log.warning("Creative Director using local fallback: %s", redact(director_error))
+                director_llm = None
+            director_plan = direct_scenes(script, director_llm)
+            apply_to_script(script, director_plan)
+            director_payload = {
+                "version": 1,
+                "title": script.title,
+                "topic": script.topic,
+                "mode": "llm" if director_llm is not None else "local_fallback",
+                "scenes": director_plan,
+            }
+            (folder / "director.json").write_text(
+                json.dumps(director_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            (folder / "director_notes.md").write_text(
+                director_notes_markdown(script, director_plan), encoding="utf-8"
+            )
+            (folder / "script.json").write_text(
+                json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            log.info("Creative Director: planned %d scenes; notes saved to director_notes.md",
+                     len(director_plan))
+            for beat in director_plan:
+                log.info("Director · scene %02d: %s | %s | camera=%s | sound=%s — %s",
+                         beat["scene"], beat["visual_mode"], beat["purpose"], beat["camera"],
+                         beat["sound"], beat["reason"])
+
             # A chat story's picture is mostly the phone screen: more cuts behind it would only cost time.
             shots = split_shots(timeline, speech.words, 0 if chat else s.max_shot_seconds)
             joins = [a.index == b.index for a, b in zip(shots, shots[1:])]
