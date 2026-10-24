@@ -688,6 +688,12 @@ class Studio:
         if not rec or not rec.get("video_path") or not Path(rec["video_path"]).exists():
             log.error("Video #%s has no file to upload", rid)
             return "missing"
+        if not self.s.upload:
+            message = "Publishing is disabled (UPLOAD=false). Enable it explicitly in .env before uploading."
+            log.warning("%s", message)
+            if result:
+                result.status, result.error = "disabled", message
+            return "disabled"
         to = list(dict.fromkeys(self.s.publish_to or ["youtube"]))
         folder = Path(rec["folder"])
         meta_file = folder / "metadata.json"
