@@ -563,7 +563,7 @@ class StudioServer:
         from .asset_library import ensure_character_collection, list_assets
         root = Path(self.settings.media_dir) / ".purffle_assets"
         ensure_character_collection(root, self.settings.width, self.settings.height)
-        rows = list_assets(root, limit=120)
+        rows = list_assets(root, limit=300)
         query = (query or "").strip().casefold()
         kind = (kind or "").strip().casefold()
         out = []
