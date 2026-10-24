@@ -694,9 +694,15 @@ class Visuals:
                     key=lambda candidate: relevance(candidate, query),
                     reverse=True,
                 )
+                # Commons frequently returns broad category pages and weakly described files.
+                # A ranking score alone is not evidence: require usable descriptive metadata and a
+                # stronger scene match, just as we do for Pexels/Pixabay.
                 cand = [
                     candidate for candidate in ranked
-                    if relevance(candidate, query) >= 0.45
+                    if (
+                        (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
+                        and relevance(candidate, query) >= 0.58
+                    )
                 ]
                 q = query
                 item = self._claim(cand, need, query)
