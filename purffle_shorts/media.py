@@ -348,6 +348,40 @@ def expand_commons_queries(query: str) -> list[str]:
     return result
 
 
+
+
+def _director_search_query(image_prompt: str) -> str:
+    """Extract a concise, scene-specific search phrase from the director's visual brief."""
+    prompt = (image_prompt or "").strip()
+    if not prompt:
+        return ""
+    # Remove the internal mode labels before sending a human-readable search to stock providers.
+    prompt = re.sub(
+        r"^(?:DIAGRAM / EXPLANATORY GRAPHIC|ORIGINAL DRAWN ILLUSTRATION|"
+        r"SYMBOLIC VISUAL METAPHOR|REAL-WORLD DOCUMENTARY FOOTAGE|"
+        r"REALISTIC EDITORIAL PHOTOGRAPH):\\s*",
+        "",
+        prompt,
+        flags=re.IGNORECASE,
+    )
+    prompt = re.sub(r"\\bREUSABLE CHARACTER:.*$", "", prompt, flags=re.IGNORECASE | re.DOTALL)
+    # The director is instructed to put the actual subject/action first. Ignore style boilerplate
+    # after the first sentence and trim very long descriptions to keep search queries useful.
+    first_sentence = re.split(r"(?<=[.!?])\\s+", prompt, maxsplit=1)[0]
+    first_sentence = re.sub(
+        r"\\b(cinematic|documentary-style|real-world|realistic|editorial|photograph|"
+        r"portrait|vertical|framing|no text|no letters|no watermark|clear|specific|"
+        r"visible|action|lighting|composition|illustration|footage|photography)\\b",
+        " ",
+        first_sentence,
+        flags=re.IGNORECASE,
+    )
+    words = re.findall(r"[A-Za-z0-9'-]+", first_sentence)
+    # Keep the director's concrete noun/action phrase, not a whole prompt full of style terms.
+    candidate = " ".join(words[:9]).strip(" -'")
+    return candidate if len(candidate.split()) >= 2 else ""
+
+
 def _slug_words(url: str) -> str:
     """'https://www.pexels.com/video/octopus-swimming-in-the-sea-2169880/' -> 'octopus swimming in the sea'."""
     slug = url.rstrip("/").rsplit("/", 1)[-1]
@@ -659,7 +693,10 @@ class Visuals:
             except Exception as e:
                 log.warning("Persistent visual library failed for scene %d: %s", idx + 1, redact(e))
         queries = []
-        for q in (query, simplify_query(query), simplify_query(topic), topic):
+        # Search first for the script's chosen subject, then for the director's concrete visible
+        # action. Broad topic-only searches come last so they cannot dominate scene-specific results.
+        directed_query = _director_search_query(image_prompt)
+        for q in (query, simplify_query(query), directed_query, simplify_query(topic), topic):
             q = (q or "").strip()
             if q and q.lower() not in [x.lower() for x in queries]:
                 queries.append(q)
