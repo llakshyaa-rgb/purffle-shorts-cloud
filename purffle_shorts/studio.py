@@ -537,6 +537,20 @@ class StudioServer:
             raise ValueError("Choose a publish time at least 15 minutes in the future (required by YouTube scheduling).")
         if rec.get("youtube_id"):
             raise ValueError("This video is already on YouTube; edit its schedule on YouTube Studio.")
+        for reserved in self.studio.history.scheduled_times():
+            try:
+                reserved_dt = datetime.fromisoformat(reserved.replace("Z", "+00:00")).astimezone(timezone.utc)
+            except (TypeError, ValueError):
+                continue
+            if reserved_dt.replace(microsecond=0) == dt.replace(microsecond=0):
+                old_dt = rec.get("publish_at")
+                if old_dt:
+                    try:
+                        if datetime.fromisoformat(old_dt.replace("Z", "+00:00")).astimezone(timezone.utc) == reserved_dt:
+                            continue
+                    except (TypeError, ValueError):
+                        pass
+                raise ValueError("Another video already reserves that publish time. Choose a different slot.")
         self.studio.history.set_publish_at(vid, dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
         self.studio.history.set_approval(vid, False)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
