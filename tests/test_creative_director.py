@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from purffle_shorts.creative_director import apply_to_script, direct, notes_markdown
 from purffle_shorts.script import Scene, Script
 
