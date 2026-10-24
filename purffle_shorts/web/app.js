@@ -764,6 +764,7 @@ async function openVideo(id) {
       <div class="actions">
         ${v.video && toPublish(v, m).length ? `<button class="btn primary sm" type="button" id="d-up">${I.upload}Publish${toPublish(v, m).length < (S.info.publish_to || []).length ? " the rest" : ""}</button>` : ""}
         ${sc ? `<button class="btn sm" type="button" id="d-edit">${I.pen}Edit & re-render</button>` : ""}
+        ${v.has_director_notes ? `<button class="btn sm" type="button" id="d-director">${I.doc}Director notes</button>` : ""}
         <button class="btn sm danger" type="button" id="d-del">${I.trash}Delete</button>
       </div>
       ${v.score != null ? `<div class="score"><div class="ring" data-p="${v.score}"><b>${v.score}</b></div><div class="grow"><b>Retention score</b>${rubricHtml(m.rubric)}${review.length ? `<ul>${review.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
@@ -785,6 +786,8 @@ async function openVideo(id) {
   document.body.style.overflow = "hidden";
   const up = $("#d-up");
   if (up) up.onclick = async () => { up.disabled = true; try { await post("/api/upload/" + id); toast("Upload queued — follow it in Queue.", "info"); tick(); } catch (e) { toast(esc(e.message), "bad"); } };
+  const director = $("#d-director");
+  if (director) director.onclick = () => openDirectorNotes(id);
   const ed = $("#d-edit");
   if (ed) ed.onclick = () => {
     S.draft = Object.assign({}, sc, { title: (sc.title || "").replace(/\s*#shorts$/i, "") });
@@ -801,6 +804,26 @@ async function openVideo(id) {
     try { await post(`/api/videos/${id}/delete`); closeDrawer(); toast("Deleted.", "ok"); drawLibrary(); } catch (e) { toast(esc(e.message), "bad"); }
   };
 }
+async function openDirectorNotes(id) {
+  const drawer = $("#drawer"), panel = $("#drawer-panel");
+  panel.innerHTML = `<button class="btn ghost close" type="button" data-close aria-label="Close">${I.x}</button>
+    <p class="eyebrow"><b>#${String(id).padStart(3, "0")}</b>Creative Director</p>
+    <h2>Director notes</h2><p class="hint">The production plan that guided the visuals, camera movement and sound accents.</p>
+    <pre class="director-notes">Loading notes…</pre>`;
+  drawer.hidden = false;
+  document.body.style.overflow = "hidden";
+  try {
+    const response = await fetch(`/files/${id}/director_notes.md`, { cache: "no-store" });
+    if (!response.ok) throw new Error(response.status === 404 ? "Director notes are not available for this video." : "Could not load director notes.");
+    const notes = await response.text();
+    const pre = $(".director-notes", panel);
+    if (pre) pre.textContent = notes;
+  } catch (error) {
+    const pre = $(".director-notes", panel);
+    if (pre) pre.textContent = error.message || "Could not load director notes.";
+  }
+}
+
 function closeDrawer() {
   const d = $("#drawer");
   if (d.hidden) return;
@@ -832,6 +855,7 @@ function drawJobs() {
         <div class="t"><b>${esc(r.title || j.label)}</b><small><span class="status-pill ${j.status}">${j.status}</span>${running && stage ? ` · ${esc(stage)}` : ""}${running ? ` · ${esc(progressText(j))}` : ""}${running && j.message ? ` · ${esc(j.message)}` : ""}${took != null ? ` · ${fmtSec(took)}` : ""}</small></div>
         <span class="acts">${j.status === "queued" || running ? `<button class="btn ghost sm" type="button" data-cancel="${j.id}">Cancel</button>` : ""}
         ${j.status === "done" && r.id ? `<button class="btn sm" type="button" data-open="${r.id}">${I.play}Watch</button>` : ""}
+        ${j.status === "done" && j.kind === "make" && r.id ? `<button class="btn ghost sm" type="button" data-director-notes="${r.id}">${I.doc}Director notes</button>` : ""}
         ${j.status === "done" && j.kind === "draft" ? `<a class="btn sm" href="#create">${I.pen}Edit</a>` : ""}
         <button class="btn ghost sm" type="button" data-log="${j.id}">${open ? "Hide log" : "Log"}</button></span>
       </div>
@@ -846,6 +870,8 @@ function drawJobs() {
   paint(box);
   $$(".log", box).forEach(l => { if (scroll[l.dataset.id] !== false) l.scrollTop = l.scrollHeight; });
   box.onclick = async e => {
+    const director = e.target.closest("[data-director-notes]");
+    if (director) { await openDirectorNotes(+director.dataset.directorNotes); return; }
     const lg = e.target.closest("[data-log]");
     if (lg) { const id = +lg.dataset.log; openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id); drawJobs(); }
     const c = e.target.closest("[data-cancel]");
