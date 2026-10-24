@@ -173,7 +173,7 @@ class Settings:
     hook_overlay: bool = True
     watermark: str = ""               # blank = channel name; "none" = off
     end_cta: str = "Follow for more!"
-    caption_style: str = "bold"       # bold|boxed|neon|clean|karaoke|minimal
+    caption_style: str = "auto"        # auto|bold|boxed|neon|clean|karaoke|minimal
     caption_position: str = "center"  # upper|center|lower
     caption_font: str = ""
     caption_fontsize: int = 0         # 0 = auto
