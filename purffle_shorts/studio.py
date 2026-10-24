@@ -438,9 +438,12 @@ class StudioServer:
         return out
 
     def assets(self, query: str = "", kind: str = "") -> list[dict]:
-        from .asset_library import list_assets
+        from .asset_library import ensure_character_collection, list_assets
         root = Path(self.settings.media_dir) / ".purffle_assets"
         rows = list_assets(root, limit=120)
+        if not any(row.get("visual_type") == "character" for row in rows):
+            ensure_character_collection(root, self.settings.width, self.settings.height)
+            rows = list_assets(root, limit=120)
         query = (query or "").strip().casefold()
         kind = (kind or "").strip().casefold()
         out = []
