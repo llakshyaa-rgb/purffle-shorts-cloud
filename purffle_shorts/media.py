@@ -8,17 +8,17 @@ import base64
 import concurrent.futures
 import logging
 import random
-import shutil
 import re
+import shutil
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
+from .asset_library import get_or_create_asset
 from .config import Settings
 from .utils import PermanentError, download, http, raise_for_status, redact, with_retries
-from .visual_library import make_visual, visual_type
-from .asset_library import get_or_create_asset
+from .visual_library import visual_type
 
 log = logging.getLogger("purffle")
 
@@ -610,7 +610,7 @@ class Visuals:
                 break
         if directed_mode in ("diagram", "illustration", "symbolic"):
             visual_kind = directed_mode
-        stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode("utf-8")).hexdigest()[:8], 16)
+        stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode()).hexdigest()[:8], 16)
         # Explicit director choices override the usual library/stock balance; otherwise keep variety.
         # Respect the configured source order: a Pexels-only or Pollinations-only setup
         # must actually try that source for ordinary scenes. The built-in library is the
