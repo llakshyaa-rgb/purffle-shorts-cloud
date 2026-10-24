@@ -28,6 +28,7 @@ LANGUAGES = {
 }
 
 STYLES = {
+    "auto": "A smart hybrid story blending whichever techniques fit: curiosity hook, narrative tension, surprising facts, myth-check, countdown, analogy, explanation and payoff. Do not force every technique; combine naturally.",
     "facts": "Rapid-fire surprising facts about one specific subject, each one more surprising than the last.",
     "story": "A tight true story: a hook that opens a loop, rising tension, then a satisfying twist or payoff.",
     "listicle": "A top-3 countdown (number 3, number 2, number 1) where number 1 is the most surprising.",
@@ -186,7 +187,7 @@ def pick_style(settings: Settings, source: str) -> str:
         return "news"
     if source in ("wikipedia", "reddit", "rss"):
         return "story"
-    return random.choice(AUTO_STYLES)
+    return "auto"
 
 
 def scene_plan(style: str, target_seconds: int) -> tuple[int, int]:
@@ -261,7 +262,7 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 - title: max 60 characters, curiosity-driven but honest, no hashtags, no quotes.
 - hook_text: max 6 words shown on screen during the first seconds.
 - description: 2-3 sentences plus one question that invites comments. No hashtags.
-- hashtags: 3-5 relevant hashtags. tags: 8-15 search keywords.
+- hashtags: at least 5 distinct, highly relevant hashtags plus #shorts. Avoid generic spam. tags: 8-15 search keywords.
 - category: one of {", ".join(CATEGORIES)}.
 
 Return JSON with keys: topic, title, hook_text, cast, scenes (array of {{speaker, narration, search_query, image_prompt, emphasis, emoji}}), description, hashtags, tags, category."""
