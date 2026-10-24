@@ -268,13 +268,9 @@ def _symbol(draw, kind, cx, cy, s, ink, accent, second):
             _line(draw,[(cx+r*.05,cy-r*.2),(cx-r*.25,cy+r*.05),(cx-r*.18,cy+r*.45),(cx+r*.25,cy+r*.45)],second,lw)
             _line(draw,[(cx-r*.5,cy+r*.65),(cx+r*.55,cy+r*.65)],accent,lw)
         elif kind=="atom":
-            for angle in (0,60,120):
-                draw.ellipse((cx-r,cy-r*.38,cx+r,cy+r*.38),outline=accent,width=lw)
-                # Rotate the orbital ellipse around the nucleus.
-                layer=Image.new("RGBA",(int(r*2.4),int(r*2.4)),(0,0,0,0))
-                ld=ImageDraw.Draw(layer); ld.ellipse((r*.2,r*.7,r*2.2,r*1.7),outline=second,width=lw)
-                layer=layer.rotate(angle,expand=False)
-                draw._image if False else None
+            draw.ellipse((cx-r,cy-r*.38,cx+r,cy+r*.38),outline=accent,width=lw)
+            draw.ellipse((cx-r*.38,cy-r,cx+r*.38,cy+r),outline=second,width=lw)
+            draw.ellipse((cx-r*.76,cy-r*.76,cx+r*.76,cy+r*.76),outline=accent,width=max(2,lw//2))
             draw.ellipse((cx-r*.12,cy-r*.12,cx+r*.12,cy+r*.12),fill=ink)
         elif kind=="circuit":
             for yy in (-.55,0,.55):
