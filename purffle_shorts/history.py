@@ -155,7 +155,7 @@ class History:
 
     def scheduled_times(self) -> list[str]:
         return [r["publish_at"] for r in self._all(
-            "SELECT publish_at FROM videos WHERE publish_at IS NOT NULL AND status = 'scheduled'")]
+            "SELECT publish_at FROM videos WHERE publish_at IS NOT NULL AND status IN ('rendered', 'queued', 'scheduled')")]
 
     def stats(self) -> dict:
         rows = self._all("SELECT status, COUNT(*) AS n FROM videos GROUP BY status")
