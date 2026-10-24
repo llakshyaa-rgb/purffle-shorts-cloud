@@ -77,7 +77,7 @@ def _float(name: str, default: float, *aliases: str) -> float:
 
 
 # Aspect presets: 9:16 is a Short/Reel/TikTok, 16:9 a regular YouTube video, 1:1 and 4:5 feed posts.
-ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5": (1080, 1350)}
+ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5": (1080, 1350), "2:3": (1080, 1620), "3:2": (1620, 1080), "3:4": (1080, 1440), "21:9": (1920, 823)}
 
 
 def aspect_resolution(aspect: str) -> tuple[int, int] | None:
