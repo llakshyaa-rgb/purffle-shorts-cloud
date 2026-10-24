@@ -150,3 +150,30 @@ def test_creator_publish_time_overrides_configured_slot(online, monkeypatch):
     status = studio.upload_record(made.record_id)
     assert status == "scheduled"
     assert uploads[0]["status"]["publishAt"] == chosen_iso
+
+
+@needs_ffmpeg
+def test_creator_publish_time_overrides_configured_slot(online, monkeypatch, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    s, _ = online
+    s = s.with_overrides(keep_videos=True, publish_times=["09:00", "21:00"])
+    manual_time = (datetime.now(timezone.utc) + timedelta(days=2)).replace(second=0, microsecond=0)
+    manual_iso = manual_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    monkeypatch.setattr(P.youtube, "next_publish_slot",
+                        lambda *args, **kwargs: pytest.fail("manual schedule should take priority"))
+    uploads = []
+    monkeypatch.setattr(P.youtube, "upload",
+                        lambda settings, video, body: uploads.append(body) or {"id": "manual-slot"})
+    studio = P.Studio(s)
+    folder = tmp_path / "manual-schedule"
+    folder.mkdir()
+    video = folder / "short.mp4"
+    video.write_bytes(b"fake video")
+    (folder / "metadata.json").write_text(json.dumps({"category_id": "27", "language": "en"}))
+    vid = studio.history.add_video(
+        title="Manual schedule", description="Test", tags=["test"], status="rendered",
+        folder=str(folder), video_path=str(video), duration=10, language="en", publish_at=manual_iso,
+    )
+    assert studio.upload_record(vid) == "scheduled"
+    assert uploads[0]["status"]["publishAt"] == manual_iso
