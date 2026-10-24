@@ -385,6 +385,22 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
         if h and h.lower() not in seen:
             seen.add(h.lower())
             hashtags.append(h)
+    if len(hashtags) < 6:
+        topic_words = [w.lower() for w in re.findall(r"[A-Za-z0-9]+", str(subject) + " " + str(data.get("topic") or ""))
+                       if len(w) >= 4 and w.lower() not in {"with", "from", "that", "this", "about", "your", "have", "what", "when"}]
+        for word in topic_words:
+            tag = "#" + word
+            if tag.lower() not in seen:
+                seen.add(tag.lower())
+                hashtags.append(tag)
+            if len(hashtags) >= 6:
+                break
+    for tag in ("#learnsomething", "#didyouknow", "#interestingfacts", "#explained"):
+        if len(hashtags) >= 6:
+            break
+        if tag.lower() not in seen:
+            seen.add(tag.lower())
+            hashtags.append(tag)
     hashtags = hashtags[:6]
 
     tags, total, seen_t = [], 0, set()
