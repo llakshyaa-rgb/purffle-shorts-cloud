@@ -593,10 +593,10 @@ class Visuals:
     def for_scene(self, idx: int, query: str, image_prompt: str, topic: str, need: float, dest_dir: Path) -> MediaItem:
         # Use the built-in illustration/diagram library for a meaningful share of scenes.
         # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
-        # while remaining scenes can still use stock footage/photos for realism and variety.
+        # while a smaller share can still use real footage/photos for realism and variety.
         visual_kind = visual_type(query or topic, image_prompt)
         stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode("utf-8")).hexdigest()[:8], 16)
-        use_library = visual_kind == "diagram" or (stable % 100 < 58)
+        use_library = visual_kind == "diagram" or (stable % 100 < 78)
         if use_library:
             try:
                 library_path = dest_dir / f"scene{idx:02d}_library.png"
