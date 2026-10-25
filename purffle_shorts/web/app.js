@@ -50,7 +50,7 @@ const FORMATS = [
   ["auto", "Auto · Hybrid", "Combines the story, facts, myth-check, countdown, quiz and explainer techniques that fit this topic."],
   ["fantasy", "Fantasy role-play", "Original dragons, magical kingdoms, rival characters, funny banter and cinematic cliffhangers. Built as an episodic story, not a list of facts.", true],
 ];
-const MULTI = new Set(["dialogue", "chat"]);
+const MULTI = new Set(["dialogue", "chat", "fantasy"]);
 const STAGES = [["topic", "Topic"], ["script", "Script"], ["review", "Review"], ["voice", "Voice"], ["footage", "Footage"],
   ["captions", "Captions"], ["render", "Render"], ["check", "Check"], ["upload", "Upload"]];
 const STATUS_CHIP = { uploaded: "ok", scheduled: "blue", rendered: "accent", queued: "", failed: "bad" };
