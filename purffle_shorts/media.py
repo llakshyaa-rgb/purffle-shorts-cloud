@@ -276,11 +276,11 @@ def openai_image(prompt: str, dest: Path, key: str, model: str, orientation: str
                     "https://api.openai.com/v1/images/edits",
                     data={"model": model, "prompt": prompt, "n": 1, "size": size, "quality": "medium"},
                     files={"image": (reference_path.name, reference_file, "image/png")},
-                    timeout=240, headers=headers,
+                    timeout=120, headers=headers,
                 )
         else:
             response = http().post("https://api.openai.com/v1/images/generations", json=body,
-                                   timeout=240, headers=headers)
+                                   timeout=120, headers=headers)
         raise_for_status(response, "OpenAI image")
         d = response.json()["data"][0]
         if d.get("b64_json"):
@@ -303,7 +303,9 @@ def cloudflare_image(prompt: str, dest: Path, account_id: str, token: str) -> Pa
         endpoint,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={"prompt": prompt[:5000], "steps": 4},
-        timeout=240,
+        # Fail stalled free-tier generation quickly so the pipeline can try the next
+        # configured source instead of tying up a worker for four minutes per scene.
+        timeout=60,
     )
     raise_for_status(response, "Cloudflare Workers AI image")
     result = response.json()
