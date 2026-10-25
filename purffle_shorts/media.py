@@ -733,25 +733,67 @@ class Visuals:
         # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
         # while a smaller share can still use real footage/photos for realism and variety.
         # An explicit gradient is a designed visual choice, not a failed search result.
-        if "ABSTRACT GRADIENT BACKGROUND:" in (image_prompt or "").upper():
-            return MediaItem("generated", f"intentional-gradient-{idx}", "generated",
-                             query=query or topic, extra={"intentional_gradient": True})
-        visual_kind = visual_type(query or topic, image_prompt)
-        directed_mode = ""
-        for marker, mode in (
-            ("DIAGRAM / EXPLANATORY GRAPHIC:", "diagram"),
-            ("ORIGINAL DRAWN ILLUSTRATION:", "illustration"),
-            ("SYMBOLIC VISUAL METAPHOR:", "symbolic"),
-            ("REAL-WORLD DOCUMENTARY FOOTAGE:", "footage"),
-            ("FANTASY CINEMATIC FOOTAGE:", "footage"),
-            ("REALISTIC EDITORIAL PHOTOGRAPH:", "photo"),
-        ):
-            if marker in (image_prompt or "").upper():
-                directed_mode = mode
-                break
-        if directed_mode in ("diagram", "illustration", "symbolic"):
-            visual_kind = directed_mode
-        stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode()).hexdigest()[:8], 16)
+        fantasy_mode = "FANTASY CINEMATIC FOOTAGE:" in (image_prompt or "").upper()
+        character_marker = "REUSABLE CHARACTER:"
+        character_mode = character_marker in (image_prompt or "").upper()
+        character_reference_path: Path | None = None
+        style_key = ""
+        if character_mode:
+            parts = re.split(re.escape(character_marker), image_prompt or "", maxsplit=1, flags=re.IGNORECASE)
+            style_key = (parts[-1].splitlines()[0].strip() if len(parts) > 1 else "")[:240]
+        if fantasy_mode and not style_key:
+            style_key = f"{topic} | {query} | original fantasy character"
+        if fantasy_mode:
+            # The character is the subject, not a background search term. Generate an
+            # original reference sheet, then prefer AI generation for every scene.
+            ref_root = Path(self.s.media_dir) / ".purffle_assets" / "character_references"
+            ref_root.mkdir(parents=True, exist_ok=True)
+            ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
+            ref_path = ref_root / f"{ref_key}.png"
+            character_reference_path = ref_path
+            if not ref_path.is_file():
+                ref_prompt = (
+                    "ORIGINAL FICTIONAL FANTASY CHARACTER MODEL SHEET, not a landscape. Show one "
+                    "clearly visible character with a readable face and expressive mouth, one close-up "
+                    "portrait and one full-body view of the SAME character, simple studio background, "
+                    "distinctive silhouette and consistent colors. For a dragon, show the dragon's head, "
+                    "eyes, muzzle, teeth and scales clearly. No text, logos, watermarks, or other characters. "
+                    "Character: " + style_key
+                )
+                ai_sources = [x for x in self.sources if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
+                for provider in ai_sources:
+                    made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
+                    if made and made.path and made.path.is_file():
+                        try:
+                            shutil.copy2(made.path, ref_path)
+                            break
+                        except OSError:
+                            pass
+            if not ref_path.is_file():
+                log.warning("Fantasy character reference unavailable; trying direct AI character generation.")
+            visual_kind = "character"
+            directed_mode = "character"
+            stable = int(__import__("hashlib").sha1(f"fantasy|{topic}|{idx}|{query}".encode()).hexdigest()[:8], 16)
+        else:
+            if "ABSTRACT GRADIENT BACKGROUND:" in (image_prompt or "").upper():
+                return MediaItem("generated", f"intentional-gradient-{idx}", "generated",
+                                 query=query or topic, extra={"intentional_gradient": True})
+            visual_kind = visual_type(query or topic, image_prompt)
+            directed_mode = ""
+            for marker, mode in (
+                ("DIAGRAM / EXPLANATORY GRAPHIC:", "diagram"),
+                ("ORIGINAL DRAWN ILLUSTRATION:", "illustration"),
+                ("SYMBOLIC VISUAL METAPHOR:", "symbolic"),
+                ("REAL-WORLD DOCUMENTARY FOOTAGE:", "footage"),
+                ("FANTASY CINEMATIC FOOTAGE:", "footage"),
+                ("REALISTIC EDITORIAL PHOTOGRAPH:", "photo"),
+            ):
+                if marker in (image_prompt or "").upper():
+                    directed_mode = mode
+                    break
+            if directed_mode in ("diagram", "illustration", "symbolic"):
+                visual_kind = directed_mode
+            stable = int(__import__("hashlib").sha1(f"{topic}|{idx}|{query}".encode()).hexdigest()[:8], 16)
         # Explicit director choices override the usual library/stock balance; otherwise keep variety.
         # Respect the configured source order: a Pexels-only or Pollinations-only setup
         # must actually try that source for ordinary scenes. The built-in library is the
@@ -771,30 +813,14 @@ class Visuals:
             or (not directed_mode and visual_kind == "diagram" and not self.sources)
             or (not directed_mode and not self.sources and stable % 100 < 78)
         )
-        character_marker = "REUSABLE CHARACTER:"
-        character_mode = character_marker in (image_prompt or "").upper()
-        character_reference_path: Path | None = None
-        style_key = ""
-        if character_mode:
-            parts = re.split(re.escape(character_marker), image_prompt or "", maxsplit=1, flags=re.IGNORECASE)
-            style_key = (parts[-1].splitlines()[0].strip() if len(parts) > 1 else "")[:240]
-            # A canonical reference portrait is AI-generated and cached per character design.
-            # Pixabay is a reference-search source, never the generator for this original character.
+        if character_mode and not fantasy_mode:
             ref_root = Path(self.s.media_dir) / ".purffle_assets" / "character_references"
             ref_root.mkdir(parents=True, exist_ok=True)
             ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
             ref_path = ref_root / f"{ref_key}.png"
             character_reference_path = ref_path
             if not ref_path.is_file():
-                ref_prompt = (
-                    "ORIGINAL FICTIONAL CHARACTER DESIGN REFERENCE SHEET. Create one consistent, "
-                    "original fantasy character, not a real person and not a known franchise character. "
-                    "Neutral studio background, clear full-body front view plus head-and-shoulders view, "
-                    "readable face, clothing, armor, hair, skin/scales/fur, eye color and signature props. "
-                    "No text, labels, panels with different designs, watermark, logo or typography. "
-                    "This is a production model sheet for visual continuity. CHARACTER DESIGN: " + style_key
-                )
-                made = None
+                ref_prompt = "ORIGINAL FICTIONAL CHARACTER REFERENCE SHEET. Character design: " + style_key
                 for provider in self.sources:
                     if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
                         made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
@@ -803,13 +829,10 @@ class Visuals:
                                 shutil.copy2(made.path, ref_path)
                                 break
                             except OSError:
-                                made = None
-                if not ref_path.is_file():
-                    log.warning("No AI provider could create character reference for %s; using text continuity only.", style_key[:80])
-            if ref_path.is_file():
-                log.info("Character reference cached: %s", ref_path.name)
-            # Do not force the generic drawn-asset library to masquerade as a character reference.
+                                pass
             directed_mode = "character"
+            use_library = False
+        if fantasy_mode:
             use_library = False
         if use_library:
             try:
@@ -839,7 +862,11 @@ class Visuals:
             q = (q or "").strip()
             if q and q.lower() not in [x.lower() for x in queries]:
                 queries.append(q)
-        for source in list(self.sources):
+        source_order = list(self.sources)
+        if fantasy_mode:
+            ai_sources = [x for x in source_order if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
+            source_order = ai_sources + [x for x in source_order if x not in ai_sources]
+        for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
                 item = self._ai(source, image_prompt or query, dest_dir, idx, reference_path=character_reference_path if character_mode else None)
                 if item:
