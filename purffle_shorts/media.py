@@ -529,6 +529,12 @@ class Visuals:
         self.lock = threading.Lock()
         self._search_cache: dict[tuple[str, str], list[MediaItem]] = {}
         self.sources = [x for x in settings.visual_sources if x]
+        # Commons first for normal stock scenes; Pixabay is the first fallback.
+        # Keep only explicitly configured providers, but normalize their priority.
+        priority = {"commons": 0, "pixabay": 1, "pixabay-photos": 2,
+                    "pexels": 3, "pexels-photos": 4}
+        self.sources = sorted(enumerate(self.sources), key=lambda pair: (priority.get(pair[1], 5), pair[0]))
+        self.sources = [source for _, source in self.sources]
         if settings.offline:
             self.sources = ["local"]
         self.credits: set[str] = set()
