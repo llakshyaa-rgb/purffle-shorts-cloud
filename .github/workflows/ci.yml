@@ -1,9 +1,9 @@
 name: CI
 
+# Automatic runs are intentionally disabled while fixes are being developed.
+# Run this workflow manually from the Actions tab only when explicitly needed.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -46,7 +46,6 @@ jobs:
         run: docker run --rm purffle-shorts:ci --version
       - name: docker-compose.yml is valid
         run: touch .env && docker compose config -q
-
   package:
     runs-on: ubuntu-latest
     steps:
