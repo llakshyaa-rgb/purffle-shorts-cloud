@@ -1,7 +1,6 @@
 name: CI
 
-# Automatic runs are intentionally disabled while fixes are being developed.
-# Run this workflow manually from the Actions tab only when explicitly needed.
+# Keep CI opt-in during development. No pushes or pull requests start jobs.
 on:
   workflow_dispatch:
 
