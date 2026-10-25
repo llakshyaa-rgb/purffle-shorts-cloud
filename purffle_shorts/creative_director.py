@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from .script import Script
-from .fantasy_video_library import FANTASY_VISUAL_RULES
+from .fantasy_video_library import FANTASY_VISUAL_RULES, compose_fantasy_recipe
 
 log = logging.getLogger("purffle")
 
@@ -85,7 +85,7 @@ def _needs_gradient(narration: str, query: str) -> bool:
     return generic_query and len(line.split()) <= 6 and not concrete
 
 
-def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
+def _fallback(scene: Any, index: int, style: str, topic: str = "") -> dict[str, Any]:
     narration = str(getattr(scene, "narration", "") or "")
     query = str(getattr(scene, "search_query", "") or "")
     text = f"{narration} {query} {getattr(scene, 'image_prompt', '')}".lower()
@@ -131,6 +131,12 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         sound, transition = ("whoosh" if index % 2 else "none"), ("match_cut" if index % 3 == 0 else "cut")
     query = getattr(scene, "search_query", "") or getattr(scene, "narration", "")
     prompt = getattr(scene, "image_prompt", "") or query
+    fantasy_recipe = compose_fantasy_recipe(
+        topic or getattr(scene, "topic", "") or "", narration, query, index
+    ) if style == "fantasy" else None
+    if fantasy_recipe:
+        prompt = f"{prompt}. {fantasy_recipe['prompt']}"
+        camera = ("push_in", "pan_left", "pull_out", "pan_right", "static", "push_in")[index % 6]
     mode_hint = {
         "gradient": "intentional animated gradient background, deep cinematic color, restrained slow light movement, clean negative space for captions; no people, no stock photo, no icons",
         "illustration": "original cinematic illustrated scene, clear readable silhouette and specific visible action",
@@ -157,7 +163,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
 
 def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
     """Plan each scene; one structured LLM call, with a deterministic local fallback."""
-    fallback = [_fallback(scene, i, script.style) for i, scene in enumerate(script.scenes)]
+    fallback = [_fallback(scene, i, script.style, script.topic) for i, scene in enumerate(script.scenes)]
     if llm is None or not script.scenes:
         return fallback
     payload = {
@@ -230,7 +236,18 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                 prompt = clean.get("visual_prompt", "").strip()
                 if not prompt.upper().startswith("FANTASY CINEMATIC FOOTAGE:"):
                     prompt = "FANTASY CINEMATIC FOOTAGE: " + prompt
-                clean["visual_prompt"] = (prompt + ". Photoreal live-action fantasy film or premium realistic CGI cinematic; exact visible action; consistent character and location; varied film framing; no cartoon, vector art, diagrams, icons, collage, UI, text, logo or watermark.")[:1800]
+                source_scene = script.scenes[i - 1]
+                recipe = compose_fantasy_recipe(
+                    script.topic, source_scene.narration, source_scene.search_query, i - 1
+                )
+                # Preserve the director's chosen action while enriching it with a coherent,
+                # scene-aware combination from the library. Bound length for image providers.
+                clean["visual_prompt"] = (
+                    prompt + ". " + recipe["prompt"] +
+                    ". Photoreal live-action fantasy film or premium realistic CGI cinematic; "
+                    "exact visible action; consistent character and location; varied film framing; "
+                    "no cartoon, vector art, diagrams, icons, collage, UI, text, logo or watermark."
+                )[:1800]
             clean["scene"] = i
             merged.append(clean)
         return merged
