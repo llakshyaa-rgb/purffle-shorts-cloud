@@ -907,7 +907,9 @@ class Visuals:
             ai_sources = [x for x in source_order if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
             if not ai_sources:
                 ai_sources = ["pollinations"]
-            source_order = ai_sources + [x for x in source_order if x not in ai_sources]
+            # Fantasy characters must be generated from the episode's original character bible.
+            # Never fall through to unrelated stock people just because AI generation is unavailable.
+            source_order = ai_sources
         for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
