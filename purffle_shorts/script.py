@@ -220,7 +220,7 @@ def _format_rules(style: str, target_seconds: int = 40) -> str:
 ")
     if style == "fantasy":
         return (
-            "- Build an ensemble, not a two-person skit. Use 3–6 named speaking characters when the premise supports them (for example: protagonist, family member, ally, rival/antagonist, and a witness/mentor). Never impose a two-character maximum. Give every character a distinct motive, relationship, visual silhouette, and dialogue contribution; introduce them when the plot needs them, not all at once. Use speaker IDs A–F to match cast entries by index.\
+            "- Invent a fresh cast specifically for this exact prompt and episode. Add characters only when they improve the plot, emotional stakes, world, mystery, conflict, or payoff; never reuse a default cast, generic role labels, or the same character roster just to fill slots. Use as many meaningful speaking characters as the story needs, normally 3–6 when appropriate, with up to six supported speaker IDs A–F. Give each one an individual name, visual design, goal, relationship, and reason to be in the scene. A character must affect events or reveal something important, not merely appear as decoration.\\n"
 "
             "- Create a CHARACTER BIBLE before drafting scenes. For each main character, define species, approximate age, face, eyes, hair/fur/scales, build, clothing/armor, signature prop, and a distinctive color palette. Keep those details unchanged throughout the Short.
 "
@@ -533,12 +533,10 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
     if multi or style in CARD_STYLES:
         defaults = DEFAULT_CAST[style]
         if style == "fantasy":
-            cast = cast[:6]
-            if len(cast) < 3:
-                extra = ["Companion", "Rival", "Guardian", "Stranger"]
-                cast.extend(name for name in extra if name.lower() not in {c.lower() for c in cast})
-                cast = cast[:3]
+            # Preserve the LLM-created story-specific cast; never pad with generic reusable roles.
+            cast = list(dict.fromkeys(cast))[:6]
         else:
+            cast = (cast + defaults[len(cast):])[:2] if len(cast) < 2 else cast[:2]
             cast = (cast + defaults[len(cast):])[:2] if len(cast) < 2 else cast[:2]
         if style == "reddit":
             cast = [_handle(cast[0], "r/"), _handle(cast[1], "u/")]
