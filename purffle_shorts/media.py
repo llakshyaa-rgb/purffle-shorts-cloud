@@ -762,9 +762,39 @@ class Visuals:
         style_key = ""
         if character_mode:
             parts = re.split(re.escape(character_marker), image_prompt or "", maxsplit=1, flags=re.IGNORECASE)
-            style_key = (parts[-1].splitlines()[0].strip() if len(parts) > 1 else "")[:160]
+            style_key = (parts[-1].splitlines()[0].strip() if len(parts) > 1 else "")[:240]
+            # A canonical reference portrait is AI-generated and cached per character design.
+            # Pixabay is a reference-search source, never the generator for this original character.
+            ref_root = Path(self.s.media_dir) / ".purffle_assets" / "character_references"
+            ref_root.mkdir(parents=True, exist_ok=True)
+            ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
+            ref_path = ref_root / f"{ref_key}.png"
+            if not ref_path.is_file():
+                ref_prompt = (
+                    "ORIGINAL FICTIONAL CHARACTER DESIGN REFERENCE SHEET. Create one consistent, "
+                    "original fantasy character, not a real person and not a known franchise character. "
+                    "Neutral studio background, clear full-body front view plus head-and-shoulders view, "
+                    "readable face, clothing, armor, hair, skin/scales/fur, eye color and signature props. "
+                    "No text, labels, panels with different designs, watermark, logo or typography. "
+                    "This is a production model sheet for visual continuity. CHARACTER DESIGN: " + style_key
+                )
+                made = None
+                for provider in self.sources:
+                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
+                        made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
+                        if made and made.path and made.path.is_file():
+                            try:
+                                shutil.copy2(made.path, ref_path)
+                                break
+                            except OSError:
+                                made = None
+                if not ref_path.is_file():
+                    log.warning("No AI provider could create character reference for %s; using text continuity only.", style_key[:80])
+            if ref_path.is_file():
+                log.info("Character reference cached: %s", ref_path.name)
+            # Do not force the generic drawn-asset library to masquerade as a character reference.
             directed_mode = "character"
-            use_library = True
+            use_library = False
         if use_library:
             try:
                 library_root = Path(self.s.media_dir) / ".purffle_assets"
