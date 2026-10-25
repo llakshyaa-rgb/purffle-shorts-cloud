@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from .script import Script
-from .fantasy_video_library import FANTASY_VISUAL_RULES
+from .fantasy_video_library import FANTASY_VISUAL_RULES, compose_fantasy_recipe
 
 log = logging.getLogger("purffle")
 
@@ -195,7 +195,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "production note (one sentence), not private chain-of-thought. Keep all facts in the provided script; do not add claims."
     )
     if script.style == "fantasy":
-        system += "\n\n" + FANTASY_VISUAL_RULES + "\n\nFor every fantasy scene choose visual_mode=footage, start visual_prompt with FANTASY CINEMATIC FOOTAGE:, and describe the precise physical action, shot size, setting and continuity. Never request drawn/vector art."
+        system += "\n\n" + FANTASY_VISUAL_RULES + "\n\nFor every fantasy scene choose visual_mode=footage, start visual_prompt with FANTASY CINEMATIC FOOTAGE:, and describe the precise physical action, shot size, setting and continuity. Never request drawn/vector art.\n\nCHARACTER REFERENCE AND PERFORMANCE RULES: Create original characters, never use a random real person's photograph as the canonical design. Keep the exact same face, age, hair, skin/scales/fur, clothing/armor, palette and signature props across all scenes. Each visual prompt must name which character is visible and preserve their reference traits. For dialogue, identify the current speaker, show only that character speaking, keep the listener's mouth still, and use a listener reaction shot after the spoken line ends. Align cuts to measured TTS duration/word timestamps when available; do not guess timing or begin the next line early. If a character-reference image is available, use it as the image-generation reference; if unavailable, provide a precise textual reference and do not claim an image was generated."
     try:
         result = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), schema=DIRECTOR_SCHEMA,
                                    max_tokens=min(4500, 500 + len(script.scenes) * 150), temperature=0.35)
