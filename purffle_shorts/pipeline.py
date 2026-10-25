@@ -450,6 +450,14 @@ class Studio:
                 except Exception as repair_error:
                     log.warning("Runtime repair failed; quality gate will block off-target publishing: %s",
                                 redact(repair_error))
+            # Do not spend image-generation time on a video that already failed its requested
+            # runtime. The repair is best-effort; if the voice still misses by more than 8%,
+            # fail here with an explicit duration error before the Creative Director / footage stage.
+            if abs(total - target) / target > 0.08:
+                raise RuntimeError(
+                    f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
+                    "Video was stopped before image generation; retry with a working script model."
+                )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
                                       starts=speech.line_starts, min_len=4.5 if chat else 1.2)
