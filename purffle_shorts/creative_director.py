@@ -85,7 +85,7 @@ def _needs_gradient(narration: str, query: str) -> bool:
     return generic_query and len(line.split()) <= 6 and not concrete
 
 
-def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
+def _fallback(scene: Any, index: int, style: str, topic: str = "") -> dict[str, Any]:
     narration = str(getattr(scene, "narration", "") or "")
     query = str(getattr(scene, "search_query", "") or "")
     text = f"{narration} {query} {getattr(scene, 'image_prompt', '')}".lower()
@@ -132,7 +132,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     query = getattr(scene, "search_query", "") or getattr(scene, "narration", "")
     prompt = getattr(scene, "image_prompt", "") or query
     fantasy_recipe = compose_fantasy_recipe(
-        getattr(scene, "topic", "") or "", narration, query, index
+        topic or getattr(scene, "topic", "") or "", narration, query, index
     ) if style == "fantasy" else None
     if fantasy_recipe:
         prompt = f"{prompt}. {fantasy_recipe['prompt']}"
@@ -164,7 +164,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
 
 def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
     """Plan each scene; one structured LLM call, with a deterministic local fallback."""
-    fallback = [_fallback(scene, i, script.style) for i, scene in enumerate(script.scenes)]
+    fallback = [_fallback(scene, i, script.style, script.topic) for i, scene in enumerate(script.scenes)]
     if llm is None or not script.scenes:
         return fallback
     payload = {
