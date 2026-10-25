@@ -246,7 +246,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
     if script.style == "fantasy":
         # Preserve the generated character bible instead of replacing it with generic archetypes.
         # The exact identity text is reused across every shot of the same named character.
-        for name in script.cast[:2]:
+        for name in script.cast[:6]:
             for source_scene in script.scenes:
                 source_prompt = str(getattr(source_scene, "image_prompt", "") or "")
                 for line in source_prompt.splitlines():
@@ -301,7 +301,8 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
             if script.style == "fantasy":
                 # Scene speaker A/B maps to cast order. Use the same model-sheet wording
                 # throughout the episode to make identity drift less likely.
-                speaker_index = 1 if str(getattr(scene, "speaker", "A")).upper() == "B" else 0
+                raw_speaker = str(getattr(scene, "speaker", "A")).upper()
+                speaker_index = ord(raw_speaker) - ord("A") if len(raw_speaker) == 1 and raw_speaker in "ABCDEF" else 0
                 visible_name = script.cast[speaker_index] if speaker_index < len(script.cast) else (script.cast[0] if script.cast else "the protagonist")
                 # Keep identity and shot instructions on separate lines so the media layer can
                 # cache the canonical identity key while generating a different action each time.
@@ -309,7 +310,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 visible_names = [visible_name]
                 # When a shot includes the other named lead, carry that character's fixed
                 # identity too; otherwise the generator tends to invent a new face in two-shots.
-                for candidate in script.cast[:2]:
+                for candidate in script.cast[:6]:
                     if candidate not in visible_names and re.search(r"\b" + re.escape(candidate) + r"\b", prompt, re.IGNORECASE):
                         visible_names.append(candidate)
                 identity_lines = "\n".join(
