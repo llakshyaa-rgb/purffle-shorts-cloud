@@ -177,3 +177,32 @@ def test_visual_search_cache_persists_empty_and_nonempty_results(monkeypatch, tm
     assert len(second) == 1 and second[0].id == "12"
     assert empty_second == []
     assert len(calls) == 2  # positive and empty results both persist across Visuals instances
+
+
+def test_strong_stock_match_requires_specific_shot_not_broad_topic():
+    brief = "REAL-WORLD DOCUMENTARY FOOTAGE: A helicopter landing on a remote island."
+    unrelated = M.MediaItem(
+        "pixabay", "unrelated", "video",
+        text="helicopter flying over city traffic at night",
+    )
+    matching = M.MediaItem(
+        "pixabay", "matching", "video",
+        text="helicopter landing on a remote island coast",
+    )
+    assert not M._strong_stock_match(
+        unrelated, "remote island mystery", "helicopter landing on a remote island", brief
+    )
+    assert M._strong_stock_match(
+        matching, "remote island mystery", "helicopter landing on a remote island", brief
+    )
+
+
+def test_strong_stock_match_rejects_single_incidental_keyword():
+    brief = "REAL-WORLD DOCUMENTARY FOOTAGE: A diver discovering a shipwreck underwater."
+    incidental = M.MediaItem(
+        "pexels", "incidental", "video",
+        text="diver swimming in a pool, people relaxing on a beach",
+    )
+    assert not M._strong_stock_match(
+        incidental, "shipwreck discovery", "diver discovering a shipwreck underwater", brief
+    )

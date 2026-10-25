@@ -493,13 +493,37 @@ def _strong_stock_match(item: MediaItem, query: str, directed_query: str = "",
         unwanted = _terms("cartoon animation animated anime illustration 3d render cgi christmas santa toy mascot logo ai generated abstract")
         if tags & unwanted:
             return False
-    target = directed_query or query
-    target_terms = _terms(target) - _terms("beautiful amazing surprising photo picture photograph image images illustration video clip")
+    # The search phrase and the director's shot brief serve different purposes: the former
+    # anchors the story subject, while the latter describes what must actually be visible.
+    # Score against the shot brief first; never let a broad topic ("island mystery", "space")
+    # make unrelated high-ranked stock footage look relevant.
+    generic = _terms(
+        "beautiful amazing surprising photo picture photograph image images illustration "
+        "video clip footage cinematic documentary realistic real world portrait vertical "
+        "framing visible scene shot showing show closeup close up"
+    )
+    query_terms = _terms(query) - generic
+    target_terms = _terms(directed_query or query) - generic
     if not target_terms:
-        target_terms = _terms(query)
-    hits = target_terms & tags
-    # Need evidence for the scene brief and some evidence for the script's selected subject.
-    return bool(hits) and len(hits) / max(1, len(target_terms)) >= 0.25 and relevance(item, query) >= 0.34
+        target_terms = query_terms
+    target_hits = target_terms & tags
+    query_hits = query_terms & tags
+
+    # Require multiple independent clues for longer shot briefs, and meaningful evidence
+    # for the story's subject too. A lone incidental tag must not pass the gate.
+    target_required = 1 if len(target_terms) <= 2 else 2
+    if len(target_hits) < target_required:
+        return False
+    if target_hits and len(target_hits) / max(1, len(target_terms)) < 0.30:
+        return False
+    if query_terms and not query_hits:
+        # Some director prompts use a clear synonym or a specific action rather than the
+        # script's broader query. Permit this only when the shot brief itself is well matched.
+        if len(target_hits) < max(2, target_required):
+            return False
+    if relevance(item, query) < 0.34:
+        return False
+    return True
 
 
 def _shape(item: MediaItem) -> str:
@@ -791,7 +815,7 @@ class Visuals:
                         log.warning("Commons search failed for %r: %s", search_query, redact(e))
                     cand = [candidate for candidate in combined.values() if _strong_stock_match(candidate, query, directed_query, image_prompt)]
                     if cand:
-                        item = self._claim(cand, need, query)
+                        item = self._claim(cand, need, directed_query or query)
                         if item:
                             q = search_query
                             break
@@ -809,7 +833,7 @@ class Visuals:
                         log.warning("%s search failed for %r: %s", source, search_query, redact(e))
                     cand = [candidate for candidate in combined.values() if ((candidate.source == "local" and candidate.extra.get("overlap", 0) > 0) or (candidate.source != "local" and _strong_stock_match(candidate, query, directed_query, image_prompt)))]
                     if cand:
-                        item = self._claim(cand, need, query)
+                        item = self._claim(cand, need, directed_query or query)
                         if item:
                             q = search_query
                             break
