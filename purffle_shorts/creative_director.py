@@ -295,11 +295,14 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # Keep identity and shot instructions on separate lines so the media layer can
                 # cache the canonical identity key while generating a different action each time.
                 prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
-                character_note = f"\nREUSABLE CHARACTER: {reference}\nSHOT: {prompt}"
-                prompt = f"{prompt}. Preserve the exact established character identity from the reusable character line; only the pose, expression and action change. No unrelated people or stock-photo substitutions."
+                character_note = (
+                    f"REUSABLE CHARACTER: {reference}\n"
+                    f"SHOT: {prompt}. Preserve the exact established character identity; only pose, expression and action change. "
+                    "No unrelated people, extra faces, or stock-photo substitutions."
+                )
             elif character in CHARACTERS and character != "none":
                 character_note = f"\nREUSABLE CHARACTER: {character}"
-            scene.image_prompt = prefix + prompt + character_note
+            scene.image_prompt = (prefix + character_note) if script.style == "fantasy" else (prefix + prompt + character_note)
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
