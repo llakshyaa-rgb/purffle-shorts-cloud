@@ -303,7 +303,6 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # throughout the episode to make identity drift less likely.
                 speaker_index = 1 if str(getattr(scene, "speaker", "A")).upper() == "B" else 0
                 visible_name = script.cast[speaker_index] if speaker_index < len(script.cast) else (script.cast[0] if script.cast else "the protagonist")
-                reference = fantasy_refs.get(visible_name, f"{visible_name} — original fictional fantasy character; same recognizable design in every shot")
                 # Keep identity and shot instructions on separate lines so the media layer can
                 # cache the canonical identity key while generating a different action each time.
                 prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
