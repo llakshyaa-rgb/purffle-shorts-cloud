@@ -480,6 +480,28 @@ def relevance(item: MediaItem, query: str) -> float:
     return len(hits) / len(subject)
 
 
+def _strong_stock_match(item: MediaItem, query: str, directed_query: str = "",
+                        image_prompt: str = "") -> bool:
+    """Require scene-specific metadata and reject misleading styles for documentary requests."""
+    text = " ".join((item.text or "", str(item.extra.get("description", "")),
+                     str(item.extra.get("categories", "")))).strip()
+    if not text:
+        return False
+    tags = _terms(text)
+    mode = (image_prompt or "").upper()
+    if "REAL-WORLD DOCUMENTARY FOOTAGE:" in mode or "REALISTIC EDITORIAL PHOTOGRAPH:" in mode:
+        unwanted = _terms("cartoon animation animated anime illustration 3d render cgi christmas santa toy mascot logo ai generated abstract")
+        if tags & unwanted:
+            return False
+    target = directed_query or query
+    target_terms = _terms(target) - _terms("beautiful amazing surprising photo picture photograph image images illustration video clip")
+    if not target_terms:
+        target_terms = _terms(query)
+    hits = target_terms & tags
+    # Need evidence for the scene brief and some evidence for the script's selected subject.
+    return bool(hits) and len(hits) / max(1, len(target_terms)) >= 0.45 and relevance(item, query) >= 0.34
+
+
 def _shape(item: MediaItem) -> str:
     if item.height > item.width:
         return "portrait"
@@ -772,10 +794,7 @@ class Visuals:
                 # stronger scene match, just as we do for Pexels/Pixabay.
                 cand = [
                     candidate for candidate in ranked
-                    if (
-                        (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
-                        and relevance(candidate, query) >= 0.58
-                    )
+                    if _strong_stock_match(candidate, query, directed_query, image_prompt)
                 ]
                 q = query
                 item = self._claim(cand, need, query)
@@ -807,8 +826,7 @@ class Visuals:
                     )
                     or (
                         candidate.source != "local"
-                        and (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
-                        and relevance(candidate, query) >= 0.58
+                        and _strong_stock_match(candidate, query, directed_query, image_prompt)
                     )
                 ]
                 item = self._claim(cand, need, query)
