@@ -732,6 +732,17 @@ class Visuals:
             if source in ("openai-images", "ai", "dalle", "gpt-image") and s.openai_api_key:
                 openai_image(full, dest, s.openai_api_key, s.image_model, s.orientation, reference_path=reference_path)
             elif source == "pollinations":
+                # Anonymous Pollinations requests can sit for minutes and are now rate-limited.
+                # Do not let a free, unkeyed endpoint stall every fantasy scene in the queue.
+                if not s.pollinations_api_key:
+                    log.warning(
+                        "Skipping anonymous Pollinations for scene %d: configure POLLINATIONS_API_KEY "
+                        "or an OpenAI image key. Refusing a long wait on the anonymous endpoint.",
+                        idx + 1,
+                    )
+                    with self.lock:
+                        self.sources = [x for x in self.sources if x != source]
+                    return None
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
             elif source == "cloudflare" and s.cloudflare_account_id and s.cloudflare_api_token:
@@ -782,6 +793,8 @@ class Visuals:
             # feed that image back into later generations. Pollinations/stock prompts do not
             # accept this reference in our integration, so spending an extra image request there
             # would create an unused portrait and falsely imply stronger identity consistency.
+            # Anonymous Pollinations is intentionally excluded: it is heavily rate-limited and
+            # has caused multi-minute stalls before the first scene can render.
             can_reuse_reference = bool(
                 self.s.openai_api_key
                 and self.s.image_model.startswith("gpt-image")
