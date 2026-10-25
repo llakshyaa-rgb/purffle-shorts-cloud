@@ -241,6 +241,23 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
 
 def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
     """Apply the director's visual choices to the actual media prompts."""
+    fantasy_refs: dict[str, str] = {}
+    if script.style == "fantasy":
+        # Stable text model sheets are attached to every shot featuring that speaker.
+        # The media layer uses this marker to generate/cache an original AI reference sheet.
+        for cast_index, name in enumerate(script.cast[:3]):
+            seed = f"{script.topic}|{name}|{cast_index}".casefold()
+            if cast_index == 0:
+                archetype = "lead hero or protagonist"
+            elif cast_index == 1:
+                archetype = "counterpart, rival, ally, or second speaker"
+            else:
+                archetype = "supporting magical character"
+            fantasy_refs[name] = (
+                f"{name}, original fictional {archetype}; consistent recognizable face; "
+                "distinctive silhouette; coherent fantasy costume and signature prop; "
+                "cinematic practical-costume realism; same exact design in every shot"
+            )
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
         mode = str(beat.get("visual_mode", "illustration")).strip().lower()
@@ -260,7 +277,17 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 scene.image_prompt = prefix + prompt
                 continue
             character = str(beat.get("character", "none")).strip().lower()
-            character_note = f"\nREUSABLE CHARACTER: {character}" if character in CHARACTERS and character != "none" else ""
+            character_note = ""
+            if script.style == "fantasy":
+                # Scene speaker A/B maps to cast order. Use the same model-sheet wording
+                # throughout the episode to make identity drift less likely.
+                speaker_index = 1 if str(getattr(scene, "speaker", "A")).upper() == "B" else 0
+                visible_name = script.cast[speaker_index] if speaker_index < len(script.cast) else (script.cast[0] if script.cast else "the protagonist")
+                reference = fantasy_refs.get(visible_name, f"{visible_name}, original fictional fantasy character; consistent design across every shot")
+                character_note = f"\nREUSABLE CHARACTER: {reference}"
+                prompt = f"{prompt}. CHARACTER REFERENCE: {reference}. Show this character's exact established design; do not substitute a real person or unrelated stock photo."
+            elif character in CHARACTERS and character != "none":
+                character_note = f"\nREUSABLE CHARACTER: {character}"
             scene.image_prompt = prefix + prompt + character_note
 
 
