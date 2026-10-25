@@ -865,16 +865,23 @@ class Visuals:
             if q and q.lower() not in [x.lower() for x in queries]:
                 queries.append(q)
         source_order = list(self.sources)
+        fantasy_prompt = (
+            "MAIN SUBJECT MUST BE A CLEARLY VISIBLE ORIGINAL FANTASY CHARACTER, filling at least 45% "
+            "of the vertical frame. NOT a landscape-only shot. Show the creature/person's face, eyes, "
+            "mouth and body in the same recognizable design; cinematic realistic CGI/live-action fantasy "
+            "film still, expressive face, readable silhouette, dramatic but clear lighting. "
+            "If dialogue is being spoken, frame the character's face/muzzle prominently. "
+            "Preserve this exact character identity: " + (style_key or query or topic) +
+            ". Scene action: " + (image_prompt or query or topic)
+        ) if fantasy_mode else (image_prompt or query)
         if fantasy_mode:
             ai_sources = [x for x in source_order if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
-            # Fantasy requires a visible character, so try the no-key AI-image fallback
-            # even when the user has only configured Pixabay/Pexels/Commons.
             if not ai_sources:
                 ai_sources = ["pollinations"]
             source_order = ai_sources + [x for x in source_order if x not in ai_sources]
         for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
-                item = self._ai(source, image_prompt or query, dest_dir, idx, reference_path=character_reference_path if character_mode else None)
+                item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
                 if item:
                     return item
                 continue
@@ -943,11 +950,13 @@ class Visuals:
             return item
         # Fantasy role-play explicitly prefers real cinematic footage. If no credible footage or
         # configured AI visual source exists, do not silently replace it with random vector drawings.
-        fantasy_footage = "FANTASY CINEMATIC FOOTAGE:" in (image_prompt or "").upper()
+        fantasy_footage = fantasy_mode
         if fantasy_footage:
-            log.warning("Scene %d: no suitable cinematic fantasy footage found; refusing unrelated vector-art fallback", idx + 1)
-            return MediaItem("generated", f"fantasy-footage-missing-{idx}", "generated", query=query or topic,
-                             extra={"intentional_gradient": True, "visual_fallback_reason": "no relevant fantasy footage"})
+            log.error("Scene %d: character image generation failed. Refusing to render a blank/gradient scene as if it contained a character.", idx + 1)
+            raise RuntimeError(
+                f"Fantasy scene {idx + 1} could not generate a character image. "
+                "Check AI image provider connectivity/rate limits or configure an OpenAI image key."
+            )
         # Last resort: meaningful offline artwork beats a generic gradient, especially on
         # low-cost deployments with no usable external footage or image API.
         try:
