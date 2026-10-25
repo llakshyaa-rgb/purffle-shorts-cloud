@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import base64
 import concurrent.futures
+import json
 import logging
 import random
 import re
 import shutil
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
@@ -478,6 +480,28 @@ def relevance(item: MediaItem, query: str) -> float:
     return len(hits) / len(subject)
 
 
+def _strong_stock_match(item: MediaItem, query: str, directed_query: str = "",
+                        image_prompt: str = "") -> bool:
+    """Require scene-specific metadata and reject misleading styles for documentary requests."""
+    text = " ".join((item.text or "", str(item.extra.get("description", "")),
+                     str(item.extra.get("categories", "")))).strip()
+    if not text:
+        return False
+    tags = _terms(text)
+    mode = (image_prompt or "").upper()
+    if "REAL-WORLD DOCUMENTARY FOOTAGE:" in mode or "REALISTIC EDITORIAL PHOTOGRAPH:" in mode:
+        unwanted = _terms("cartoon animation animated anime illustration 3d render cgi christmas santa toy mascot logo ai generated abstract")
+        if tags & unwanted:
+            return False
+    target = directed_query or query
+    target_terms = _terms(target) - _terms("beautiful amazing surprising photo picture photograph image images illustration video clip")
+    if not target_terms:
+        target_terms = _terms(query)
+    hits = target_terms & tags
+    # Need evidence for the scene brief and some evidence for the script's selected subject.
+    return bool(hits) and len(hits) / max(1, len(target_terms)) >= 0.25 and relevance(item, query) >= 0.34
+
+
 def _shape(item: MediaItem) -> str:
     if item.height > item.width:
         return "portrait"
@@ -505,6 +529,12 @@ class Visuals:
         self.lock = threading.Lock()
         self._search_cache: dict[tuple[str, str], list[MediaItem]] = {}
         self.sources = [x for x in settings.visual_sources if x]
+        # Commons first for normal stock scenes; Pixabay is the first fallback.
+        # Keep only explicitly configured providers, but normalize their priority.
+        priority = {"commons": 0, "pixabay": 1, "pixabay-photos": 2,
+                    "pexels": 3, "pexels-photos": 4}
+        self.sources = sorted(enumerate(self.sources), key=lambda pair: (priority.get(pair[1], 5), pair[0]))
+        self.sources = [source for _, source in self.sources]
         if settings.offline:
             self.sources = ["local"]
         self.credits: set[str] = set()
@@ -514,6 +544,20 @@ class Visuals:
         ck = (source, query.lower())
         if ck in self._search_cache:
             return self._search_cache[ck]
+        # Persistent 24-hour cache: empty results are cached too, preventing repeat
+        # API calls for scenes that have already failed to find suitable media.
+        disk_cache = Path(self.s.media_dir) / ".purffle_search_cache.json"
+        cache = {}
+        cache_key = f"{source}|{query.strip().casefold()}"
+        try:
+            cache = json.loads(disk_cache.read_text(encoding="utf-8")) if disk_cache.exists() else {}
+            record = cache.get(cache_key)
+            if record and time.time() - float(record.get("saved_at", 0)) < 86400:
+                restored = [MediaItem(**entry) for entry in record.get("items", [])]
+                self._search_cache[ck] = restored
+                return restored
+        except (OSError, ValueError, TypeError, KeyError) as e:
+            log.debug("Visual search cache read skipped: %s", redact(e))
         s = self.s
         items: list[MediaItem] = []
         try:
@@ -543,6 +587,26 @@ class Visuals:
         except Exception as e:
             log.warning("%s search for %r failed: %s", source, query, redact(e))
         self._search_cache[ck] = items
+        try:
+            disk_cache.parent.mkdir(parents=True, exist_ok=True)
+            cache[cache_key] = {
+                "saved_at": time.time(),
+                "items": [{
+                    "source": item.source, "id": item.id, "kind": item.kind,
+                    "url": item.url, "text": item.text, "credit": item.credit,
+                    "width": item.width, "height": item.height, "duration": item.duration,
+                    "rank": item.rank, "query": item.query, "extra": item.extra,
+                } for item in items],
+            }
+            cutoff = time.time() - 86400
+            cache = {k: v for k, v in cache.items() if float(v.get("saved_at", 0)) >= cutoff}
+            if len(cache) > 500:
+                cache = dict(sorted(cache.items(), key=lambda pair: pair[1].get("saved_at", 0), reverse=True)[:500])
+            temp_cache = disk_cache.with_suffix(".tmp")
+            temp_cache.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+            temp_cache.replace(disk_cache)
+        except (OSError, ValueError, TypeError) as e:
+            log.debug("Visual search cache write skipped: %s", redact(e))
         return items
 
     def _local(self, query: str) -> list[MediaItem]:
@@ -711,78 +775,46 @@ class Visuals:
                     return item
                 continue
             if source == "commons":
-                search_queries = expand_commons_queries(query or topic)
-                seen_queries = {q.casefold() for q in search_queries}
-                for extra_query in queries:
-                    if extra_query and extra_query.casefold() not in seen_queries:
-                        search_queries.append(extra_query)
-                        seen_queries.add(extra_query.casefold())
-
+                # Search the most scene-specific phrases first; stop on a credible match.
+                search_queries = []
+                for candidate_query in (directed_query, simplify_query(query), simplify_query(topic)):
+                    candidate_query = (candidate_query or "").strip()
+                    if candidate_query and candidate_query.casefold() not in {x.casefold() for x in search_queries}:
+                        search_queries.append(candidate_query)
                 combined = {}
-                for search_query in search_queries:
+                item = None
+                for search_query in search_queries[:2]:
                     try:
                         for candidate in self._search(source, search_query):
                             combined.setdefault(candidate.key, candidate)
                     except Exception as e:
-                        log.warning(
-                            "Commons search failed for %r: %s",
-                            search_query, redact(e)
-                        )
-
-                candidates = list(combined.values())
-                ranked = sorted(
-                    candidates,
-                    key=lambda candidate: relevance(candidate, query),
-                    reverse=True,
-                )
-                # Commons frequently returns broad category pages and weakly described files.
-                # A ranking score alone is not evidence: require usable descriptive metadata and a
-                # stronger scene match, just as we do for Pexels/Pixabay.
-                cand = [
-                    candidate for candidate in ranked
-                    if (
-                        (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
-                        and relevance(candidate, query) >= 0.58
-                    )
-                ]
-                q = query
-                item = self._claim(cand, need, query)
+                        log.warning("Commons search failed for %r: %s", search_query, redact(e))
+                    cand = [candidate for candidate in combined.values() if _strong_stock_match(candidate, query, directed_query, image_prompt)]
+                    if cand:
+                        item = self._claim(cand, need, query)
+                        if item:
+                            q = search_query
+                            break
                 if not item:
                     continue
             else:
+                # At most two targeted searches per provider; later providers run only if needed.
                 combined = {}
-                for q in queries:
+                item = None
+                for search_query in queries[:2]:
                     try:
-                        for candidate in self._search(source, q):
+                        for candidate in self._search(source, search_query):
                             combined.setdefault(candidate.key, candidate)
                     except Exception as e:
-                        log.warning(
-                            "%s search failed for %r: %s",
-                            source, q, redact(e)
-                        )
-
-                # Don't accept a weak keyword coincidence as a visual match. Local files
-                # must have at least one filename-token overlap; stock media must have a
-                # meaningful match across the scene's descriptive metadata.
-                # Require evidence that the asset actually depicts the requested subject.
-                # A neutral score is useful for ranking but is not enough to approve stock footage:
-                # missing alt text/tags must not silently become unrelated b-roll.
-                cand = [
-                    candidate for candidate in combined.values()
-                    if (
-                        candidate.source == "local"
-                        and candidate.extra.get("overlap", 0) > 0
-                    )
-                    or (
-                        candidate.source != "local"
-                        and (candidate.text or candidate.extra.get("description") or candidate.extra.get("categories"))
-                        and relevance(candidate, query) >= 0.58
-                    )
-                ]
-                item = self._claim(cand, need, query)
+                        log.warning("%s search failed for %r: %s", source, search_query, redact(e))
+                    cand = [candidate for candidate in combined.values() if ((candidate.source == "local" and candidate.extra.get("overlap", 0) > 0) or (candidate.source != "local" and _strong_stock_match(candidate, query, directed_query, image_prompt)))]
+                    if cand:
+                        item = self._claim(cand, need, query)
+                        if item:
+                            q = search_query
+                            break
                 if not item:
                     continue
-
             try:
                 self._fetch(item, dest_dir, idx)
             except Exception as e:

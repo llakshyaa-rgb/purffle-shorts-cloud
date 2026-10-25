@@ -145,3 +145,35 @@ def test_intentional_gradient_skips_irrelevant_media_search(tmp_path, monkeypatc
     )
     assert item.source == "generated"
     assert item.extra["intentional_gradient"] is True
+
+
+
+def test_strong_stock_match_rejects_santa_cartoon_for_documentary():
+    off = M.MediaItem("pixabay", "1", "video", text="octopus santa cartoon 3d christmas ocean underwater")
+    on = M.MediaItem("pixabay", "2", "video", text="octopus underwater sea coconut octopus ocean nature animal")
+    brief = "REAL-WORLD DOCUMENTARY FOOTAGE: An octopus moving along the ocean floor."
+    assert not M._strong_stock_match(off, "octopus underwater", "octopus moving ocean floor", brief)
+    assert M._strong_stock_match(on, "octopus underwater", "octopus moving ocean floor", brief)
+
+
+def test_visual_search_cache_persists_empty_and_nonempty_results(monkeypatch, tmp_path):
+    v = M.Visuals(Settings(visual_sources=["pixabay"], pixabay_api_key="test-key", media_dir=str(tmp_path)))
+    calls = []
+    item = M.MediaItem("pixabay", "12", "video", url="https://example.test/clip.mp4",
+                       text="octopus underwater", width=1080, height=1920, duration=8)
+
+    def fake_search(query, *args, **kwargs):
+        calls.append(query)
+        return [item] if query == "octopus underwater" else []
+
+    monkeypatch.setattr(M, "pixabay_videos", fake_search)
+    first = v._search("pixabay", "octopus underwater")
+    empty_first = v._search("pixabay", "rare animal that does not exist")
+    assert len(first) == 1 and empty_first == [] and len(calls) == 2
+
+    v2 = M.Visuals(Settings(visual_sources=["pixabay"], pixabay_api_key="test-key", media_dir=str(tmp_path)))
+    second = v2._search("pixabay", "octopus underwater")
+    empty_second = v2._search("pixabay", "rare animal that does not exist")
+    assert len(second) == 1 and second[0].id == "12"
+    assert empty_second == []
+    assert len(calls) == 2  # positive and empty results both persist across Visuals instances
