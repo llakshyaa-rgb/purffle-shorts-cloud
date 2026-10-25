@@ -1007,7 +1007,7 @@ class Visuals:
             log.error("Scene %d: character image generation failed. Refusing to render a blank/gradient scene as if it contained a character.", idx + 1)
             raise RuntimeError(
                 f"Fantasy scene {idx + 1} could not generate a character image. "
-                "Check the configured image provider. Fantasy needs Cloudflare Workers AI credentials or an OpenAI image key; anonymous Pollinations is not a reliable fallback."
+                "Fantasy scenes are configured to use Cloudflare Workers AI only. Check CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, account permissions, and Workers AI availability."
             )
         # Last resort: meaningful offline artwork beats a generic gradient, especially on
         # low-cost deployments with no usable external footage or image API.
