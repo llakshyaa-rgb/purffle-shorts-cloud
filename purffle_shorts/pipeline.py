@@ -53,8 +53,8 @@ def _can_adaptively_reuse(item: MediaItem) -> bool:
     return item.source == "generated" and not bool(item.extra.get("intentional_gradient"))
 
 
-REUSABLE_SOURCES = {"generated", "local", "library", "background", "openai-images", "ai", "dalle", "gpt-image", "pollinations"}
-AI_SOURCES = {"openai-images", "ai", "dalle", "gpt-image", "pollinations"}
+REUSABLE_SOURCES = {"generated", "local", "library", "background", "openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"}
+AI_SOURCES = {"openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"}
 
 # Rough share of the work done when each stage starts (for progress bars before any timing is learned).
 STAGES = {"topic": 2, "script": 8, "review": 20, "voice": 32, "footage": 45, "captions": 62, "render": 72,
