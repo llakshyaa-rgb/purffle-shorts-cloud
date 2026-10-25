@@ -137,7 +137,6 @@ def _fallback(scene: Any, index: int, style: str, topic: str = "") -> dict[str, 
     if fantasy_recipe:
         prompt = f"{prompt}. {fantasy_recipe['prompt']}"
         camera = ("push_in", "pan_left", "pull_out", "pan_right", "static", "push_in")[index % 6]
-        transition = fantasy_recipe["transition"]
     mode_hint = {
         "gradient": "intentional animated gradient background, deep cinematic color, restrained slow light movement, clean negative space for captions; no people, no stock photo, no icons",
         "illustration": "original cinematic illustrated scene, clear readable silhouette and specific visible action",
@@ -249,7 +248,6 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                     "exact visible action; consistent character and location; varied film framing; "
                     "no cartoon, vector art, diagrams, icons, collage, UI, text, logo or watermark."
                 )[:1800]
-                clean["transition"] = recipe["transition"]
             clean["scene"] = i
             merged.append(clean)
         return merged
