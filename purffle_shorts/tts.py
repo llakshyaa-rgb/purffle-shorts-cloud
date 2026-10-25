@@ -455,10 +455,13 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
     out_dir.mkdir(parents=True, exist_ok=True)
     voice_a = _pick_voice(settings, "")  # blank = engine default for speaker A
     voice_b = second_voice(settings)
-    # One voice per speaker for the whole video (a comma list in TTS_VOICE must not change mid-talk).
-    cfg = {"A": replace(settings, tts_voice=voice_a), "B": replace(settings, tts_voice=voice_b or voice_a)}
+    # Keep one stable base voice per episode. Character timbre is processed below, so
+    # speakers C–F must be valid too rather than crashing on cfg[speaker].
+    cfg = {letter: replace(settings, tts_voice=(voice_b or voice_a) if letter == "B" else voice_a)
+           for letter in "ABCDEF"}
 
     def one(i: int, speaker: str, text: str) -> Speech:
+        speaker = speaker if speaker in cfg else "A"
         return synthesize(text, out_dir / f"line{i:02d}", cfg[speaker])
 
     workers = 4 if settings.tts_engine in ("edge", "openai", "elevenlabs") else 1
