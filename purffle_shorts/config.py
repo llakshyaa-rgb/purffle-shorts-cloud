@@ -228,6 +228,8 @@ class Settings:
     pixabay_api_key: str = ""
     elevenlabs_api_key: str = ""
     pollinations_api_key: str = ""
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
 
     offline: bool = False             # demo mode: no network LLM, generated visuals
 
@@ -392,9 +394,13 @@ class Settings:
             pixabay_api_key=_env("PIXABAY_API_KEY"),
             elevenlabs_api_key=_env("ELEVENLABS_API_KEY", "", "XI_API_KEY"),
             pollinations_api_key=_env("POLLINATIONS_API_KEY"),
+            cloudflare_account_id=_env("CLOUDFLARE_ACCOUNT_ID"),
+            cloudflare_api_token=_env("CLOUDFLARE_API_TOKEN"),
             youtube_api_key=_env("YOUTUBE_API_KEY"),
             notify_webhook=_env("NOTIFY_WEBHOOK"),
         )
+        if s.cloudflare_account_id and s.cloudflare_api_token and "cloudflare" not in s.visual_sources:
+            s.visual_sources.append("cloudflare")
         from .crosspost import PLATFORMS, TIKTOK_PRIVACY
         bad = [p for p in s.publish_to if p not in PLATFORMS]
         if bad:
