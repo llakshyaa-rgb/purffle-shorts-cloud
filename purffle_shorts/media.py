@@ -292,6 +292,31 @@ def openai_image(prompt: str, dest: Path, key: str, model: str, orientation: str
     return with_retries(_do, attempts=2, label="OpenAI image")
 
 
+def cloudflare_image(prompt: str, dest: Path, account_id: str, token: str) -> Path:
+    """Generate one image with Cloudflare Workers AI FLUX.1 schnell."""
+    endpoint = (
+        "https://api.cloudflare.com/client/v4/accounts/"
+        + quote(account_id, safe="")
+        + "/ai/run/@cf/black-forest-labs/flux-1-schnell"
+    )
+    response = http().post(
+        endpoint,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"prompt": prompt[:5000], "steps": 4},
+        timeout=240,
+    )
+    raise_for_status(response, "Cloudflare Workers AI image")
+    result = response.json()
+    if not result.get("success"):
+        errors = result.get("errors") or []
+        raise RuntimeError("Cloudflare image generation failed: " + json.dumps(errors)[:500])
+    image_data = (result.get("result") or {}).get("image")
+    if not image_data:
+        raise RuntimeError("Cloudflare image response did not contain image data")
+    dest.write_bytes(base64.b64decode(image_data))
+    return dest
+
+
 _POLLINATIONS_LOCK = threading.Lock()
 
 
@@ -709,6 +734,8 @@ class Visuals:
             elif source == "pollinations":
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
+            elif source == "cloudflare" and s.cloudflare_account_id and s.cloudflare_api_token:
+                cloudflare_image(full, dest, s.cloudflare_account_id, s.cloudflare_api_token)
             else:
                 return None
         except PermanentError as e:
@@ -760,7 +787,7 @@ class Visuals:
                     "eyes, muzzle, teeth and scales clearly. No text, logos, watermarks, or other characters. "
                     "Character: " + style_key
                 )
-                ai_sources = [x for x in self.sources if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
+                ai_sources = [x for x in self.sources if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare")]
                 if not ai_sources:
                     ai_sources = ["pollinations"]
                 for provider in ai_sources:
@@ -824,7 +851,7 @@ class Visuals:
             if not ref_path.is_file():
                 ref_prompt = "ORIGINAL FICTIONAL CHARACTER REFERENCE SHEET. Character design: " + style_key
                 for provider in self.sources:
-                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
+                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                         made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
                         if made and made.path and made.path.is_file():
                             try:
@@ -880,7 +907,7 @@ class Visuals:
                 ai_sources = ["pollinations"]
             source_order = ai_sources + [x for x in source_order if x not in ai_sources]
         for source in source_order:
-            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
+            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
                 if item:
                     return item
