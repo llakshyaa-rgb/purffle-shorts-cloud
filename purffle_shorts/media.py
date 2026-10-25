@@ -769,7 +769,7 @@ class Visuals:
                 library_root = Path(self.s.media_dir) / ".purffle_assets"
                 asset = get_or_create_asset(
                     library_root, query or topic, image_prompt, self.s.width, self.s.height,
-                    variation=0 if character_mode else idx, mode=directed_mode or visual_kind,
+                    variation=idx, mode=directed_mode or visual_kind,
                     style_key=style_key or self.s.visual_style,
                 )
                 library_path = dest_dir / f"scene{idx:02d}_library.png"
