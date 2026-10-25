@@ -255,20 +255,34 @@ def pixabay_photos(query: str, key: str, orientation: str = "portrait") -> list[
 
 
 # ------------------------------------------------------------------------------------------ AI images
-def openai_image(prompt: str, dest: Path, key: str, model: str, orientation: str = "portrait") -> Path:
+def openai_image(prompt: str, dest: Path, key: str, model: str, orientation: str = "portrait",
+                 reference_path: Path | None = None) -> Path:
     body = {"model": model, "prompt": prompt, "n": 1}
+    size = {"portrait": "1024x1536", "landscape": "1536x1024"}.get(orientation, "1024x1024")
+    use_reference = bool(reference_path and reference_path.is_file() and model.startswith("gpt-image"))
     if model.startswith("dall-e"):
         size = {"portrait": "1024x1792", "landscape": "1792x1024"}.get(orientation, "1024x1024")
         body.update(size=size, response_format="b64_json", quality="hd" if model == "dall-e-3" else "standard")
     else:
-        size = {"portrait": "1024x1536", "landscape": "1536x1024"}.get(orientation, "1024x1024")
         body.update(size=size, quality="medium")
 
     def _do():
-        r = http().post("https://api.openai.com/v1/images/generations", json=body, timeout=240,
-                        headers={"Authorization": f"Bearer {key}"})
-        raise_for_status(r, "OpenAI image")
-        d = r.json()["data"][0]
+        headers = {"Authorization": f"Bearer {key}"}
+        if use_reference:
+            # OpenAI image edits accepts a source image and preserves its subject identity
+            # while generating a new scene. Use it only for models supporting this endpoint.
+            with reference_path.open("rb") as reference_file:
+                response = http().post(
+                    "https://api.openai.com/v1/images/edits",
+                    data={"model": model, "prompt": prompt, "n": 1, "size": size, "quality": "medium"},
+                    files={"image": (reference_path.name, reference_file, "image/png")},
+                    timeout=240, headers=headers,
+                )
+        else:
+            response = http().post("https://api.openai.com/v1/images/generations", json=body,
+                                   timeout=240, headers=headers)
+        raise_for_status(response, "OpenAI image")
+        d = response.json()["data"][0]
         if d.get("b64_json"):
             dest.write_bytes(base64.b64decode(d["b64_json"]))
         else:
@@ -685,13 +699,13 @@ class Visuals:
         item.path = download(item.url, dest_dir / f"scene{idx:02d}_{item.source}_{item.id}{ext}")
         return item
 
-    def _ai(self, source: str, prompt: str, dest_dir: Path, idx: int) -> MediaItem | None:
+    def _ai(self, source: str, prompt: str, dest_dir: Path, idx: int, reference_path: Path | None = None) -> MediaItem | None:
         s = self.s
         full = f"{prompt}. {s.visual_style}. No text, no letters, no watermark."
         dest = dest_dir / f"scene{idx:02d}_ai.png"
         try:
             if source in ("openai-images", "ai", "dalle", "gpt-image") and s.openai_api_key:
-                openai_image(full, dest, s.openai_api_key, s.image_model, s.orientation)
+                openai_image(full, dest, s.openai_api_key, s.image_model, s.orientation, reference_path=reference_path)
             elif source == "pollinations":
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
@@ -759,6 +773,7 @@ class Visuals:
         )
         character_marker = "REUSABLE CHARACTER:"
         character_mode = character_marker in (image_prompt or "").upper()
+        character_reference_path: Path | None = None
         style_key = ""
         if character_mode:
             parts = re.split(re.escape(character_marker), image_prompt or "", maxsplit=1, flags=re.IGNORECASE)
@@ -769,6 +784,7 @@ class Visuals:
             ref_root.mkdir(parents=True, exist_ok=True)
             ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
             ref_path = ref_root / f"{ref_key}.png"
+            character_reference_path = ref_path
             if not ref_path.is_file():
                 ref_prompt = (
                     "ORIGINAL FICTIONAL CHARACTER DESIGN REFERENCE SHEET. Create one consistent, "
@@ -825,7 +841,7 @@ class Visuals:
                 queries.append(q)
         for source in list(self.sources):
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
-                item = self._ai(source, image_prompt or query, dest_dir, idx)
+                item = self._ai(source, image_prompt or query, dest_dir, idx, reference_path=character_reference_path if character_mode else None)
                 if item:
                     return item
                 continue
