@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import base64
 import concurrent.futures
+import json
 import logging
 import random
 import re
 import shutil
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
@@ -514,6 +516,18 @@ class Visuals:
         ck = (source, query.lower())
         if ck in self._search_cache:
             return self._search_cache[ck]
+        # Cache search responses for 24 hours to reduce repeat provider requests.
+        disk_cache = Path(self.s.media_dir) / ".purffle_search_cache.json"
+        cache = {}
+        try:
+            cache = json.loads(disk_cache.read_text(encoding="utf-8")) if disk_cache.exists() else {}
+            record = cache.get(f"{source}|{query.lower()}")
+            if record and time.time() - float(record.get("saved_at", 0)) < 86400:
+                restored = [MediaItem(**entry) for entry in record.get("items", [])]
+                self._search_cache[ck] = restored
+                return restored
+        except Exception as e:
+            log.debug("Visual search cache read skipped: %s", redact(e))
         s = self.s
         items: list[MediaItem] = []
         try:
@@ -543,6 +557,24 @@ class Visuals:
         except Exception as e:
             log.warning("%s search for %r failed: %s", source, query, redact(e))
         self._search_cache[ck] = items
+        try:
+            disk_cache.parent.mkdir(parents=True, exist_ok=True)
+            cache[f"{source}|{query.lower()}"] = {
+                "saved_at": time.time(),
+                "items": [{
+                    "source": item.source, "id": item.id, "kind": item.kind,
+                    "url": item.url, "text": item.text, "credit": item.credit,
+                    "width": item.width, "height": item.height, "duration": item.duration,
+                    "rank": item.rank, "query": item.query, "extra": item.extra,
+                } for item in items],
+            }
+            cutoff = time.time() - 86400
+            cache = {k: v for k, v in cache.items() if float(v.get("saved_at", 0)) >= cutoff}
+            if len(cache) > 500:
+                cache = dict(sorted(cache.items(), key=lambda pair: pair[1].get("saved_at", 0), reverse=True)[:500])
+            disk_cache.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            log.debug("Visual search cache write skipped: %s", redact(e))
         return items
 
     def _local(self, query: str) -> list[MediaItem]:
