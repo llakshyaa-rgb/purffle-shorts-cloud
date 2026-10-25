@@ -99,7 +99,10 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.
     diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
     story_words = ("door", "room", "shadow", "dark", "heard", "knock", "footsteps", "ran", "screamed", "blood", "monster", "stranger", "alone", "silhouette")
-    if any(w in text for w in diagram_words) and style not in ("story", "reddit", "chat"):
+    if style == "fantasy":
+        # Fantasy role-play should look like a cinematic scene, not our offline vector library.
+        mode = "footage"
+    elif any(w in text for w in diagram_words) and style not in ("story", "reddit", "chat", "fantasy"):
         mode = "diagram"
     elif style in ("story", "reddit", "chat") or (
         style not in ("facts", "explainer", "news", "quiz", "myth")
@@ -131,7 +134,10 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "gradient": "intentional animated gradient background, deep cinematic color, restrained slow light movement, clean negative space for captions; no people, no stock photo, no icons",
         "illustration": "original cinematic illustrated scene, clear readable silhouette and specific visible action",
         "diagram": "clean custom explanatory diagram, labeled only when genuinely useful, simple visual cause-and-effect",
-        "footage": "documentary-style real-world footage, one clear subject and visible action",
+        "footage": ("cinematic live-action fantasy footage or high-end realistic fantasy-game cinematic, " 
+                    "real actors or photoreal CGI creatures, one clear subject and visible action, " 
+                    "dramatic natural camera movement, detailed environments; no cartoon, no flat drawing, " 
+                    "no vector art, no icons, no subtitles, no UI, no logos, no watermarks") if style == "fantasy" else "documentary-style real-world footage, one clear subject and visible action",
         "photo": "cinematic editorial photograph, realistic lighting and a single focal subject",
         "symbolic": "visual metaphor with one unmistakable central symbol, cinematic composition",
     }[mode]
@@ -139,7 +145,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "scene": index + 1,
         "purpose": "hook" if index == 0 else ("payoff" if any(w in text for w in ("therefore", "because", "finally", "the truth", "so that")) else "evidence"),
         "visual_mode": mode,
-        "visual_prompt": f"{prompt}. {mode_hint}. Portrait 9:16 framing; no decorative text, no collage, no unrelated stock imagery.",
+        "visual_prompt": (f"FANTASY CINEMATIC FOOTAGE: {prompt}. {mode_hint}. " if style == "fantasy" else f"{prompt}. {mode_hint}. ") + "Portrait 9:16 framing; no decorative text, no collage, no unrelated stock imagery.",
         "camera": camera,
         "transition": transition,
         "sound": sound,
