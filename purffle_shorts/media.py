@@ -729,6 +729,7 @@ class Visuals:
             ("ORIGINAL DRAWN ILLUSTRATION:", "illustration"),
             ("SYMBOLIC VISUAL METAPHOR:", "symbolic"),
             ("REAL-WORLD DOCUMENTARY FOOTAGE:", "footage"),
+            ("FANTASY CINEMATIC FOOTAGE:", "footage"),
             ("REALISTIC EDITORIAL PHOTOGRAPH:", "photo"),
         ):
             if marker in (image_prompt or "").upper():
@@ -861,6 +862,13 @@ class Visuals:
 
             log.info("Scene %d: %s %s (%r)", idx + 1, item.source, item.kind, q)
             return item
+        # Fantasy role-play explicitly prefers real cinematic footage. If no credible footage or
+        # configured AI visual source exists, do not silently replace it with random vector drawings.
+        fantasy_footage = "FANTASY CINEMATIC FOOTAGE:" in (image_prompt or "").upper()
+        if fantasy_footage:
+            log.warning("Scene %d: no suitable cinematic fantasy footage found; refusing unrelated vector-art fallback", idx + 1)
+            return MediaItem("generated", f"fantasy-footage-missing-{idx}", "generated", query=query or topic,
+                             extra={"intentional_gradient": True, "visual_fallback_reason": "no relevant fantasy footage"})
         # Last resort: meaningful offline artwork beats a generic gradient, especially on
         # low-cost deployments with no usable external footage or image API.
         try:
