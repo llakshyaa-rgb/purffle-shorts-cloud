@@ -229,3 +229,121 @@ EPISODE LOOK AND VARIETY:
 - The library guides planning, not source availability. Actual moving footage depends on the
   configured provider and whether suitable assets exist.
 """.strip()
+
+
+# A small deterministic composer turns the menu into coherent, scene-specific recipes.
+# It intentionally chooses a few compatible ingredients instead of stuffing every option
+# into a prompt. Stable hashing makes runs reproducible while different scenes vary.
+import hashlib as _hashlib
+import re as _re
+
+
+def _pick(options, seed):
+    digest = _hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    return options[int(digest[:8], 16) % len(options)]
+
+
+def _has(text, *terms):
+    return any(term in text for term in terms)
+
+
+def compose_fantasy_recipe(topic, narration, search_query, index):
+    """Return a coherent cinematic recipe for one narrated beat.
+
+    The output is prompt-ready and dependency-free. It uses topic cues to avoid
+    randomly introducing creatures, spells, weather, or settings unsupported by the beat.
+    """
+    topic_text = str(topic or "").strip()
+    narration_text = str(narration or "").strip()
+    query_text = str(search_query or "").strip()
+    text = " ".join((topic_text, narration_text, query_text)).casefold()
+    seed = f"{topic_text}|{narration_text}|{query_text}|{index}"
+    look = _pick(FANTASY_LOOK_OPTIONS, seed + "|look")
+    camera = _pick(CAMERA_SHOT_OPTIONS, seed + "|camera")
+    transition = _pick(TRANSITION_OPTIONS, seed + "|transition")
+    lighting = _pick(LIGHTING_OPTIONS, seed + "|light")
+
+    # Scene-aware world choices: avoid a dragon/volcano setting unless the script supports it.
+    if _has(text, "dragon", "wyvern", "phoenix", "griffin"):
+        world_pool = (WORLD_OPTIONS[4], WORLD_OPTIONS[15], WORLD_OPTIONS[16], WORLD_OPTIONS[22])
+    elif _has(text, "snow", "ice", "frost", "winter", "blizzard"):
+        world_pool = (WORLD_OPTIONS[6], WORLD_OPTIONS[16], WORLD_OPTIONS[22])
+    elif _has(text, "desert", "sand", "dune", "oasis"):
+        world_pool = (WORLD_OPTIONS[7], WORLD_OPTIONS[1], WORLD_OPTIONS[22])
+    elif _has(text, "sea", "ocean", "ship", "sail", "water"):
+        world_pool = (WORLD_OPTIONS[3], WORLD_OPTIONS[10], WORLD_OPTIONS[21])
+    elif _has(text, "forest", "woods", "tree", "roots"):
+        world_pool = (WORLD_OPTIONS[5], WORLD_OPTIONS[9], WORLD_OPTIONS[15])
+    elif _has(text, "king", "queen", "prince", "princess", "throne", "court", "royal"):
+        world_pool = (WORLD_OPTIONS[2], WORLD_OPTIONS[12], WORLD_OPTIONS[20])
+    elif _has(text, "prison", "cell", "captive", "locked", "escape"):
+        world_pool = (WORLD_OPTIONS[23], WORLD_OPTIONS[19], WORLD_OPTIONS[0])
+    else:
+        world_pool = (WORLD_OPTIONS[0], WORLD_OPTIONS[2], WORLD_OPTIONS[9], WORLD_OPTIONS[12],
+                      WORLD_OPTIONS[14], WORLD_OPTIONS[18], WORLD_OPTIONS[19], WORLD_OPTIONS[22])
+    world = _pick(world_pool, seed + "|world")
+
+    creature = ""
+    if _has(text, "dragon", "wyvern"):
+        creature = _pick((CREATURE_OPTIONS[0], CREATURE_OPTIONS[1], CREATURE_OPTIONS[12]), seed + "|creature")
+    elif _has(text, "griffin"):
+        creature = CREATURE_OPTIONS[4]
+    elif _has(text, "phoenix"):
+        creature = CREATURE_OPTIONS[5]
+    elif _has(text, "wolf", "shadow beast", "shadow creature"):
+        creature = CREATURE_OPTIONS[3]
+    elif _has(text, "golem", "stone guardian"):
+        creature = CREATURE_OPTIONS[2]
+    elif _has(text, "serpent", "snake"):
+        creature = CREATURE_OPTIONS[6]
+    elif _has(text, "troll"):
+        creature = CREATURE_OPTIONS[7]
+    elif _has(text, "unicorn"):
+        creature = CREATURE_OPTIONS[8]
+    elif _has(text, "griffin", "giant", "monster", "creature", "beast"):
+        creature = _pick(CREATURE_OPTIONS, seed + "|creature")
+
+    magic = ""
+    if _has(text, "spell", "magic", "enchanted", "curse", "rune", "portal", "wizard", "witch"):
+        magic = _pick(MAGIC_EFFECT_OPTIONS, seed + "|magic")
+
+    story = ""
+    if index == 0 or _has(text, "secret", "truth", "betray", "reveal", "promise", "rescue", "protect", "fear", "impossible"):
+        story = _pick(STORY_ENGINE_OPTIONS, seed + "|story")
+
+    atmosphere = ""
+    if _has(text, "rain", "storm", "thunder"):
+        atmosphere = WEATHER_AND_ATMOSPHERE_OPTIONS[1]
+    elif _has(text, "snow", "ice", "frost", "blizzard"):
+        atmosphere = WEATHER_AND_ATMOSPHERE_OPTIONS[3]
+    elif _has(text, "ash", "volcano", "fire", "burn"):
+        atmosphere = WEATHER_AND_ATMOSPHERE_OPTIONS[4]
+    elif _has(text, "desert", "sand", "dune"):
+        atmosphere = WEATHER_AND_ATMOSPHERE_OPTIONS[11]
+    elif _has(text, "forest", "woods", "mist", "fog"):
+        atmosphere = _pick((WEATHER_AND_ATMOSPHERE_OPTIONS[2], WEATHER_AND_ATMOSPHERE_OPTIONS[9],
+                            WEATHER_AND_ATMOSPHERE_OPTIONS[12]), seed + "|atmosphere")
+    else:
+        atmosphere = _pick((WEATHER_AND_ATMOSPHERE_OPTIONS[0], WEATHER_AND_ATMOSPHERE_OPTIONS[2],
+                            WEATHER_AND_ATMOSPHERE_OPTIONS[7], WEATHER_AND_ATMOSPHERE_OPTIONS[8],
+                            WEATHER_AND_ATMOSPHERE_OPTIONS[9], WEATHER_AND_ATMOSPHERE_OPTIONS[10]),
+                           seed + "|atmosphere")
+
+    # Build a shot-specific prompt from only the strongest compatible ingredients.
+    action = narration_text or query_text or topic_text
+    action = _re.sub(r"\\s+", " ", action).strip()
+    details = [f"Visual action from the narration: {action}.",
+               f"Film look: {look}.", f"Location: {world}.", f"Camera: {camera}.",
+               f"Lighting: {lighting}.", f"Atmosphere: {atmosphere}."]
+    if creature:
+        details.append(f"Creature design, only if it is part of the narrated action: {creature}.")
+    if magic:
+        details.append(f"Magic with visible cause and consequence: {magic}.")
+    if story:
+        details.append(f"Story tension: {story}.")
+    details.append("Vertical 9:16 composition, one readable action, foreground/midground/background depth, physically plausible motion, consistent characters and props, cinematic lens and natural motion blur.")
+    details.append("No vector art, flat cartoon, icons, collage, unrelated stock, baked-in text, subtitles, logos, watermarks or game HUD.")
+    return {"look": look, "world": world, "camera": camera, "lighting": lighting,
+            "atmosphere": atmosphere, "creature": creature, "magic": magic,
+            "story_engine": story, "transition": transition,
+            "prompt": " ".join(details)}
