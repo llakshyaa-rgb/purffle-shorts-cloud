@@ -147,7 +147,7 @@ class Settings:
     whisper_model: str = "auto"       # faster-whisper model: auto (large-v3-turbo on a GPU, small on CPU), base...
 
     # --- visuals --------------------------------------------------------------------------
-    visual_sources: list[str] = field(default_factory=lambda: ["pexels", "pixabay", "commons"])
+    visual_sources: list[str] = field(default_factory=lambda: ["commons", "pixabay", "pexels"])
     media_dir: str = "media"
     image_model: str = "gpt-image-1"
     visual_style: str = "cinematic, dramatic lighting, highly detailed, vertical composition"
