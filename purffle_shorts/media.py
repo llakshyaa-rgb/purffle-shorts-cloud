@@ -544,17 +544,19 @@ class Visuals:
         ck = (source, query.lower())
         if ck in self._search_cache:
             return self._search_cache[ck]
-        # Cache search responses for 24 hours to reduce repeat provider requests.
+        # Persistent 24-hour cache: empty results are cached too, preventing repeat
+        # API calls for scenes that have already failed to find suitable media.
         disk_cache = Path(self.s.media_dir) / ".purffle_search_cache.json"
         cache = {}
+        cache_key = f"{source}|{query.strip().casefold()}"
         try:
             cache = json.loads(disk_cache.read_text(encoding="utf-8")) if disk_cache.exists() else {}
-            record = cache.get(f"{source}|{query.lower()}")
+            record = cache.get(cache_key)
             if record and time.time() - float(record.get("saved_at", 0)) < 86400:
                 restored = [MediaItem(**entry) for entry in record.get("items", [])]
                 self._search_cache[ck] = restored
                 return restored
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError) as e:
             log.debug("Visual search cache read skipped: %s", redact(e))
         s = self.s
         items: list[MediaItem] = []
@@ -587,7 +589,7 @@ class Visuals:
         self._search_cache[ck] = items
         try:
             disk_cache.parent.mkdir(parents=True, exist_ok=True)
-            cache[f"{source}|{query.lower()}"] = {
+            cache[cache_key] = {
                 "saved_at": time.time(),
                 "items": [{
                     "source": item.source, "id": item.id, "kind": item.kind,
@@ -600,8 +602,10 @@ class Visuals:
             cache = {k: v for k, v in cache.items() if float(v.get("saved_at", 0)) >= cutoff}
             if len(cache) > 500:
                 cache = dict(sorted(cache.items(), key=lambda pair: pair[1].get("saved_at", 0), reverse=True)[:500])
-            disk_cache.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-        except Exception as e:
+            temp_cache = disk_cache.with_suffix(".tmp")
+            temp_cache.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+            temp_cache.replace(disk_cache)
+        except (OSError, ValueError, TypeError) as e:
             log.debug("Visual search cache write skipped: %s", redact(e))
         return items
 
