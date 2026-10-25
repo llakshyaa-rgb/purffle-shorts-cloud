@@ -778,28 +778,30 @@ class Visuals:
             ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
             ref_path = ref_root / f"{ref_key}.png"
             character_reference_path = ref_path
-            if not ref_path.is_file():
+            # Only create a reference sheet when the configured image endpoint can actually
+            # feed that image back into later generations. Pollinations/stock prompts do not
+            # accept this reference in our integration, so spending an extra image request there
+            # would create an unused portrait and falsely imply stronger identity consistency.
+            can_reuse_reference = bool(
+                self.s.openai_api_key
+                and self.s.image_model.startswith("gpt-image")
+                and any(x in self.sources for x in ("openai-images", "ai", "dalle", "gpt-image"))
+            )
+            if can_reuse_reference and not ref_path.is_file():
                 ref_prompt = (
-                    "ORIGINAL FICTIONAL FANTASY CHARACTER MODEL SHEET, not a landscape. Show one "
-                    "clearly visible character with a readable face and expressive mouth, one close-up "
-                    "portrait and one full-body view of the SAME character, simple studio background, "
-                    "distinctive silhouette and consistent colors. For a dragon, show the dragon's head, "
-                    "eyes, muzzle, teeth and scales clearly. No text, logos, watermarks, or other characters. "
-                    "Character: " + style_key
+                    "ORIGINAL FICTIONAL FANTASY CHARACTER MODEL SHEET, one character only, clean neutral "
+                    "background, one clear face portrait and one full-body view of the SAME design, "
+                    "distinctive silhouette, readable eyes and expression, consistent costume and colors. "
+                    "No text, logos, watermarks or other characters. Character identity: " + style_key
                 )
-                ai_sources = [x for x in self.sources if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare")]
-                if not ai_sources:
-                    ai_sources = ["pollinations"]
-                for provider in ai_sources:
-                    made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
-                    if made and made.path and made.path.is_file():
-                        try:
-                            shutil.copy2(made.path, ref_path)
-                            break
-                        except OSError:
-                            pass
-            if not ref_path.is_file():
-                log.warning("Fantasy character reference unavailable; trying direct AI character generation.")
+                made = self._ai("openai-images", ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
+                if made and made.path and made.path.is_file():
+                    try:
+                        shutil.copy2(made.path, ref_path)
+                    except OSError:
+                        pass
+            if can_reuse_reference and not ref_path.is_file():
+                log.warning("Reusable fantasy character reference unavailable; using the repeated textual character bible.")
             visual_kind = "character"
             directed_mode = "character"
             stable = int(__import__("hashlib").sha1(f"fantasy|{topic}|{idx}|{query}".encode()).hexdigest()[:8], 16)
