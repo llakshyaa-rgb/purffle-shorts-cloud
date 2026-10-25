@@ -908,7 +908,8 @@ function drawJobs() {
         <span class="acts">${j.status === "queued" || running ? `<button class="btn ghost sm" type="button" data-cancel="${j.id}">Cancel</button>` : ""}
         ${j.status === "done" && r.id ? `<button class="btn sm" type="button" data-open="${r.id}">${I.play}Watch</button>` : ""}
         ${j.status === "done" && j.kind === "draft" ? `<a class="btn sm" href="#create">${I.pen}Edit</a>` : ""}
-        <button class="btn ghost sm" type="button" data-log="${j.id}">${open ? "Hide log" : "Log"}</button></span>
+        <button class="btn ghost sm" type="button" data-log="${j.id}">${open ? "Hide log" : "Log"}</button>
+        ${j.log && j.log.length ? `<button class="btn ghost sm" type="button" data-copy-logs="${j.id}">${I.copy}Copy logs</button>` : ""}</span>
       </div>
       ${running ? (() => { const idx = STAGES.findIndex(([k]) => k === j.stage);
         return `<div class="timeline">${STAGES.map(([k, label], n) => `<span class="${n < idx ? "done" : n === idx ? "now" : ""}">${label}</span>`).join("")}</div>`; })() : ""}
@@ -923,6 +924,34 @@ function drawJobs() {
   box.onclick = async e => {
     const director = e.target.closest("[data-director-notes]");
     if (director) { await openDirectorNotes(+director.dataset.directorNotes); return; }
+    const copyLogs = e.target.closest("[data-copy-logs]");
+    if (copyLogs) {
+      const job = S.jobs.find(item => item.id === +copyLogs.dataset.copyLogs);
+      const text = job ? [
+        `Job #${String(job.id).padStart(3, "0")} — ${job.result?.title || job.label || job.kind}`,
+        `Status: ${job.status}`,
+        `Stage: ${job.stage || "unknown"}`,
+        `Started: ${job.started ? new Date(job.started * 1000).toISOString() : "unknown"}`,
+        `Finished: ${job.finished ? new Date(job.finished * 1000).toISOString() : "not finished"}`,
+        "",
+        ...(job.log || []),
+      ].join("\\n") : "";
+      if (!text) { toast("No logs available for this job.", "info"); return; }
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+        else {
+          const area = document.createElement("textarea");
+          area.value = text; area.setAttribute("readonly", ""); area.style.position = "fixed"; area.style.opacity = "0";
+          document.body.append(area); area.select();
+          const ok = document.execCommand("copy"); area.remove();
+          if (!ok) throw new Error("Clipboard unavailable");
+        }
+        toast("All logs for this job copied.", "ok", 2200);
+      } catch {
+        toast("Couldn't access clipboard. Open the log and copy it manually.", "bad", 3200);
+      }
+      return;
+    }
     const lg = e.target.closest("[data-log]");
     if (lg) { const id = +lg.dataset.log; openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id); drawJobs(); }
     const c = e.target.closest("[data-cancel]");
