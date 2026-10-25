@@ -195,7 +195,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "production note (one sentence), not private chain-of-thought. Keep all facts in the provided script; do not add claims."
     )
     if script.style == "fantasy":
-        system += "\\n\\n" + FANTASY_VISUAL_RULES + "\\n\\nFor every fantasy scene choose visual_mode=footage, start visual_prompt with FANTASY CINEMATIC FOOTAGE:, and describe the precise physical action, shot size, setting and continuity. Never request drawn/vector art."
+        system += "\n\n" + FANTASY_VISUAL_RULES + "\n\nFor every fantasy scene choose visual_mode=footage, start visual_prompt with FANTASY CINEMATIC FOOTAGE:, and describe the precise physical action, shot size, setting and continuity. Never request drawn/vector art."
     try:
         result = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), schema=DIRECTOR_SCHEMA,
                                    max_tokens=min(4500, 500 + len(script.scenes) * 150), temperature=0.35)
