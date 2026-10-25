@@ -268,10 +268,10 @@ class StudioServer:
         priorities = {
             "match": [
                 "pexels", "pixabay", "commons", "pexels-photos",
-                "pixabay-photos", "local", "pollinations", "openai-images",
+                "pixabay-photos", "local", "pollinations", "openai-images", "cloudflare",
             ],
             "ai": [
-                "pollinations", "openai-images", "ai", "dalle",
+                "pollinations", "openai-images", "cloudflare", "ai", "dalle",
                 "gpt-image", "pexels", "pixabay", "commons", "local",
             ],
             "local": [
@@ -280,7 +280,7 @@ class StudioServer:
             ],
             "mixed": [
                 "pexels", "pixabay", "commons", "pollinations",
-                "openai-images", "local",
+                "openai-images", "cloudflare", "local",
             ],
         }
         rank = {name: index for index, name in enumerate(priorities[visual_mode])}
@@ -493,7 +493,7 @@ class StudioServer:
                 "providers": [{"name": n, "label": p.label, "ready": n in ready or p.local}
                               for n, p in PRESETS.items()],
                 "tts": ["edge", "openai", "elevenlabs", "kokoro", "coqui", "system"],
-                "visuals": ["pexels", "pixabay", "commons", "local", "pollinations", "openai-images"],
+                "visuals": ["pexels", "pixabay", "commons", "local", "pollinations", "openai-images", "cloudflare"],
                 "backgrounds": self.backgrounds()}
 
     def backgrounds(self) -> list[dict]:
