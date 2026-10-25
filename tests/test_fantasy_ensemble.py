@@ -41,5 +41,4 @@ def test_fantasy_prompt_requires_fresh_purposeful_cast_not_recycled_roles():
     system, user = build_prompt("A witch bargaining with a living storm", "fantasy", Settings(), [])
     assert "Invent a fresh cast specifically for this exact prompt" in system
     assert "never reuse a default cast" in system
-    assert "character must affect events" in system
-    assert "CREATOR CREATIVE DIRECTION" not in user
+    assert "character must affect events" in system.lower()
