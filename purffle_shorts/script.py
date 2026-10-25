@@ -60,7 +60,7 @@ CATEGORIES = {
 SCENE_SCHEMA = {
     "type": "object",
     "properties": {
-        "speaker": {"type": "string", "enum": ["A", "B"]},
+        "speaker": {"type": "string", "enum": ["A", "B", "C", "D", "E", "F"]},
         "narration": {"type": "string"},
         "search_query": {"type": "string"},
         "image_prompt": {"type": "string"},
@@ -164,10 +164,10 @@ class Script:
 
     @property
     def multi_speaker(self) -> bool:
-        return any(s.speaker == "B" for s in self.scenes)
+        return any(s.speaker != "A" for s in self.scenes)
 
     def speaker_name(self, speaker: str) -> str:
-        i = 1 if speaker == "B" else 0
+        i = ord(speaker.upper()) - ord("A") if len(speaker) == 1 and speaker.upper() in "ABCDEF" else 0
         return self.cast[i] if i < len(self.cast) else speaker
 
     def to_dict(self) -> dict:
@@ -214,36 +214,57 @@ def scene_count_bounds(style: str, target_seconds: int) -> tuple[int, int]:
 
 def _format_rules(style: str, target_seconds: int = 40) -> str:
     if style == "dialogue":
-        return ("- Each scene is ONE line spoken by ONE person. Alternate speakers: A, B, A, B...\n"
-                "- cast: two short first names, [name of A, name of B]. Nobody says their own name.\n")
+        return ("- Each scene is ONE line spoken by ONE person. Alternate speakers: A, B, A, B...
+"
+                "- cast: two short first names, [name of A, name of B]. Nobody says their own name.
+")
     if style == "fantasy":
         return (
-            "- Use exactly two main speaking characters (cast A and B) for reliable distinct voice assignment; a non-speaking creature or third character may appear when the plot needs one. Give each character a memorable motive, personality, visual silhouette, and way of speaking.\n"
-            "- Create a CHARACTER BIBLE before drafting scenes. For each main character, define species, approximate age, face, eyes, hair/fur/scales, build, clothing/armor, signature prop, and a distinctive color palette. Keep those details unchanged throughout the Short.\n"
-            "- Every relevant image_prompt MUST begin with this exact reusable identity line: 'REUSABLE CHARACTER: NAME — [fixed appearance, outfit, palette, signature prop]' followed by a new line 'SHOT: [the exact action and camera framing for this scene]'. Repeat the identical identity description for that character every time. The shot description must change with the story beat. Never use a random real-person photo or unrelated stock portrait as the canonical character.\n"
-            "- ZERO NARRATION, ZERO VOICE-OVER, ZERO THIRD-PERSON STORYTELLING. Every spoken audio line must be direct dialogue spoken by a visible character to another character, or a short natural self-directed line if alone. Never use lines like \"He grew up poor\", \"Years passed\", or descriptions of what the viewer can already see. Show time passing visually; let characters reveal backstory through believable conversation. If a beat cannot be expressed naturally as dialogue, show it silently without narration.\\n"
-            "- Each scene contains one concise, natural line spoken by the character in its speaker field. Use A for cast[0] and B for cast[1], with additional non-speaking characters only when needed. Give each character a distinct voice and goal. Dialogue must respond to what the other person just said or did; avoid explaining obvious things to the audience.\\n"
-            "- Choose the story structure from the user’s actual topic and intent; do not force one preset plot onto every fantasy prompt. When the prompt is open-ended or asks for a hidden-dragon-child/family origin, use this strong arc: ordinary home and unusual child; show poverty and growth through visual time-passing; an external danger (never old age) threatens the parents; they reveal in direct emotional dialogue that they are dragons; the child makes a consequential choice; show magic, consequence, and emotional payoff. For other topics, invent an equally specific arc that faithfully follows the requested premise.\\n"
-            "- Storyboard a filmable chain of cause and effect: establish the location and characters, show the trigger, reaction, decision, physical action, consequence, and payoff. If a dagger is thrown, show the throw, its path/impact when important, and the target's reaction in consecutive shots. Track who holds each prop, where characters stand, and how they move between shots. No random portraits, unrelated people, or disconnected mood images.\n"
-            "- For dialogue, frame the current speaker clearly and hold that shot until their entire spoken line finishes; do not show the listener apparently speaking. Cut to the listener's reaction only after the line. Give important physical actions their own shots instead of cramming multiple unrelated actions into one image.\n"
-            "- Keep the same geography, screen direction, costume, props, lighting logic, and character designs across adjacent shots. Vary establishing wides, two-shots, over-shoulders, action inserts, movement shots, and facial reactions only when the beat calls for them.\n"
-            "- Synchronize cuts to measured voice duration/word timestamps when available, not a guessed fixed scene length. Never begin the next speaker before the current line ends. Captions must match the exact spoken line and timing.\n"
-            "- cast: exactly two original main character names in stable order [speaker A, speaker B]. Every scene's speaker field must identify exactly who says that line.\n"
+            "- Build an ensemble, not a two-person skit. Use 3–6 named speaking characters when the premise supports them (for example: protagonist, family member, ally, rival/antagonist, and a witness/mentor). Never impose a two-character maximum. Give every character a distinct motive, relationship, visual silhouette, and dialogue contribution; introduce them when the plot needs them, not all at once. Use speaker IDs A–F to match cast entries by index.\
+"
+            "- Create a CHARACTER BIBLE before drafting scenes. For each main character, define species, approximate age, face, eyes, hair/fur/scales, build, clothing/armor, signature prop, and a distinctive color palette. Keep those details unchanged throughout the Short.
+"
+            "- Every relevant image_prompt MUST begin with this exact reusable identity line: 'REUSABLE CHARACTER: NAME — [fixed appearance, outfit, palette, signature prop]' followed by a new line 'SHOT: [the exact action and camera framing for this scene]'. Repeat the identical identity description for that character every time. The shot description must change with the story beat. Never use a random real-person photo or unrelated stock portrait as the canonical character.
+"
+            "- ZERO NARRATION, ZERO VOICE-OVER, ZERO THIRD-PERSON STORYTELLING. Every spoken audio line must be direct dialogue spoken by a visible character to another character, or a short natural self-directed line if alone. Never use lines like \"He grew up poor\", \"Years passed\", or descriptions of what the viewer can already see. Show time passing visually; let characters reveal backstory through believable conversation. If a beat cannot be expressed naturally as dialogue, show it silently without narration.\
+"
+            "- Each scene contains one concise, natural line spoken by the character in its speaker field. Speaker A is cast[0], B is cast[1], C is cast[2], D is cast[3], E is cast[4], and F is cast[5]. Use 3–6 speaking characters when the story benefits from an ensemble; every named speaker must have a cast entry. Dialogue must respond to what others just said or did; avoid explaining obvious things to the audience.\
+"
+            "- Choose the story structure from the user’s actual topic and intent; do not force one preset plot onto every fantasy prompt. When the prompt is open-ended or asks for a hidden-dragon-child/family origin, use this strong arc: ordinary home and unusual child; show poverty and growth through visual time-passing; an external danger (never old age) threatens the parents; they reveal in direct emotional dialogue that they are dragons; the child makes a consequential choice; show magic, consequence, and emotional payoff. For other topics, invent an equally specific arc that faithfully follows the requested premise.\
+"
+            "- Storyboard a filmable chain of cause and effect: establish the location and characters, show the trigger, reaction, decision, physical action, consequence, and payoff. If a dagger is thrown, show the throw, its path/impact when important, and the target's reaction in consecutive shots. Track who holds each prop, where characters stand, and how they move between shots. No random portraits, unrelated people, or disconnected mood images.
+"
+            "- For dialogue, frame the current speaker clearly and hold that shot until their entire spoken line finishes; do not show the listener apparently speaking. Cut to the listener's reaction only after the line. Give important physical actions their own shots instead of cramming multiple unrelated actions into one image.
+"
+            "- Keep the same geography, screen direction, costume, props, lighting logic, and character designs across adjacent shots. Vary establishing wides, two-shots, over-shoulders, action inserts, movement shots, and facial reactions only when the beat calls for them.
+"
+            "- Synchronize cuts to measured voice duration/word timestamps when available, not a guessed fixed scene length. Never begin the next speaker before the current line ends. Captions must match the exact spoken line and timing.
+"
+            "- cast: an ordered list of 3–6 original speaking character names where the premise supports them, with stable mapping A–F. Every scene speaker field must identify exactly who says that line. Do not cap the story at two characters.\
+"
         )
     if style == "chat":
         return ("- Each scene is ONE text message (max 18 words) from A or B. Messages may be 1-3 words. "
-                "Consecutive messages from the same person are fine.\n"
+                "Consecutive messages from the same person are fine.
+"
                 "- cast: [contact name shown at the top of the chat (e.g. Mom, Unknown Number, Jake), \"Me\"]. "
-                "B is \"Me\", the phone's owner.\n"
-                "- No emojis. The story must be fiction that is clearly plausible, never about real people.\n")
+                "B is \"Me\", the phone's owner.
+"
+                "- No emojis. The story must be fiction that is clearly plausible, never about real people.
+")
     if style == "reddit":
-        return ("- speaker is always \"A\": the poster, telling it in the first person.\n"
+        return ("- speaker is always \"A\": the poster, telling it in the first person.
+"
                 "- Scene 1 narration is ONLY the post title: a first-person question or confession, max 16 words. "
-                "Spell things out for the voice (\"Am I wrong for\", not \"AITA\"; no abbreviations like TIFU).\n"
+                "Spell things out for the voice (\"Am I wrong for\", not \"AITA\"; no abbreviations like TIFU).
+"
                 "- cast: [a fitting community name starting with r/ (e.g. r/confessions, r/pettyrevenge), "
-                "a made-up username starting with u/]. hook_text is not shown for this format.\n"
-                "- Fiction written like a real post: invent every person, never name real people. No emojis.\n")
-    return "- speaker is always \"A\" (one narrator). cast: [\"Narrator\"].\n"
+                "a made-up username starting with u/]. hook_text is not shown for this format.
+"
+                "- Fiction written like a real post: invent every person, never name real people. No emojis.
+")
+    return "- speaker is always \"A\" (one narrator). cast: [\"Narrator\"].
+"
 
 
 def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str], context: str = "",
@@ -259,11 +280,25 @@ def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str],
     )
     avoid_block = ""
     if avoid:
-        avoid_block = "Do NOT repeat any of these recent videos:\n" + "\n".join(f"- {a}" for a in avoid[:40]) + "\n\n"
-    ctx = f"Background information (use it, don't invent beyond it):\n{context.strip()}\n\n" if context else ""
-    ins = f"{insights.strip()}\n\n" if insights else ""
-    ins += f"{keywords.strip()}\n\n" if keywords else ""
-    brief = (f"CREATOR CREATIVE DIRECTION (follow unless it conflicts with factual accuracy or safety):\n{creative_brief.strip()[:1000]}\n\n" if creative_brief.strip() else "")
+        avoid_block = "Do NOT repeat any of these recent videos:
+" + "
+".join(f"- {a}" for a in avoid[:40]) + "
+
+"
+    ctx = f"Background information (use it, don't invent beyond it):
+{context.strip()}
+
+" if context else ""
+    ins = f"{insights.strip()}
+
+" if insights else ""
+    ins += f"{keywords.strip()}
+
+" if keywords else ""
+    brief = (f"CREATOR CREATIVE DIRECTION (follow unless it conflicts with factual accuracy or safety):
+{creative_brief.strip()[:1000]}
+
+" if creative_brief.strip() else "")
     user = f"""Write one YouTube Short.
 
 Subject: {subject}
@@ -274,7 +309,8 @@ Language: {lang} for narration, title, hook_text, cast and description. search_q
 
 {ctx}{ins}{brief}{avoid_block}Rules:
 - HARD LENGTH TARGET: write about {words} spoken words for a {settings.target_seconds}-second video. Treat this as a requirement, not a loose suggestion; do not finish early after making the point. The measured voice duration should land close to the requested duration. Aim for {n_scenes} scenes; acceptable range is {scene_count_bounds(style, settings.target_seconds)[0]}–{scene_count_bounds(style, settings.target_seconds)[1]}. Scene count is a real visual-editing requirement, not a suggestion to ignore. For a 30–60 second Short, do NOT compress the entire script into 3–5 oversized scene boxes. Use roughly one scene per 2–3 seconds where the narration supports it: usually one sentence or one compact spoken beat per scene. Keep the full narration length; divide it across more scenes instead of cutting text. Each scene needs its own specific visible action, evidence, reaction, transition, or payoff. Do not create empty/filler scenes, split every clause mechanically, or combine distinct visual beats into one box.
-{_format_rules(style, settings.target_seconds)}- For fantasy scenes, use speaker A/B as real character attribution, not a single narrator placeholder. Every fantasy image_prompt must start with a reusable character identity line and a separate exact-shot line. Make the same two main characters recognizable in every relevant scene; show physical action, meaningful reactions, and consequences in consecutive shots. Pixabay may provide reference candidates but is not an AI image generator. Prefer the configured AI image provider for original reference portraits; never substitute unrelated stock people for original characters. Keep the central conflict resolved before an optional sequel tease.\n- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
+{_format_rules(style, settings.target_seconds)}- For fantasy scenes, use speaker A/B as real character attribution, not a single narrator placeholder. Every fantasy image_prompt must start with a reusable character identity line and a separate exact-shot line. Make the same two main characters recognizable in every relevant scene; show physical action, meaningful reactions, and consequences in consecutive shots. Pixabay may provide reference candidates but is not an AI image generator. Prefer the configured AI image provider for original reference portraits; never substitute unrelated stock people for original characters. Keep the central conflict resolved before an optional sequel tease.
+- Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
 - FACTUAL OPENING (mandatory for facts, myth, quiz, explainer, news, and listicle): do not begin with a disconnected fact dump. In the first one or two spoken lines, establish the claim, common belief, surprising contradiction, or real-world question that makes this topic worth checking. Give the viewer a reason to care or a clear question to resolve, then deliver the evidence. Example structure, not wording to copy: "People say X — but does the evidence actually support it?" / "This sounds impossible, so let's check what really happens." Make the claim specific, avoid vague "you won't believe this" bait, and never imply a fact is false unless the evidence supports that. For rapid-fire facts, use one brief framing hook that connects the facts under a clear question or surprising theme.
 - NATURAL SPEECH FLOW (mandatory): for fantasy, use believable dialogue exchanges with reactions and subtext—not narration. For all other styles, write for one continuous spoken performance. Avoid filler and artificial suspense pauses.
 - CONTINUITY PASS (mandatory): for fantasy, ensure every line is a direct response or motivated statement in the scene; track what each character knows, their emotional state, props, location, and time across shots. Do not let characters know facts they have not learned. For other styles, keep narration coherent and resolve the opening question.
@@ -354,7 +390,8 @@ def _clean_hashtag(tag: str) -> str:
 
 
 def _speaker(value) -> str:
-    return "B" if str(value or "A").strip().upper().startswith("B") else "A"
+    raw = str(value or "A").strip().upper()
+    return raw[0] if raw and raw[0] in "ABCDEF" else "A"
 
 
 def _handle(name: str, prefix: str) -> str:
@@ -495,7 +532,14 @@ def normalize(data: dict, subject: str, style: str, language: str) -> Script:
             for c in (data.get("cast") or []) if str(c).strip()]
     if multi or style in CARD_STYLES:
         defaults = DEFAULT_CAST[style]
-        cast = (cast + defaults[len(cast):])[:2] if len(cast) < 2 else cast[:2]
+        if style == "fantasy":
+            cast = cast[:6]
+            if len(cast) < 3:
+                extra = ["Companion", "Rival", "Guardian", "Stranger"]
+                cast.extend(name for name in extra if name.lower() not in {c.lower() for c in cast})
+                cast = cast[:3]
+        else:
+            cast = (cast + defaults[len(cast):])[:2] if len(cast) < 2 else cast[:2]
         if style == "reddit":
             cast = [_handle(cast[0], "r/"), _handle(cast[1], "u/")]
     else:
@@ -800,8 +844,12 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
     draft = {k: v for k, v in script.to_dict().items() if k not in ("style", "language", "score", "review", "rubric")}
     system = ("You are a ruthless YouTube Shorts retention editor. You know that viewers decide in 1-2 "
               "seconds and swipe away at any slow moment. You reply with a single JSON object and nothing else.")
-    rubric = "\n".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
-    found = ("Automatic checks already found:\n" + "\n".join(f"- {c}" for c in checks) + "\n") if checks else ""
+    rubric = "
+".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
+    found = ("Automatic checks already found:
+" + "
+".join(f"- {c}" for c in checks) + "
+") if checks else ""
     task = (f"""Then rewrite it into the strongest version you can. Keep the same subject, format, language ({lang}),
 the same JSON structure and a narration length appropriate for the selected runtime (target about {words} words). Aim for {n_scenes} scenes, within {scene_count_bounds(script.style, settings.target_seconds)[0]}–{scene_count_bounds(script.style, settings.target_seconds)[1]}; preserve all useful narration while redistributing it into more distinct, visual beats when needed. Fix every issue and automatic finding. Do a complete rewrite where needed—not a cosmetic line edit. Rebuild weak structure, replace generic phrasing, strengthen cause-and-effect, improve spoken rhythm, ensure visuals match each beat, and make the payoff earn the opening. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
 Creative-quality requirements:
