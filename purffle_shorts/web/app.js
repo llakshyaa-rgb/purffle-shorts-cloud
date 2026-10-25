@@ -48,7 +48,7 @@ const G = {
 
 const FORMATS = [
   ["auto", "Auto · Hybrid", "Combines the story, facts, myth-check, countdown, quiz and explainer techniques that fit this topic."],
-  ["fantasy", "Fantasy role-play", "Original dragons, magical kingdoms, rival characters, funny banter and cinematic cliffhangers. Built as an episodic story, not a list of facts.", true],
+  ["fantasy", "Fantasy story film", "Turn the user’s exact premise into a coherent cinematic mini-movie: characters speak for themselves (no narrator), actions connect shot-to-shot, character designs stay consistent, and the ending pays off the setup. AI directs story, visuals, pacing and dialogue from the requested idea.", true],
 ];
 const MULTI = new Set(["dialogue", "chat", "fantasy"]);
 const STAGES = [["topic", "Topic"], ["script", "Script"], ["review", "Review"], ["voice", "Voice"], ["footage", "Footage"],
