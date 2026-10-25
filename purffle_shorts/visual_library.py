@@ -103,26 +103,41 @@ def _character(draw, w: int, h: int, ink, accent, second, seed: int, archetype: 
         glow = accent if archetype != "detective" else second
         draw.ellipse((cx-eye_dx-scale*.035, eye_y-scale*.02, cx-eye_dx+scale*.035, eye_y+scale*.035), fill=glow)
         draw.ellipse((cx+eye_dx-scale*.035, eye_y-scale*.02, cx+eye_dx+scale*.035, eye_y+scale*.035), fill=glow)
-        torso = [(cx-scale*.16, cy+scale*.1), (cx-scale*.36, cy+scale*.55),
-                 (cx-scale*.29, cy+scale*.72), (cx+scale*.29, cy+scale*.72),
-                 (cx+scale*.36, cy+scale*.55), (cx+scale*.16, cy+scale*.1)]
+        # A fitted hooded sweatshirt, not a floor-length cloak: clear shoulder line,
+        # separate sleeves, a visible waist hem, and open hands that read at phone size.
+        torso = [(cx-scale*.16, cy+scale*.10), (cx-scale*.27, cy+scale*.19),
+                 (cx-scale*.22, cy+scale*.61), (cx+scale*.22, cy+scale*.61),
+                 (cx+scale*.27, cy+scale*.19), (cx+scale*.16, cy+scale*.10)]
         draw.polygon(torso, fill=(10, 15, 27), outline=accent)
-        # Repeatable left/right gesture poses.
-        pose = seed % 3
-        arm_y = cy + scale*(.25 if pose == 1 else .42)
-        if pose == 0:
-            _line(draw, [(cx-scale*.25, arm_y), (cx-scale*.43, cy+scale*.14),
-                         (cx-scale*.48, cy-scale*.02)], second, line_w)
-            _line(draw, [(cx+scale*.25, arm_y), (cx+scale*.43, cy+scale*.14),
-                         (cx+scale*.48, cy-scale*.02)], accent, line_w)
-        elif pose == 1:
-            _line(draw, [(cx-scale*.24, arm_y), (cx-scale*.42, cy+scale*.5)], second, line_w)
-            _line(draw, [(cx+scale*.24, arm_y), (cx+scale*.47, cy+scale*.03),
-                         (cx+scale*.61, cy-scale*.04)], accent, line_w)
-        else:
-            _line(draw, [(cx-scale*.24, arm_y), (cx-scale*.48, cy+scale*.02),
-                         (cx-scale*.59, cy-scale*.02)], accent, line_w)
-            _line(draw, [(cx+scale*.24, arm_y), (cx+scale*.42, cy+scale*.5)], second, line_w)
+        _line(draw, [(cx-scale*.22, cy+scale*.58), (cx+scale*.22, cy+scale*.58)], second, line_w)
+        # Repeatable presenter gestures. Hands are filled shapes with small finger marks,
+        # not just thin arm lines that disappear against dark footage.
+        pose = seed % 4
+        left_start = (cx-scale*.22, cy+scale*.22)
+        right_start = (cx+scale*.22, cy+scale*.22)
+        poses = [
+            ((cx-scale*.43, cy+scale*.10), (cx+scale*.43, cy+scale*.10)),
+            ((cx-scale*.43, cy+scale*.42), (cx+scale*.49, cy-scale*.02)),
+            ((cx-scale*.49, cy-scale*.02), (cx+scale*.43, cy+scale*.42)),
+            ((cx-scale*.43, cy+scale*.10), (cx+scale*.49, cy-scale*.02)),
+        ]
+        left_elbow, right_elbow = poses[pose]
+        left_hand = (left_elbow[0]-scale*.06, left_elbow[1]-scale*.05)
+        right_hand = (right_elbow[0]+scale*.06, right_elbow[1]-scale*.05)
+        _line(draw, [left_start, (cx-scale*.34, cy+scale*.24), left_elbow, left_hand],
+              second, max(line_w, int(scale*.035)))
+        _line(draw, [right_start, (cx+scale*.34, cy+scale*.24), right_elbow, right_hand],
+              accent, max(line_w, int(scale*.035)))
+        hand_r = max(line_w*1.8, scale*.065)
+        for hx, hy, color in ((left_hand[0], left_hand[1], second),
+                              (right_hand[0], right_hand[1], accent)):
+            draw.ellipse((hx-hand_r, hy-hand_r, hx+hand_r, hy+hand_r),
+                         fill=color, outline=(235, 238, 245), width=max(1, line_w//2))
+            # Three short finger strokes make the hand unmistakable.
+            for finger in (-.45, 0, .45):
+                _line(draw, [(hx+hand_r*.25, hy+finger*hand_r),
+                             (hx+hand_r*1.05, hy+(finger-.15)*hand_r)],
+                      color, max(2, line_w//2))
     else:
         # Shared proportions preserve the cast's visual identity, while clear props distinguish
         # each role even on a small phone screen.
