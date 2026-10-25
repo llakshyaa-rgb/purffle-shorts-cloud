@@ -388,7 +388,7 @@ function drawForm() {
     </div>
     <div class="field"><label>Scene visuals mode</label>${sel("visual_mode", [["match", "Match each scene (recommended)"], ["ai", "AI-generated scenes (AI sources first)"], ["local", "My media first"], ["mixed", "Mixed: stock first, AI fallback"]], f.visual_mode || "match")}</div>
 <div class="field"><label>Footage & images</label><div class="checks-inline">${o.visuals.filter(v => v !== "cloudflare").map(v => `<label><input type="checkbox" data-visual="${v}"${(f.visuals || []).includes(v) ? " checked" : ""}>${{ pexels: "Pexels", pixabay: "Pixabay", commons: "Wikimedia Commons", local: "My media folder", pollinations: "AI images (Pollinations, key advised)", "openai-images": "OpenAI images" }[v] || v}</label>`).join("")}</div></div>
-    ${f.style === "fantasy" ? '<p class="hint">Fantasy mode uses original AI-generated characters and will not swap in random stock people. Select AI images (Pollinations) or OpenAI Images; anonymous image generation may be rate-limited.</p>' : ""}
+    ${f.style === "fantasy" ? '<p class="hint">Fantasy mode requires original AI character images. For reliable runs, configure POLLINATIONS_API_KEY or OPENAI_API_KEY on the server. Anonymous Pollinations is skipped to avoid long stalls; random stock people will not be substituted.</p>' : ""}
     <div class="field"><label>Background video</label>${(o.backgrounds || []).length
       ? sel("background", [["", "None: footage for every scene"], ...o.backgrounds.map(b => [b.path, b.name])], f.background)
       : `<p class="hint">Put gameplay or other videos you may reuse in <span class="mono">media/backgrounds/</span> (or set BACKGROUND_VIDEO) to play one under stories.</p>`}</div>
