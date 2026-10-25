@@ -475,7 +475,12 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
         # speakers that padding adds up to a second-long dead gap.
         cut0 = max(0.0, sp.words[0].start - 0.05) if sp.words else 0.0
         cut1 = min(sp.duration, sp.words[-1].end + 0.15) if sp.words else sp.duration
-        ffmpeg.run(["-i", str(sp.audio), "-af", f"atrim=start={cut0:.3f}:end={cut1:.3f},asetpts=PTS-STARTPTS",
+        # Give fantasy speaker B a subtle lower-pitched, quieter timbre without
+        # requiring another neural voice; compensate speed so line timing stays stable.
+        voice_filter = f"atrim=start={cut0:.3f}:end={cut1:.3f},asetpts=PTS-STARTPTS"
+        if speaker == "B" and settings.style == "fantasy":
+            voice_filter += ",asetrate=48000*0.88,aresample=48000,atempo=1.13636,volume=0.82"
+        ffmpeg.run(["-i", str(sp.audio), "-af", voice_filter,
                     "-ar", "48000", "-ac", "1", "-c:a", "pcm_s16le", str(wav)], label="line")
         dur = ffmpeg.duration(wav)
         starts.append(t)
