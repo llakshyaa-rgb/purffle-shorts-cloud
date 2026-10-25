@@ -118,8 +118,9 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         mode = "footage"
     # Re-apply this after the generic footage/illustration selection above: abstract beats
     # must not accidentally be overwritten into stock-footage mode.
-    if any(phrase in narration.lower() for phrase in abstract_phrases) or (
-        generic_query and len(narration.split()) <= 8
+    if style != "fantasy" and (
+        any(phrase in narration.lower() for phrase in abstract_phrases)
+        or (generic_query and len(narration.split()) <= 8)
     ):
         mode = "gradient"
     camera = ("push_in", "pan_left", "push_in", "pan_right", "pull_out", "static")[index % 6]
