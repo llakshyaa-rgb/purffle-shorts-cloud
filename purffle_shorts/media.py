@@ -919,24 +919,18 @@ class Visuals:
             ". Scene action: " + (image_prompt or query or topic)
         ) if fantasy_mode else (image_prompt or query)
         if fantasy_mode:
-            # Fantasy requires original character art. Prefer explicitly configured AI providers,
-            # including Cloudflare Workers AI (the intended low-cost image provider). The UI hides
-            # Cloudflare from the selectable list because its credentials are server-side secrets,
-            # so include it here whenever both credentials are configured.
-            ai_sources = [
-                x for x in source_order
-                if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare")
-            ]
-            if self.s.cloudflare_account_id and self.s.cloudflare_api_token and "cloudflare" not in ai_sources:
-                ai_sources.insert(0, "cloudflare")
-            if self.s.openai_api_key and not any(x in ai_sources for x in ("openai-images", "ai", "dalle", "gpt-image")):
-                ai_sources.insert(0, "openai-images")
-            # Do not silently fall back to anonymous Pollinations: it is rate-limited and can
-            # stall the job. Only use it when explicitly selected and a key is configured.
-            if not self.s.pollinations_api_key:
-                ai_sources = [x for x in ai_sources if x != "pollinations"]
-            # Never fall through to unrelated stock people just because AI generation is unavailable.
-            source_order = ai_sources
+            # Fantasy character scenes use the configured Cloudflare Workers AI image
+            # endpoint exclusively. Do not route these scenes through Pollinations, stock
+            # photo search, or an unrelated image provider: that creates inconsistent casts
+            # and makes jobs fail for a provider the user never intended to depend on.
+            if self.s.cloudflare_account_id and self.s.cloudflare_api_token:
+                source_order = ["cloudflare"]
+            else:
+                log.error(
+                    "Fantasy image generation needs CLOUDFLARE_ACCOUNT_ID and "
+                    "CLOUDFLARE_API_TOKEN; refusing to substitute Pollinations or random stock images."
+                )
+                source_order = []
         for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
