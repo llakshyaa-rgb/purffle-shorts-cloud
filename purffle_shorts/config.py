@@ -130,7 +130,7 @@ class Settings:
     llm_temperature: float = 0.9
     anthropic_effort: str = ""        # low|medium|high|xhigh|max (blank = API default)
     script_review: str = "rewrite"    # off|score|rewrite — the Script Doctor's second pass
-    script_review_rounds: int = 2     # allow a second full rewrite when the score is below script_target_score
+    script_review_rounds: int = 1     # one rewrite + verification by default; avoid redundant slow review rounds
     script_target_score: int = 80     # stop improving once a script scores this (0-100)
     learn_from_stats: bool = True     # automatically learn from channel stats when enough results exist
     seo_keywords: bool = True         # hand the script writer what people really search for on YouTube
