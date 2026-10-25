@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from .script import Script
+from .fantasy_video_library import FANTASY_VISUAL_RULES
 
 log = logging.getLogger("purffle")
 
@@ -193,6 +194,8 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "Sound effects are sparse accents; choose none often and never drown out narration. Rationale is a short user-facing "
         "production note (one sentence), not private chain-of-thought. Keep all facts in the provided script; do not add claims."
     )
+    if script.style == "fantasy":
+        system += "\\n\\n" + FANTASY_VISUAL_RULES + "\\n\\nFor every fantasy scene choose visual_mode=footage, start visual_prompt with FANTASY CINEMATIC FOOTAGE:, and describe the precise physical action, shot size, setting and continuity. Never request drawn/vector art."
     try:
         result = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), schema=DIRECTOR_SCHEMA,
                                    max_tokens=min(4500, 500 + len(script.scenes) * 150), temperature=0.35)
@@ -222,6 +225,12 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                     "Abstract animated gradient transition, deep cinematic color, subtle slow light movement, "
                     "clean negative space for captions; no people, no stock photo, no icons, no collage."
                 )
+            if script.style == "fantasy":
+                clean["visual_mode"] = "footage"
+                prompt = clean.get("visual_prompt", "").strip()
+                if not prompt.upper().startswith("FANTASY CINEMATIC FOOTAGE:"):
+                    prompt = "FANTASY CINEMATIC FOOTAGE: " + prompt
+                clean["visual_prompt"] = (prompt + ". Photoreal live-action fantasy film or premium realistic CGI cinematic; exact visible action; consistent character and location; varied film framing; no cartoon, vector art, diagrams, icons, collage, UI, text, logo or watermark.")[:1800]
             clean["scene"] = i
             merged.append(clean)
         return merged
@@ -243,6 +252,9 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
             "footage": "REAL-WORLD DOCUMENTARY FOOTAGE: ",
             "photo": "REALISTIC EDITORIAL PHOTOGRAPH: ",
         }.get(mode, "")
+        if script.style == "fantasy" and mode == "footage":
+            prefix = "FANTASY CINEMATIC FOOTAGE: "
+            prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
         if prompt:
             if mode == "gradient":
                 scene.image_prompt = prefix + prompt
