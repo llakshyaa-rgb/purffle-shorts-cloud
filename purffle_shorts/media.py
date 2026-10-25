@@ -499,7 +499,7 @@ def _strong_stock_match(item: MediaItem, query: str, directed_query: str = "",
         target_terms = _terms(query)
     hits = target_terms & tags
     # Need evidence for the scene brief and some evidence for the script's selected subject.
-    return bool(hits) and len(hits) / max(1, len(target_terms)) >= 0.45 and relevance(item, query) >= 0.34
+    return bool(hits) and len(hits) / max(1, len(target_terms)) >= 0.25 and relevance(item, query) >= 0.34
 
 
 def _shape(item: MediaItem) -> str:
