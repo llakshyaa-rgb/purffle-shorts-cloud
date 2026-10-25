@@ -771,74 +771,46 @@ class Visuals:
                     return item
                 continue
             if source == "commons":
-                search_queries = expand_commons_queries(query or topic)
-                seen_queries = {q.casefold() for q in search_queries}
-                for extra_query in queries:
-                    if extra_query and extra_query.casefold() not in seen_queries:
-                        search_queries.append(extra_query)
-                        seen_queries.add(extra_query.casefold())
-
+                # Search the most scene-specific phrases first; stop on a credible match.
+                search_queries = []
+                for candidate_query in (directed_query, simplify_query(query), simplify_query(topic)):
+                    candidate_query = (candidate_query or "").strip()
+                    if candidate_query and candidate_query.casefold() not in {x.casefold() for x in search_queries}:
+                        search_queries.append(candidate_query)
                 combined = {}
-                for search_query in search_queries:
+                item = None
+                for search_query in search_queries[:2]:
                     try:
                         for candidate in self._search(source, search_query):
                             combined.setdefault(candidate.key, candidate)
                     except Exception as e:
-                        log.warning(
-                            "Commons search failed for %r: %s",
-                            search_query, redact(e)
-                        )
-
-                candidates = list(combined.values())
-                ranked = sorted(
-                    candidates,
-                    key=lambda candidate: relevance(candidate, query),
-                    reverse=True,
-                )
-                # Commons frequently returns broad category pages and weakly described files.
-                # A ranking score alone is not evidence: require usable descriptive metadata and a
-                # stronger scene match, just as we do for Pexels/Pixabay.
-                cand = [
-                    candidate for candidate in ranked
-                    if _strong_stock_match(candidate, query, directed_query, image_prompt)
-                ]
-                q = query
-                item = self._claim(cand, need, query)
+                        log.warning("Commons search failed for %r: %s", search_query, redact(e))
+                    cand = [candidate for candidate in combined.values() if _strong_stock_match(candidate, query, directed_query, image_prompt)]
+                    if cand:
+                        item = self._claim(cand, need, query)
+                        if item:
+                            q = search_query
+                            break
                 if not item:
                     continue
             else:
+                # At most two targeted searches per provider; later providers run only if needed.
                 combined = {}
-                for q in queries:
+                item = None
+                for search_query in queries[:2]:
                     try:
-                        for candidate in self._search(source, q):
+                        for candidate in self._search(source, search_query):
                             combined.setdefault(candidate.key, candidate)
                     except Exception as e:
-                        log.warning(
-                            "%s search failed for %r: %s",
-                            source, q, redact(e)
-                        )
-
-                # Don't accept a weak keyword coincidence as a visual match. Local files
-                # must have at least one filename-token overlap; stock media must have a
-                # meaningful match across the scene's descriptive metadata.
-                # Require evidence that the asset actually depicts the requested subject.
-                # A neutral score is useful for ranking but is not enough to approve stock footage:
-                # missing alt text/tags must not silently become unrelated b-roll.
-                cand = [
-                    candidate for candidate in combined.values()
-                    if (
-                        candidate.source == "local"
-                        and candidate.extra.get("overlap", 0) > 0
-                    )
-                    or (
-                        candidate.source != "local"
-                        and _strong_stock_match(candidate, query, directed_query, image_prompt)
-                    )
-                ]
-                item = self._claim(cand, need, query)
+                        log.warning("%s search failed for %r: %s", source, search_query, redact(e))
+                    cand = [candidate for candidate in combined.values() if ((candidate.source == "local" and candidate.extra.get("overlap", 0) > 0) or (candidate.source != "local" and _strong_stock_match(candidate, query, directed_query, image_prompt)))]
+                    if cand:
+                        item = self._claim(cand, need, query)
+                        if item:
+                            q = search_query
+                            break
                 if not item:
                     continue
-
             try:
                 self._fetch(item, dest_dir, idx)
             except Exception as e:
