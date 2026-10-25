@@ -79,3 +79,32 @@ def test_director_preserves_canonical_character_bible_and_distinct_actions():
     assert "reaches for the brass key" in script.scenes[0].image_prompt
     assert "snatches the key as the guard lunges" in script.scenes[1].image_prompt
     assert script.scenes[0].image_prompt != script.scenes[1].image_prompt
+
+
+def test_fantasy_director_fallback_never_switches_to_gradients():
+    from purffle_shorts.creative_director import direct
+
+    data = {
+        "topic": "The Moonlit Oath",
+        "title": "The Moonlit Oath",
+        "hook_text": "Never trust a dragon",
+        "cast": ["Mira", "Kael"],
+        "scenes": [
+            {
+                "speaker": "A",
+                "narration": "And that is why the crown is cursed.",
+                "search_query": "Mira cursed crown throne room",
+                "image_prompt": "REUSABLE CHARACTER: Mira — copper braid, teal cloak, brass star clasp\nSHOT: Mira studies the crown.",
+                "emphasis": [],
+                "emoji": "",
+            }
+        ],
+        "description": "An original fantasy scene.",
+        "hashtags": ["#fantasy", "#shorts"],
+        "tags": ["fantasy", "magic"],
+        "category": "entertainment",
+    }
+    script = normalize(data, "The Moonlit Oath", "fantasy", "en")
+    plan = direct(script, None)
+    assert plan[0]["visual_mode"] == "footage"
+    assert plan[0]["visual_prompt"].startswith("FANTASY CINEMATIC FOOTAGE:")
