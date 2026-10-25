@@ -925,13 +925,13 @@ class Visuals:
                 x for x in source_order
                 if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare")
             ]
-            if s.cloudflare_account_id and s.cloudflare_api_token and "cloudflare" not in ai_sources:
+            if self.s.cloudflare_account_id and self.s.cloudflare_api_token and "cloudflare" not in ai_sources:
                 ai_sources.insert(0, "cloudflare")
-            if s.openai_api_key and not any(x in ai_sources for x in ("openai-images", "ai", "dalle", "gpt-image")):
+            if self.s.openai_api_key and not any(x in ai_sources for x in ("openai-images", "ai", "dalle", "gpt-image")):
                 ai_sources.insert(0, "openai-images")
             # Do not silently fall back to anonymous Pollinations: it is rate-limited and can
             # stall the job. Only use it when explicitly selected and a key is configured.
-            if not s.pollinations_api_key:
+            if not self.s.pollinations_api_key:
                 ai_sources = [x for x in ai_sources if x != "pollinations"]
             # Never fall through to unrelated stock people just because AI generation is unavailable.
             source_order = ai_sources
@@ -1042,7 +1042,7 @@ class Visuals:
         """jobs: [(search_query, image_prompt, seconds_needed)] -> one MediaItem per scene. ``progress`` gets
         the fraction of scenes that have their footage."""
         dest_dir.mkdir(parents=True, exist_ok=True)
-        workers = 2 if any(s in ("openai-images", "ai", "pollinations") for s in self.sources) else 6
+        workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare") for s in self.sources) else 6
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(self.for_scene, i, q, p, topic, need, dest_dir) for i, (q, p, need) in enumerate(jobs)]
             for done, _ in enumerate(concurrent.futures.as_completed(futs), 1):
