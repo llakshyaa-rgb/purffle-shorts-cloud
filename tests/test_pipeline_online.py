@@ -83,7 +83,7 @@ def online(settings, monkeypatch, clip):
     monkeypatch.setattr(M, "http", lambda: Session())
     monkeypatch.setattr(U, "http", lambda: Session())
     monkeypatch.setattr(P, "LLM", FakeLLM)
-    s = settings.with_overrides(tts_engine="silent", resolution=(360, 640), fps=24, music_volume=0.0,
+    s = settings.with_overrides(tts_engine="silent", target_seconds=5, resolution=(360, 640), fps=24, music_volume=0.0,
                                 visual_sources=["pexels"], pexels_api_key="k", upload=True)
     return s, searches
 
