@@ -478,8 +478,18 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
         # Give fantasy speaker B a subtle lower-pitched, quieter timbre without
         # requiring another neural voice; compensate speed so line timing stays stable.
         voice_filter = f"atrim=start={cut0:.3f}:end={cut1:.3f},asetpts=PTS-STARTPTS"
-        if speaker == "B" and settings.style == "fantasy":
-            voice_filter += ",asetrate=48000*0.88,aresample=48000,atempo=1.13636,volume=0.82"
+        if settings.style == "fantasy" and speaker in "BCDEF":
+            # Same base TTS voice, subtle character-specific pitch/loudness shifts.
+            profiles = {
+                "B": (0.88, 0.82),
+                "C": (0.96, 0.90),
+                "D": (0.82, 0.72),
+                "E": (1.05, 0.88),
+                "F": (0.91, 0.78),
+            }
+            pitch, loudness = profiles[speaker]
+            tempo = 1.0 / pitch
+            voice_filter += f",asetrate=48000*{pitch},aresample=48000,atempo={tempo:.5f},volume={loudness}"
         ffmpeg.run(["-i", str(sp.audio), "-af", voice_filter,
                     "-ar", "48000", "-ac", "1", "-c:a", "pcm_s16le", str(wav)], label="line")
         dur = ffmpeg.duration(wav)
