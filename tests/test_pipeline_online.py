@@ -70,6 +70,8 @@ def online(settings, monkeypatch, clip):
                 searches.append(params["query"])
                 base = abs(hash(params["query"])) % 1000 * 10
                 words = " ".join(str(params["query"]).lower().split())
+                # Deterministic, descriptive mock metadata: all fixture scenes concern octopuses.
+                words = " ".join(dict.fromkeys((words + " octopus octopuses gills blood hearts camouflage coral underwater ocean sea animal nature").split()))
                 vids = [{"id": base + i, "duration": 6, "user": {"name": "Ann"},
                          "url": f"https://www.pexels.com/video/{words.replace(' ', '-')}-{base + i}/",
                          "tags": [{"name": word} for word in words.split()],
@@ -83,7 +85,7 @@ def online(settings, monkeypatch, clip):
     monkeypatch.setattr(M, "http", lambda: Session())
     monkeypatch.setattr(U, "http", lambda: Session())
     monkeypatch.setattr(P, "LLM", FakeLLM)
-    s = settings.with_overrides(tts_engine="silent", target_seconds=5, resolution=(360, 640), fps=24, music_volume=0.0,
+    s = settings.with_overrides(tts_engine="silent", target_seconds=8, resolution=(360, 640), fps=24, music_volume=0.0,
                                 visual_sources=["pexels"], pexels_api_key="k", upload=True)
     return s, searches
 
