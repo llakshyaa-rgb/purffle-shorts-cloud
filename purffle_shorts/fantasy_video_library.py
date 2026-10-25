@@ -331,7 +331,7 @@ def compose_fantasy_recipe(topic, narration, search_query, index):
 
     # Build a shot-specific prompt from only the strongest compatible ingredients.
     action = narration_text or query_text or topic_text
-    action = _re.sub(r"\\s+", " ", action).strip()
+    action = _re.sub(r"\s+", " ", action).strip()
     details = [f"Visual action from the narration: {action}.",
                f"Film look: {look}.", f"Location: {world}.", f"Camera: {camera}.",
                f"Lighting: {lighting}.", f"Atmosphere: {atmosphere}."]
