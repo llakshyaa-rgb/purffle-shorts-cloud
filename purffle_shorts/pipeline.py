@@ -583,7 +583,7 @@ class Studio:
 
             self._step("captions")
             chunks = caption_chunks(speech.words, s.caption_max_words, total=total)
-            labels = ({"A": script.speaker_name("A"), "B": script.speaker_name("B")}
+            labels = ({chr(ord("A") + i): name for i, name in enumerate(script.cast[:6])}
                       if script.style in ("dialogue", "fantasy") and script.multi_speaker else None)
             messages = ([ChatMessage(sc.speaker, sc.narration, st) for sc, st in zip(script.scenes, speech.line_starts)]
                         if chat and speech.line_starts else None)
