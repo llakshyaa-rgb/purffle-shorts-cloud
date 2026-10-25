@@ -1,9 +1,8 @@
 name: CI
 
+# Keep CI opt-in during development. No pushes or pull requests start jobs.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -46,7 +45,6 @@ jobs:
         run: docker run --rm purffle-shorts:ci --version
       - name: docker-compose.yml is valid
         run: touch .env && docker compose config -q
-
   package:
     runs-on: ubuntu-latest
     steps:
