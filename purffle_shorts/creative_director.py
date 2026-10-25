@@ -77,9 +77,9 @@ def _needs_gradient(narration: str, query: str) -> bool:
         return True
     generic_query = not q or q in {"abstract", "transition", "background", "gradient"}
     concrete = re.search(
-        r"\\b(octopus|planet|saturn|earth|moon|heart|brain|person|human|animal|"
+        r"\b(octopus|planet|saturn|earth|moon|heart|brain|person|human|animal|"
         r"scientist|experiment|study|researcher|city|ocean|volcano|door|car|"
-        r"machine|cell|blood|water|fire|ice|camera|phone|satellite|evidence)\\b", line
+        r"machine|cell|blood|water|fire|ice|camera|phone|satellite|evidence)\b", line
     )
     return generic_query and len(line.split()) <= 6 and not concrete
 

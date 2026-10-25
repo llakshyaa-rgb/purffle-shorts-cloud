@@ -69,7 +69,10 @@ def online(settings, monkeypatch, clip):
             if "api.pexels.com/videos/search" in url:
                 searches.append(params["query"])
                 base = abs(hash(params["query"])) % 1000 * 10
-                vids = [{"id": base + i, "duration": 6, "user": {"name": "Ann"},
+                words = " ".join(str(params["query"]).lower().split())
+            vids = [{"id": base + i, "duration": 6, "user": {"name": "Ann"},
+                         "url": f"https://www.pexels.com/video/{words.replace(' ', '-')}-{base + i}/",
+                         "tags": [{"name": word} for word in words.split()],
                          "video_files": [{"link": f"http://fake/{base + i}.mp4", "width": 640, "height": 360,
                                           "file_type": "video/mp4"}]} for i in range(2)]
                 return Resp({"videos": vids})
