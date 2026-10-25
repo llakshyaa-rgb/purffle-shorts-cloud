@@ -261,10 +261,21 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 if name in fantasy_refs:
                     break
             if name not in fantasy_refs:
-                if len(fantasy_refs) == 0:
-                    look = "young adult human mage, copper-red braided hair, amber eyes, weathered teal travel cloak, brass star-shaped clasp, leather spell satchel"
-                else:
-                    look = "young adult elven swordsman, pale silver hair, dark green eyes, charcoal scale armor, one broken silver ear cuff, narrow black-steel sword"
+                # Deterministic per-episode designs: if the script model omits a character bible,
+                # do not reuse the same red-mage/silver-elf pair in every video.
+                looks = (
+                    "young adult human spell-thief, one dark braid threaded with copper rings, amber eyes, soot-black leather coat, rust-red scarf, a brass key on a chain",
+                    "young adult elven duelist, cropped white hair, dark green eyes, charcoal scale armor, one broken silver ear cuff, narrow black-steel sword",
+                    "weathered dwarf engineer, braided ash-brown beard, one cloudy eye, indigo work leathers, bronze shoulder plates, a compact rune-powered hand tool",
+                    "young adult desert ranger, warm brown skin, shaved sides and long black topknot, turquoise eyes, sand-colored layered wraps, cobalt sash, curved moonsteel blade",
+                    "elderly witch with deep umber skin, silver locs bound in bone beads, pale gold eyes, plum velvet coat, crow-feather mantle, a carved rowan staff",
+                    "young half-orc guardian, olive-green skin, one ivory tusk, close-cropped dark hair, moss-green cloak over worn iron armor, a round shield with a cracked sun emblem",
+                    "androgynous sky-islander scout, freckled face, storm-grey eyes, wind-tangled auburn hair, cream flight jacket, indigo harness, brass spyglass",
+                    "small ancient dragon with deep jade scales, a chipped left horn, molten-gold eyes, soot-dark wing tips, a blue ceremonial collar with one missing gem",
+                )
+                seed_text = f"{script.topic}|{name}|{len(fantasy_refs)}".casefold()
+                seed = sum((index + 1) * ord(char) for index, char in enumerate(seed_text))
+                look = looks[seed % len(looks)]
                 fantasy_refs[name] = f"{name} — original fictional character; {look}; cinematic live-action fantasy realism; exact same face, costume, colors and props in every shot"
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
