@@ -32,6 +32,7 @@ const I = {
 // One line drawing per format, so the choice reads at a glance.
 const G = {
   auto: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg>',
+  fantasy: '<svg viewBox="0 0 24 24"><path d="M12 2.5 14.2 9.8 21.5 12l-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.2z"/><path d="m19 2 .7 2.3L22 5l-2.3.7L19 8l-.7-2.3L16 5l2.3-.7z"/></svg>',
   facts: '<svg viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h8M9 17.5h10"/><circle cx="4.8" cy="6.5" r="1.2" fill="currentColor"/><circle cx="4.8" cy="12" r="1.2" fill="currentColor"/><circle cx="4.8" cy="17.5" r="1.2" fill="currentColor"/></svg>',
   story: '<svg viewBox="0 0 24 24"><path d="M3.5 17c3-6 5.5-6 8.5 0s5.5 0 8.5-9"/><circle cx="3.5" cy="17" r="1.5" fill="currentColor"/><path d="M20.5 8V4l-3 1.5"/></svg>',
   listicle: '<svg viewBox="0 0 24 24"><path d="M3.5 20.5h17M9 20.5V9.5h6v11M3.5 20.5v-6.5H9M15 20.5V12.5h5.5v8"/></svg>',
@@ -47,6 +48,7 @@ const G = {
 
 const FORMATS = [
   ["auto", "Auto · Hybrid", "Combines the story, facts, myth-check, countdown, quiz and explainer techniques that fit this topic."],
+  ["fantasy", "Fantasy role-play", "Original dragons, magical kingdoms, rival characters, funny banter and cinematic cliffhangers. Built as an episodic story, not a list of facts.", true],
 ];
 const MULTI = new Set(["dialogue", "chat"]);
 const STAGES = [["topic", "Topic"], ["script", "Script"], ["review", "Review"], ["voice", "Voice"], ["footage", "Footage"],
@@ -288,7 +290,7 @@ document.addEventListener("click", e => {
 function payload(extra = {}) {
   const f = S.form;
   const p = {
-    style: "auto", language: f.language, duration: f.duration, aspect: f.aspect,
+    style: f.style || "auto", language: f.language, duration: f.duration, aspect: f.aspect,
     caption_style: f.caption_style, caption_position: f.caption_position, grade: f.grade, transition: f.transition,
     tts: f.tts, voice: f.voice, voice_b: f.voice_b, provider: f.provider, model: f.model, review: f.review,
     also_langs: f.also_langs, music: f.music, upload: f.upload && S.info.upload && !f.offline, offline: f.offline,
