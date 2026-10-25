@@ -157,14 +157,14 @@ def test_strong_stock_match_rejects_santa_cartoon_for_documentary():
 
 
 def test_visual_search_cache_persists_empty_and_nonempty_results(monkeypatch, tmp_path):
-    v = M.Visuals(Settings(visual_sources=["pixabay"], media_dir=str(tmp_path)))
+    v = M.Visuals(Settings(visual_sources=["pixabay"], pixabay_api_key="test-key", media_dir=str(tmp_path)))
     calls = []
     item = M.MediaItem("pixabay", "12", "video", url="https://example.test/clip.mp4",
                        text="octopus underwater", width=1080, height=1920, duration=8)
     monkeypatch.setattr(M, "pixabay_videos", lambda *a, **k: calls.append(a[0]) or [item])
     first = v._search("pixabay", "octopus underwater")
     assert len(first) == 1 and len(calls) == 1
-    v2 = M.Visuals(Settings(visual_sources=["pixabay"], media_dir=str(tmp_path)))
+    v2 = M.Visuals(Settings(visual_sources=["pixabay"], pixabay_api_key="test-key", media_dir=str(tmp_path)))
     second = v2._search("pixabay", "octopus underwater")
     assert len(second) == 1 and second[0].id == "12"
     assert len(calls) == 1
