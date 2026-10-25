@@ -299,14 +299,14 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # When a shot includes the other named lead, carry that character's fixed
                 # identity too; otherwise the generator tends to invent a new face in two-shots.
                 for candidate in script.cast[:2]:
-                    if candidate not in visible_names and re.search(r"\\b" + re.escape(candidate) + r"\\b", prompt, re.IGNORECASE):
+                    if candidate not in visible_names and re.search(r"\b" + re.escape(candidate) + r"\b", prompt, re.IGNORECASE):
                         visible_names.append(candidate)
-                identity_lines = "\\n".join(
+                identity_lines = "\n".join(
                     f"REUSABLE CHARACTER: {name} — {fantasy_refs.get(name, name + ' — original fictional fantasy character; stable design')}"
                     for name in visible_names
                 )
                 character_note = (
-                    f"{identity_lines}\\n"
+                    f"{identity_lines}\n"
                     f"SHOT: {prompt}. Preserve every listed character's exact established identity; only pose, expression and action change. "
                     "No unrelated people, extra faces, or stock-photo substitutions."
                 )
