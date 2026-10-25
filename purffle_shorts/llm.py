@@ -224,8 +224,15 @@ class OpenAICompatible(Provider):
             headers["HTTP-Referer"] = "https://github.com/Chamanrajragu/purffle-shorts"
             headers["X-Title"] = "PurffleShorts"
         try:
-            # A local model on a laptop CPU can take minutes for one script; cloud APIs answer far sooner.
-            timeout = 600 if self.preset.local else 180
+            # Local models may legitimately need several minutes. A free OpenRouter route,
+            # however, must not hold a cloud video job hostage for 3 minutes per attempt.
+            # Bound these requests so the provider fallback can run and failures stay actionable.
+            if self.preset.local:
+                timeout = 600
+            elif self.name == "openrouter" and ("/free" in self.model.lower() or self.model.lower().endswith(":free")):
+                timeout = 45
+            else:
+                timeout = 90
             r = http().post(f"{self.base_url}/chat/completions", json=payload, headers=headers, timeout=timeout)
             raise_for_status(r, f"{self}")
         except PermanentError as e:
