@@ -295,9 +295,19 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # Keep identity and shot instructions on separate lines so the media layer can
                 # cache the canonical identity key while generating a different action each time.
                 prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
+                visible_names = [visible_name]
+                # When a shot includes the other named lead, carry that character's fixed
+                # identity too; otherwise the generator tends to invent a new face in two-shots.
+                for candidate in script.cast[:2]:
+                    if candidate not in visible_names and re.search(r"\\b" + re.escape(candidate) + r"\\b", prompt, re.IGNORECASE):
+                        visible_names.append(candidate)
+                identity_lines = "\\n".join(
+                    f"REUSABLE CHARACTER: {name} — {fantasy_refs.get(name, name + ' — original fictional fantasy character; stable design')}"
+                    for name in visible_names
+                )
                 character_note = (
-                    f"REUSABLE CHARACTER: {reference}\n"
-                    f"SHOT: {prompt}. Preserve the exact established character identity; only pose, expression and action change. "
+                    f"{identity_lines}\\n"
+                    f"SHOT: {prompt}. Preserve every listed character's exact established identity; only pose, expression and action change. "
                     "No unrelated people, extra faces, or stock-photo substitutions."
                 )
             elif character in CHARACTERS and character != "none":
