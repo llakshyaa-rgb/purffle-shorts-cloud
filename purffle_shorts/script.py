@@ -28,6 +28,7 @@ LANGUAGES = {
 
 STYLES = {
     "auto": "A smart hybrid story blending whichever techniques fit: curiosity hook, narrative tension, surprising facts, myth-check, countdown, analogy, explanation and payoff. Do not force every technique; combine naturally.",
+    "fantasy": "Original cinematic fantasy role-play fiction starring memorable recurring characters such as dragons, witches, knights, elves, talking creatures, cursed royals or magical rivals. Write an immersive mini-episode with character dialogue embedded naturally in the narration, a concrete magical problem, visible actions and reactions, escalating stakes, a clever reveal or emotional payoff, and a strong next-episode cliffhanger when appropriate. Prioritize entertaining character chemistry, humor or drama, and scenes that can be visualized distinctly. This is explicitly fictional: do not present invented lore as real-world fact. Do not imitate any named copyrighted franchise or existing character; create original worlds and designs.",
     "facts": "Rapid-fire surprising facts about one specific subject, each one more surprising than the last.",
     "story": "A tight true story: a hook that opens a loop, rising tension, then a satisfying twist or payoff.",
     "listicle": "A top-3 countdown (number 3, number 2, number 1) where number 1 is the most surprising.",
