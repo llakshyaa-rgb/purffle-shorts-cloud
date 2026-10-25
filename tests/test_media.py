@@ -161,10 +161,19 @@ def test_visual_search_cache_persists_empty_and_nonempty_results(monkeypatch, tm
     calls = []
     item = M.MediaItem("pixabay", "12", "video", url="https://example.test/clip.mp4",
                        text="octopus underwater", width=1080, height=1920, duration=8)
-    monkeypatch.setattr(M, "pixabay_videos", lambda *a, **k: calls.append(a[0]) or [item])
+
+    def fake_search(query, *args, **kwargs):
+        calls.append(query)
+        return [item] if query == "octopus underwater" else []
+
+    monkeypatch.setattr(M, "pixabay_videos", fake_search)
     first = v._search("pixabay", "octopus underwater")
-    assert len(first) == 1 and len(calls) == 1
+    empty_first = v._search("pixabay", "rare animal that does not exist")
+    assert len(first) == 1 and empty_first == [] and len(calls) == 2
+
     v2 = M.Visuals(Settings(visual_sources=["pixabay"], pixabay_api_key="test-key", media_dir=str(tmp_path)))
     second = v2._search("pixabay", "octopus underwater")
+    empty_second = v2._search("pixabay", "rare animal that does not exist")
     assert len(second) == 1 and second[0].id == "12"
-    assert len(calls) == 1
+    assert empty_second == []
+    assert len(calls) == 2  # positive and empty results both persist across Visuals instances
