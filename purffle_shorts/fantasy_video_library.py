@@ -334,6 +334,7 @@ def compose_fantasy_recipe(topic, narration, search_query, index):
     action = _re.sub(r"\s+", " ", action).strip()
     details = [f"Visual action from the narration: {action}.",
                f"Film look: {look}.", f"Location: {world}.", f"Camera: {camera}.",
+               f"Transition idea: {transition}.",
                f"Lighting: {lighting}.", f"Atmosphere: {atmosphere}."]
     if creature:
         details.append(f"Creature design, only if it is part of the narrated action: {creature}.")
