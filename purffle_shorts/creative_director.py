@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from .script import Script
-from .fantasy_video_library import FANTASY_VISUAL_RULES, compose_fantasy_recipe
+from .fantasy_video_library import FANTASY_VISUAL_RULES
 
 log = logging.getLogger("purffle")
 
