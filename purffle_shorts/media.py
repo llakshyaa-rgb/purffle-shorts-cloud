@@ -761,6 +761,8 @@ class Visuals:
                     "Character: " + style_key
                 )
                 ai_sources = [x for x in self.sources if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
+                if not ai_sources:
+                    ai_sources = ["pollinations"]
                 for provider in ai_sources:
                     made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
                     if made and made.path and made.path.is_file():
@@ -865,6 +867,10 @@ class Visuals:
         source_order = list(self.sources)
         if fantasy_mode:
             ai_sources = [x for x in source_order if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
+            # Fantasy requires a visible character, so try the no-key AI-image fallback
+            # even when the user has only configured Pixabay/Pexels/Commons.
+            if not ai_sources:
+                ai_sources = ["pollinations"]
             source_order = ai_sources + [x for x in source_order if x not in ai_sources]
         for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations"):
