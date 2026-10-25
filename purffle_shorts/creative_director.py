@@ -64,6 +64,26 @@ def _character_for(text: str, style: str) -> str:
     return "none"
 
 
+def _needs_gradient(narration: str, query: str) -> bool:
+    """Use designed gradients for connective narration, never as evidence for concrete claims."""
+    line = (narration or "").strip().lower()
+    q = (query or "").strip().lower()
+    bridges = (
+        "which means", "the real question", "here is the catch", "here's the catch",
+        "that is why", "that's why", "in other words", "the answer is",
+        "so what does that mean", "the takeaway is", "what this tells us",
+    )
+    if any(phrase in line for phrase in bridges):
+        return True
+    generic_query = not q or q in {"abstract", "transition", "background", "gradient"}
+    concrete = re.search(
+        r"\\b(octopus|planet|saturn|earth|moon|heart|brain|person|human|animal|"
+        r"scientist|experiment|study|researcher|city|ocean|volcano|door|car|"
+        r"machine|cell|blood|water|fire|ice|camera|phone|satellite|evidence)\\b", line
+    )
+    return generic_query and len(line.split()) <= 6 and not concrete
+
+
 def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     narration = str(getattr(scene, "narration", "") or "")
     query = str(getattr(scene, "search_query", "") or "")
@@ -186,6 +206,16 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                     clean[key] = row[key]
             if row.get("character") in CHARACTERS:
                 clean["character"] = row["character"]
+            # Enforce the abstract-beat rule after LLM merging too: model output must not
+            # turn a connective sentence into a random stock photo or human subject.
+            source_scene = script.scenes[i - 1]
+            if _needs_gradient(source_scene.narration, source_scene.search_query):
+                clean["visual_mode"] = "gradient"
+                clean["character"] = "none"
+                clean["visual_prompt"] = (
+                    "Abstract animated gradient transition, deep cinematic color, subtle slow light movement, "
+                    "clean negative space for captions; no people, no stock photo, no icons, no collage."
+                )
             clean["scene"] = i
             merged.append(clean)
         return merged

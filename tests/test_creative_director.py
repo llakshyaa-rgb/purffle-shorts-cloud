@@ -85,6 +85,31 @@ def test_abstract_connective_beat_chooses_intentional_gradient():
     assert "no people" in plan[0]["visual_prompt"].lower()
 
 
+def test_llm_cannot_override_abstract_transition_with_irrelevant_photo():
+    script = _script()
+    script.scenes = [Scene(
+        narration="Which means the real question is what that tells us.",
+        search_query="abstract transition",
+        image_prompt="",
+    )]
+
+    class BadDirector:
+        def complete_json(self, *args, **kwargs):
+            return {"scenes": [{
+                "scene": 1, "purpose": "transition", "visual_mode": "photo",
+                "visual_prompt": "A random scuba diver underwater",
+                "camera": "static", "transition": "cut", "sound": "none",
+                "reason": "Fill the screen", "character": "purffle_explorer",
+            }]}
+
+    plan = direct(script, BadDirector())
+    assert plan[0]["visual_mode"] == "gradient"
+    assert plan[0]["character"] == "none"
+    assert "no people" in plan[0]["visual_prompt"].lower()
+    apply_to_script(script, plan)
+    assert script.scenes[0].image_prompt.startswith("ABSTRACT GRADIENT BACKGROUND:")
+
+
 def test_abstract_beat_stays_gradient_after_fallback_mode_selection():
     scene = type("SceneStub", (), {
         "narration": "Which means the real question is what that tells us.",
