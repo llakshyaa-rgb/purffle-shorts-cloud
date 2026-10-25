@@ -917,10 +917,22 @@ class Visuals:
             ". Scene action: " + (image_prompt or query or topic)
         ) if fantasy_mode else (image_prompt or query)
         if fantasy_mode:
-            ai_sources = [x for x in source_order if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations")]
-            if not ai_sources:
-                ai_sources = ["pollinations"]
-            # Fantasy characters must be generated from the episode's original character bible.
+            # Fantasy requires original character art. Prefer explicitly configured AI providers,
+            # including Cloudflare Workers AI (the intended low-cost image provider). The UI hides
+            # Cloudflare from the selectable list because its credentials are server-side secrets,
+            # so include it here whenever both credentials are configured.
+            ai_sources = [
+                x for x in source_order
+                if x in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare")
+            ]
+            if s.cloudflare_account_id and s.cloudflare_api_token and "cloudflare" not in ai_sources:
+                ai_sources.insert(0, "cloudflare")
+            if s.openai_api_key and not any(x in ai_sources for x in ("openai-images", "ai", "dalle", "gpt-image")):
+                ai_sources.insert(0, "openai-images")
+            # Do not silently fall back to anonymous Pollinations: it is rate-limited and can
+            # stall the job. Only use it when explicitly selected and a key is configured.
+            if not s.pollinations_api_key:
+                ai_sources = [x for x in ai_sources if x != "pollinations"]
             # Never fall through to unrelated stock people just because AI generation is unavailable.
             source_order = ai_sources
         for source in source_order:
