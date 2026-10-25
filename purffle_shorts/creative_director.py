@@ -243,21 +243,29 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
     """Apply the director's visual choices to the actual media prompts."""
     fantasy_refs: dict[str, str] = {}
     if script.style == "fantasy":
-        # Stable text model sheets are attached to every shot featuring that speaker.
-        # The media layer uses this marker to generate/cache an original AI reference sheet.
-        for cast_index, name in enumerate(script.cast[:3]):
-            seed = f"{script.topic}|{name}|{cast_index}".casefold()
-            if cast_index == 0:
-                archetype = "lead hero or protagonist"
-            elif cast_index == 1:
-                archetype = "counterpart, rival, ally, or second speaker"
-            else:
-                archetype = "supporting magical character"
-            fantasy_refs[name] = (
-                f"{name}, original fictional {archetype}; consistent recognizable face; "
-                "distinctive silhouette; coherent fantasy costume and signature prop; "
-                "cinematic practical-costume realism; same exact design in every shot"
-            )
+        # Preserve the generated character bible instead of replacing it with generic archetypes.
+        # The exact identity text is reused across every shot of the same named character.
+        for name in script.cast[:2]:
+            for source_scene in script.scenes:
+                source_prompt = str(getattr(source_scene, "image_prompt", "") or "")
+                for line in source_prompt.splitlines():
+                    marker = "REUSABLE CHARACTER:"
+                    if marker not in line.upper():
+                        continue
+                    identity = line[line.upper().find(marker) + len(marker):].strip()
+                    if identity.lower().startswith(name.lower()):
+                        identity = identity[len(name):].lstrip(" —-:;")
+                        if identity:
+                            fantasy_refs[name] = f"{name} — {identity[:600]}"
+                            break
+                if name in fantasy_refs:
+                    break
+            if name not in fantasy_refs:
+                if len(fantasy_refs) == 0:
+                    look = "young adult human mage, copper-red braided hair, amber eyes, weathered teal travel cloak, brass star-shaped clasp, leather spell satchel"
+                else:
+                    look = "young adult elven swordsman, pale silver hair, dark green eyes, charcoal scale armor, one broken silver ear cuff, narrow black-steel sword"
+                fantasy_refs[name] = f"{name} — original fictional character; {look}; cinematic live-action fantasy realism; exact same face, costume, colors and props in every shot"
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
         mode = str(beat.get("visual_mode", "illustration")).strip().lower()
@@ -283,9 +291,12 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # throughout the episode to make identity drift less likely.
                 speaker_index = 1 if str(getattr(scene, "speaker", "A")).upper() == "B" else 0
                 visible_name = script.cast[speaker_index] if speaker_index < len(script.cast) else (script.cast[0] if script.cast else "the protagonist")
-                reference = fantasy_refs.get(visible_name, f"{visible_name}, original fictional fantasy character; consistent design across every shot")
-                character_note = f"\nREUSABLE CHARACTER: {reference}"
-                prompt = f"{prompt}. CHARACTER REFERENCE: {reference}. Show this character's exact established design; do not substitute a real person or unrelated stock photo."
+                reference = fantasy_refs.get(visible_name, f"{visible_name} — original fictional fantasy character; same recognizable design in every shot")
+                # Keep identity and shot instructions on separate lines so the media layer can
+                # cache the canonical identity key while generating a different action each time.
+                prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
+                character_note = f"\nREUSABLE CHARACTER: {reference}\nSHOT: {prompt}"
+                prompt = f"{prompt}. Preserve the exact established character identity from the reusable character line; only the pose, expression and action change. No unrelated people or stock-photo substitutions."
             elif character in CHARACTERS and character != "none":
                 character_note = f"\nREUSABLE CHARACTER: {character}"
             scene.image_prompt = prefix + prompt + character_note
