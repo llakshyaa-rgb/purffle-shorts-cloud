@@ -409,7 +409,9 @@ class Studio:
             # word budget, then synthesize the revised narration once.
             target = max(1, int(s.target_seconds))
             repair_llm = None
-            if abs(total - target) / target > 0.20 and not s.offline:
+            # A 20% tolerance made a 33-second video pass for a 25-second request.
+            # Repair anything more than 8% off target; publish readiness remains a separate gate.
+            if abs(total - target) / target > 0.08 and not s.offline:
                 try:
                     repair_llm = self.llm
                 except LLMConfigError:
@@ -424,12 +426,13 @@ class Studio:
                         context=(f"Original title: {script.title}. Preserve the original factual topic, "
                                  "central reveal, and intended audience."),
                         creative_brief=(
-                            f"RUNTIME REPAIR: target exactly about {target} seconds. "
+                            f"RUNTIME REPAIR: target {target} seconds, not a loose estimate. "
                             f"The previous narration rendered to {total:.1f} seconds. "
-                            "Rewrite the narration, do not explain the revision. Target the word count "
-                            "for this runtime; keep only the strongest specific facts, a compelling hook, "
-                            "clear causal logic, and a satisfying ending. Do not pad with filler or a CTA. "
-                            "Use concise, natural spoken sentences and keep every scene visually concrete."
+                            f"Write no more than {max(1, round(target * 2.25))} spoken words, including the hook and ending. "
+                            "Rewrite the narration; do not explain the revision. Remove secondary facts and repeated "
+                            "phrases before removing the central reveal. Keep a compelling hook, clear causal logic, "
+                            "and a satisfying ending. No filler or CTA. Use short natural spoken sentences, and keep "
+                            "each scene visually concrete. The narration must fit the requested runtime when spoken aloud."
                         ),
                     )
                     repaired = review_script(repair_llm, repaired, s)
