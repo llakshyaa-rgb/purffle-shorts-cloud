@@ -428,11 +428,14 @@ class Studio:
                         creative_brief=(
                             f"RUNTIME REPAIR: target {target} seconds, not a loose estimate. "
                             f"The previous narration rendered to {total:.1f} seconds. "
-                            f"Write no more than {max(1, round(target * 2.25))} spoken words, including the hook and ending. "
-                            "Rewrite the narration; do not explain the revision. Remove secondary facts and repeated "
-                            "phrases before removing the central reveal. Keep a compelling hook, clear causal logic, "
-                            "and a satisfying ending. No filler or CTA. Use short natural spoken sentences, and keep "
-                            "each scene visually concrete. The narration must fit the requested runtime when spoken aloud."
+                            f"Write approximately {max(1, round(target * 2.85))} spoken words, with an acceptable range of "
+                            f"{max(1, round(target * 2.55))}–{max(1, round(target * 3.15))} words, including the hook and ending. "
+                            "Rewrite the narration; do not explain the revision. The prior attempt was too short, so do NOT compress it further. "
+                            "Keep enough spoken dialogue to fill the target runtime; never solve timing by using fewer than the minimum "
+                            "word count above. Remove only repeated or irrelevant phrases. Preserve the central reveal, causal logic, "
+                            "character reactions, and satisfying ending. No filler or CTA. Use short natural spoken sentences, "
+                            "and keep each scene visually concrete. Split the full spoken word budget across enough scenes. "
+                            "The narration must fit the requested runtime when spoken aloud."
                         ),
                     )
                     repaired = review_script(repair_llm, repaired, s)
