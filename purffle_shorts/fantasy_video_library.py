@@ -187,6 +187,18 @@ dominant look, ONE coherent world, a restrained lighting/weather palette, and a 
 Choose different options across episodes so the library creates variety without losing continuity.
 Use the option menus in this module as creative choices; do not dump all choices into one prompt.
 
+CHARACTER COSTUME LOCK — HOODED CHARACTER MEANS A HOODIE, NOT A CLOAK:
+- When the story asks for a hooded character, depict a person wearing a fitted dark hoodie or fitted hooded jacket. The hood is gathered around the head and neck, with fabric bunching at the collar/chest; the torso and arms remain readable.
+- Keep the hands visible whenever the action allows. Show normal sleeves, shoulders, torso and legs when the shot includes them.
+- Do NOT turn this design into a floor-length cloak, cape, robe, poncho, giant draped fabric, or a faceless floating black silhouette. No cloak covering the legs unless the story explicitly asks for one.
+- The hood may shadow the face, but preserve a believable head shape and natural hood opening; do not replace the face with a featureless oversized black oval unless the plot specifically requires a masked/anonymous face.
+- Lock the character's clothing, body proportions, hood shape, colors and accessories across scenes. Do not recolor the same image and present it as a new shot.
+
+VISUAL RELEVANCE AND DUPLICATE CONTROL:
+- Reject any candidate whose actual content is unrelated to the current narrated beat, even if its tags overlap one generic word. A roller coaster, amusement park, or unrelated thrill ride must never illustrate a hooded character, mystery, or unrelated factual claim.
+- Never reuse the same underlying image/clip in two scenes of one video, including tinted, recolored, mirrored, cropped, or otherwise lightly altered copies. Use a genuinely different shot/asset; if none is relevant, choose a simple honest graphic rather than fake variety.
+- Search each scene using concrete subject + action + context. Check that the selected asset actually shows those elements before accepting it; topic similarity alone is insufficient.
+
 SHOT GRAMMAR — select the shot that matches the exact narrated beat:
 1. ESTABLISHING WIDE: show the real geography of the castle, forest, room or battlefield.
 2. CHARACTER ACTION: show a readable physical verb and its result.
