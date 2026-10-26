@@ -1,7 +1,10 @@
 name: CI
 
-# Keep CI opt-in during development. No pushes or pull requests start jobs.
+# Run checks on every code change so syntax and regression failures are caught before use.
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -19,6 +22,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Install
         run: pip install -e ".[dev]"
+      - name: Compile every Python module (catch syntax errors before tests)
+        run: python -m compileall -q purffle_shorts tests
       - name: Studio JS syntax
         run: node --check purffle_shorts/web/app.js
       - name: Targeted lint (new creative director files)
