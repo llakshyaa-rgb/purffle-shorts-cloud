@@ -1010,7 +1010,7 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
             shutil.copy(font_path, fonts / font_path.name)
         ass = write_ass(settings, style, family, chunks, total, work / "captions.ass",
                         hook=hook_text if hook_until else "", hook_until=hook_until,
-                        cta=cta_text, cta_from=cta_from, watermark=settings.watermark_text,
+                        cta=cta_text, cta_from=cta_from, watermark="",
                         hook_y=hook_y, cta_y=0.10 if chat else 0.30, labels=labels, emphasis=emphasis)
         log.info("Captions: libass renderer (%s, font %s)", settings.language, family)
         return OverlayPlan("ass", ass=ass, fonts_dir=fonts, chat=chat_plan, card=card_plan,
@@ -1026,8 +1026,7 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
         plan.hook = hook_png(settings, ui_font, hook_text, work / "hook.png", y_ratio=hook_y,
                              max_lines=2 if chat else 3)
         plan.hook_until = hook_until
-    if settings.watermark_text:
-        plan.watermark = watermark_png(settings, ui_font, settings.watermark_text, work / "watermark.png")
+    # No watermark is burned into exported videos.
     if cta_text:
         # Chat stories keep the conversation readable: the call-to-action takes the hook's place above it.
         plan.cta = cta_png(settings, ui_font, cta_text, work / "cta.png", y_ratio=0.10 if chat else 0.30)
