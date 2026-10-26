@@ -300,6 +300,11 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
         acc, last = glens[0], labels[0]
         for gi in range(1, len(labels)):
             tr = random.choice(TRANSITIONS) if settings.transition == "random" else settings.transition
+            # A directional slide should feel like a deliberate backthrow, not the same shove every time:
+            # alternate the incoming direction on successive scene boundaries. Keep every other transition
+            # type and the existing safe-retry path unchanged.
+            if settings.transition in {"slideleft", "slideright"} and gi % 2 == 0:
+                tr = "slideright" if settings.transition == "slideleft" else "slideleft"
             f.append(f"[{last}][{labels[gi]}]xfade=transition={tr}:duration={T:.3f}:offset={acc - T:.3f}[x{gi}]")
             acc += glens[gi] - T
             last = f"x{gi}"
