@@ -257,7 +257,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                     if identity.lower().startswith(name.lower()):
                         identity = identity[len(name):].lstrip(" —-:;")
                         if identity:
-                            fantasy_refs[name] = f"{name} — {identity[:600]}"
+                            fantasy_refs[name] = identity[:600]
                             break
                 if name in fantasy_refs:
                     break
@@ -277,7 +277,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 seed_text = f"{script.topic}|{name}|{len(fantasy_refs)}".casefold()
                 seed = sum((index + 1) * ord(char) for index, char in enumerate(seed_text))
                 look = looks[seed % len(looks)]
-                fantasy_refs[name] = f"{name} — original fictional character; {look}; cinematic live-action fantasy realism; exact same face, costume, colors and props in every shot"
+                fantasy_refs[name] = f"original fictional character; {look}; cinematic live-action fantasy realism; exact same face, costume, colors and props in every shot"
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
         mode = str(beat.get("visual_mode", "illustration")).strip().lower()
