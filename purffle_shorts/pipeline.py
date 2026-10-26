@@ -456,10 +456,14 @@ class Studio:
             # Do not spend image-generation time on a video that already failed its requested
             # runtime. The repair is best-effort; if the voice still misses by more than 8%,
             # fail here with an explicit duration error before the Creative Director / footage stage.
-            if abs(total - target) / target > 0.08:
+            # Offline rendering, editor-supplied scripts, and script files are deterministic
+            # rendering workflows: do not reject them because their content is intentionally short.
+            # Enforce the runtime gate only for generated scripts in online production.
+            enforce_runtime = not s.offline and writer not in ("script file", "editor")
+            if enforce_runtime and abs(total - target) / target > 0.08:
                 raise RuntimeError(
                     f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
-                    "Video was stopped before image generation; retry with a working script model."
+                    "The generated script did not meet the requested duration after one repair attempt."
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
