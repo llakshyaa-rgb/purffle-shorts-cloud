@@ -462,10 +462,16 @@ class Studio:
             # rendering workflows: do not reject them because their content is intentionally short.
             # Enforce the runtime gate only for generated scripts in online production.
             enforce_runtime = not s.offline and s.tts_engine != "silent" and parent_id is None and writer not in ("script file", "editor")
-            if enforce_runtime and abs(total - target) / target > 0.08:
+            if enforce_runtime and abs(total - target) / target > 0.20:
                 raise RuntimeError(
                     f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
-                    "The generated script did not meet the requested duration after one repair attempt."
+                    "The narration remains more than 20% off target after the bounded repair."
+                )
+            if enforce_runtime and abs(total - target) / target > 0.08:
+                log.warning(
+                    "Narration remains %.1fs from the %ss target after repair; continuing to render rather than "
+                    "discarding the entire video (within the 20%% hard limit).",
+                    abs(total - target), target
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
