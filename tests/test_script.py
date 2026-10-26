@@ -137,6 +137,14 @@ def test_lint_flags_repeated_visual_search_and_weak_prompt():
     assert any("underspecified visual prompt" in item for item in checks)
 
 
+def test_auto_style_requires_connected_story_fact_hybrid():
+    _, user = build_prompt("deep ocean", "auto", Settings(target_seconds=30), [])
+    assert "HYBRID STORY + FACTS QUALITY BAR" in user
+    assert "ONE clear central question" in user
+    assert "Never invent statistics" in user
+    assert "visuals aligned with the spoken line" in user
+
+
 def test_script_prompt_sets_strong_runtime_length_target():
     settings = Settings.from_env()
     settings.target_seconds = 25
