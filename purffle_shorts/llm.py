@@ -404,11 +404,11 @@ class LLM:
                     # Do not append recovery instructions to the original prompt: script prompts can
                     # be thousands of tokens long and leave too little room for a complete JSON reply.
                     # Preserve only the key metadata and ask for a deliberately small, schema-valid draft.
-                    subject_match = re.search(r"(?im)^Subject:\\s*(.+)$", user)
-                    format_match = re.search(r"(?im)^Format:\\s*(.+)$", user)
-                    audience_match = re.search(r"(?im)^Audience:\\s*(.+)$", user)
-                    language_match = re.search(r"(?im)^Language:\\s*(.+)$", user)
-                    duration_match = re.search(r"(?i)(\\d{2,3})-second video", user)
+                    subject_match = re.search(r"(?im)^Subject:\s*(.+)$", user)
+                    format_match = re.search(r"(?im)^Format:\s*(.+)$", user)
+                    audience_match = re.search(r"(?im)^Audience:\s*(.+)$", user)
+                    language_match = re.search(r"(?im)^Language:\s*(.+)$", user)
+                    duration_match = re.search(r"(?i)(\d{2,3})-second video", user)
                     subject = subject_match.group(1).strip() if subject_match else "the requested topic"
                     fmt = format_match.group(1).strip() if format_match else "short-form video"
                     audience = audience_match.group(1).strip() if audience_match else "general viewers"
@@ -420,7 +420,7 @@ class LLM:
                         "Keep every field short so the JSON finishes within the output budget."
                     )
                     compact_user = (
-                        f"Topic: {subject}\\nFormat: {fmt}\\nAudience: {audience}\\nLanguage: {language}\\n"
+                        f"Topic: {subject}\nFormat: {fmt}\nAudience: {audience}\nLanguage: {language}\n"
                         f"Target runtime: about {duration} seconds. Write a coherent beginning-to-payoff script. "
                         "Use 5 concise scenes; each scene needs speaker, narration, search_query, image_prompt, "
                         "emphasis, and emoji. Keep narration natural and factually careful. Each search_query must "
