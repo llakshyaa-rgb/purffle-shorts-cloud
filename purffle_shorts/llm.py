@@ -432,7 +432,7 @@ class LLM:
                     )
                     recovery_text = p.complete(
                         compact_system, compact_user, schema=schema if schema is not None else {},
-                        max_tokens=max(3200, min(max_tokens, 4000)), temperature=temp
+                        max_tokens=min(max_tokens, 2800), temperature=temp
                     )
                     return extract_json(recovery_text)
 
