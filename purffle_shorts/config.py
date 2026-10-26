@@ -171,7 +171,7 @@ class Settings:
     ken_burns: bool = True
     progress_bar: bool = True
     hook_overlay: bool = True
-    watermark: str = "none"          # off by default; set a watermark explicitly when wanted
+    watermark: str = ""              # blank defaults to channel name; set "none" to disable
     end_cta: str = "Follow for more!"
     caption_style: str = "auto"        # auto|bold|boxed|neon|clean|karaoke|minimal
     caption_position: str = "center"  # upper|center|lower
