@@ -235,7 +235,7 @@ def _format_rules(style: str, target_seconds: int = 40) -> str:
     if style == "chat":
         return (
             "- Each scene is ONE text message (max 18 words) from A or B. Messages may be 1–3 words. Consecutive messages from the same person are fine.\n"
-            "- cast: [contact name shown at the top of the chat (e.g. Mom, Unknown Number, Jake), 'Me']. B is 'Me', the phone's owner.\n"
+            "- cast: [contact name shown at the top of the chat (e.g. Mom, Unknown Number, Jake), 'Me']. B is "Me", the phone's owner.\n"
             "- No emojis. The story must be fiction that is clearly plausible, never about real people.\n"
         )
     if style == "reddit":
