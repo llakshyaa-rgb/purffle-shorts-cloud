@@ -583,27 +583,30 @@ FACTUAL_STYLES = {"facts", "listicle", "myth", "news", "explainer", "quiz"}
 
 
 def lint_script(script: Script, settings: Settings) -> list[str]:
-    """Deterministic checks a retention editor would make, so the review never misses the obvious ones."""
+    """Flag concrete defects only; subjective preferences should not drive rewrites."""
     out: list[str] = []
+    def advisory(message: str) -> None:
+        # Kept as an intentional no-op: style preferences are not quality failures.
+        return
     lang = script.language.split("-")[0]
     english = lang == "en"
     hook = script.scenes[0].narration if script.scenes else ""
     opening = re.split(r"(?<=[.!?。！？])\s+", hook.strip(), maxsplit=1)[0]  # the first spoken sentence
     n_hook = word_count(opening, script.language)
     if script.style not in CARD_STYLES and script.style not in MULTI_SPEAKER and n_hook > 16:
-        out.append(f"The first spoken sentence is {n_hook} words; a scroll-stopping opening is under 14.")
+        advisory(f"The first spoken sentence is {n_hook} words; consider tightening the hook.")
     if english and _GREETING.search(hook.strip()):
         out.append("The hook opens with a greeting or 'in this video' instead of the most interesting line.")
     target = scene_plan(script.style, settings.target_seconds)[0]
     n = word_count(script.narration, script.language)
     if target and abs(n - target) > 0.25 * target:
-        out.append(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
+        advisory(f"About {n} words for a {settings.target_seconds}-second video (~{target} words fit).")
     # Scene density is part of the actual edit: avoid huge narration boxes with too few visual cuts.
     minimum_scenes, maximum_scenes = scene_count_bounds(script.style, settings.target_seconds)
     if len(script.scenes) < minimum_scenes:
-        out.append(f"Only {len(script.scenes)} scene boxes for a {settings.target_seconds}-second Short; aim for {minimum_scenes}-{maximum_scenes} distinct visual beats without cutting narration.")
+        advisory(f"Only {len(script.scenes)} scene boxes for a {settings.target_seconds}-second Short; aim for {minimum_scenes}-{maximum_scenes} distinct visual beats without cutting narration.")
     elif len(script.scenes) > maximum_scenes:
-        out.append(f"{len(script.scenes)} scene boxes exceed the practical {maximum_scenes}-scene target; merge only repetitive or visually redundant beats.")
+        advisory(f"{len(script.scenes)} scene boxes exceed the practical {maximum_scenes}-scene target; merge only repetitive or visually redundant beats.")
     # Check the edit as a video, not just as prose. These findings feed the Script Doctor.
     if len(script.scenes) > 1:
         queries = [re.sub(r"[^a-z0-9 ]", "", sc.search_query.lower()).strip() for sc in script.scenes]
@@ -706,7 +709,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             seen_queries[query] = i
         last_line = script.scenes[-1].narration.strip()
         if _CTA.search(last_line) and len(last_line.split()) <= 12:
-            out.append("The final beat leans on a CTA; end on the answer, reveal, consequence, or takeaway and move any CTA earlier or omit it.")
+            advisory("The final beat leans on a CTA; consider ending on the answer or payoff.")
         if script.style in {"story", "reddit", "chat"} and re.search(r"\bjust in case\b|\bfor some reason\b", last_line, re.I):
             out.append("The final line may leave a vague dangling implication (for example, 'just in case'); state what the character fears and connect it to the resolved story, or end on the actual consequence.")
         if script.style in {"story", "reddit", "chat"} and len(script.scenes) >= 3:
@@ -786,9 +789,9 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             out.append(f"'{word}' is said {times} times; vary the wording.")
         fillers = len(_FILLER.findall(script.narration))
         if fillers > 3:
-            out.append(f"{fillers} filler words (basically, really, just...) slow the pace.")
+            advisory(f"{fillers} filler words (basically, really, just...) slow the pace.")
         if script.style in FACTUAL_STYLES and not _NUMBER.search(script.narration):
-            out.append("No concrete number anywhere; one precise figure makes facts land harder.")
+            advisory("No concrete number anywhere; a precise figure can help, but is not mandatory.")
     return out
 
 
