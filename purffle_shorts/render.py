@@ -107,13 +107,18 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
                 "left": "1.12", "right": "1.12", "static": "1.0",
                 "shake": "min(1.04+0.025*abs(sin(on*0.35)),1.07)",
             }[move]
+            available_x = "(iw-iw/zoom)"
+            available_y = "(ih-ih/zoom)"
             if move == "left":
-                x = f"(iw-iw/zoom)*(1-on/{frames})"
+                base_x = f"{available_x}*(1-on/{frames})"
             elif move == "right":
-                x = "(iw-iw/zoom)*on/" + str(frames)
+                base_x = f"{available_x}*on/{frames}"
             else:
-                x = "iw/2-(iw/zoom/2)"
-            y = "ih/2-(ih/zoom/2)"
+                base_x = f"{available_x}/2"
+            # Layer a small, slow two-axis drift over the director's move. Clamp the crop
+            # coordinates so the floating motion never exposes an edge or asks FFmpeg for negatives.
+            x = f"max(0,min({available_x},{base_x}+{available_x}*0.055*sin(on*0.035)))"
+            y = f"max(0,min({available_y},{available_y}/2+{available_y}*0.10*sin(on*0.027)))"
             vf = (f"scale={2 * W}:{2 * H}:force_original_aspect_ratio=increase,crop={2 * W}:{2 * H},"
                   f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={F},setsar=1{grade}")
             ffmpeg.run(["-i", str(item.path), "-vf", vf, *enc, "-frames:v", str(frames), str(out)],
