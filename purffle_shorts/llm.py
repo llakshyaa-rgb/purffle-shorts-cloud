@@ -211,11 +211,17 @@ class OpenAICompatible(Provider):
         }
 
         if self._is_reasoning_model():
-            payload["max_completion_tokens"] = max(int(max_tokens), 8000)
+            # Keep the established 8k minimum for normal requests, but honor deliberately
+        # small budgets used by compact JSON recovery (otherwise recovery is also forced to 8k).
+        requested = int(max_tokens)
+        payload["max_completion_tokens"] = max(512, requested) if requested <= 3000 else max(requested, 8000)
         else:
             payload["temperature"] = temperature
             # Preserve the established 12k output budget; free routes may still enforce their own limits.
-            payload["max_tokens"] = max(int(max_tokens), 12000)
+            # Preserve the established 12k minimum for normal requests. Compact recovery
+        # explicitly passes <=3000 tokens and must be allowed to stay compact.
+        requested = int(max_tokens)
+        payload["max_tokens"] = max(512, requested) if requested <= 3000 else max(requested, 12000)
 
 
         if schema and self._schema_mode:
