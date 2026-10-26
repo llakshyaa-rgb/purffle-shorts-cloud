@@ -193,7 +193,13 @@ class OpenAICompatible(Provider):
         self.name, self.preset, self.model = preset.name, preset, model
         self.api_key, self.base_url = api_key, base_url.rstrip("/")
         self._json_mode = preset.json_mode
-        self._schema_mode = preset.schema_mode and os.getenv("LLM_JSON_SCHEMA", "true").lower() not in ("0", "false")
+        # OpenRouter's rotating :free routes often reject/under-generate strict schemas.
+        # Use ordinary JSON mode for free routes unless the operator explicitly opts in.
+        free_route = preset.name == "openrouter" and (
+            "/free" in model.lower() or model.lower().endswith(":free")
+        )
+        schema_default = "false" if free_route else "true"
+        self._schema_mode = preset.schema_mode and os.getenv("LLM_JSON_SCHEMA", schema_default).lower() not in ("0", "false")
 
     def _is_reasoning_model(self) -> bool:
         return bool(re.match(r"^(o\d|gpt-5)", self.model.split("/")[-1]))
@@ -205,12 +211,11 @@ class OpenAICompatible(Provider):
         }
 
         if self._is_reasoning_model():
-            payload["max_completion_tokens"] = max(max_tokens, 8000)
+            payload["max_completion_tokens"] = max(512, min(int(max_tokens), 8000))
         else:
             payload["temperature"] = temperature
-            # Respect the caller's budget. Forcing 12,000 output tokens wastes the
-            # free route's context budget and can cause empty/truncated replies.
-            payload["max_tokens"] = max(512, min(int(max_tokens), 8000))
+            # Respect the caller's budget; a large forced limit can exceed free-route caps.
+            payload["max_tokens"] = max(512, min(int(max_tokens), 6000))
 
 
         if schema and self._schema_mode:
