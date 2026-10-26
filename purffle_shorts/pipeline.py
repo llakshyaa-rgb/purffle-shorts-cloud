@@ -453,17 +453,16 @@ class Studio:
                 except Exception as repair_error:
                     log.warning("Runtime repair failed; quality gate will block off-target publishing: %s",
                                 redact(repair_error))
-            # Do not spend image-generation time on a video that already failed its requested
-            # runtime. The repair is best-effort; if the voice still misses by more than 8%,
-            # fail here with an explicit duration error before the Creative Director / footage stage.
-            # Offline rendering, editor-supplied scripts, and script files are deterministic
-            # rendering workflows: do not reject them because their content is intentionally short.
-            # Enforce the runtime gate only for generated scripts in online production.
-            enforce_runtime = not s.offline and s.tts_engine != "silent" and parent_id is None and writer not in ("script file", "editor")
-            if enforce_runtime and abs(total - target) / target > 0.08:
-                raise RuntimeError(
-                    f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
-                    "The generated script did not meet the requested duration after one repair attempt."
+            # Runtime mismatch is a warning, not a reason to discard a complete job.
+            # Preserve the existing pipeline: continue through Creative Director, footage,
+            # captions and rendering using the measured narration duration. Upload readiness
+            # is still governed by the existing render/check/publish workflow.
+            runtime_delta = abs(total - target) / max(1.0, target)
+            if runtime_delta > 0.08:
+                log.warning(
+                    "Narration is %.1fs (%.0f%%) away from requested %ss after repair; "
+                    "continuing with the established render workflow using actual voice duration.",
+                    abs(total - target), runtime_delta * 100, target
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
