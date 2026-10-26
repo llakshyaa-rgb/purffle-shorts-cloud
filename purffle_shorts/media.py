@@ -919,18 +919,17 @@ class Visuals:
             ". Scene action: " + (image_prompt or query or topic)
         ) if fantasy_mode else (image_prompt or query)
         if fantasy_mode:
-            # Fantasy character scenes use the configured Cloudflare Workers AI image
-            # endpoint exclusively. Do not route these scenes through Pollinations, stock
-            # photo search, or an unrelated image provider: that creates inconsistent casts
-            # and makes jobs fail for a provider the user never intended to depend on.
+            # Fantasy character scenes use Cloudflare Workers AI only. If its credentials
+            # are missing, fail before making a scene instead of silently choosing another
+            # provider or showing unrelated stock images.
             if self.s.cloudflare_account_id and self.s.cloudflare_api_token:
                 source_order = ["cloudflare"]
             else:
-                log.error(
-                    "Fantasy image generation needs CLOUDFLARE_ACCOUNT_ID and "
-                    "CLOUDFLARE_API_TOKEN; refusing to substitute Pollinations or random stock images."
+                raise RuntimeError(
+                    "Fantasy image generation requires CLOUDFLARE_ACCOUNT_ID and "
+                    "CLOUDFLARE_API_TOKEN. Add both to your local .env or Render environment, "
+                    "then restart the Studio. No other image provider will be used."
                 )
-                source_order = []
         for source in source_order:
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
