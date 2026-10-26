@@ -986,7 +986,9 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     card = card if card and card_until > 0 else None
     hook_until = min(2.8, total * 0.4) if settings.hook_overlay and hook_text and not card else 0.0
     cta_text = settings.end_cta.strip()
-    cta_from = max(total - 2.6, total * 0.6) if cta_text else 0.0
+    # Keep the CTA as an ending beat, not an interruption in the middle of a story.
+    # For short clips it gets the final ~2.6 seconds; for longer clips it starts no earlier than 82%.
+    cta_from = max(total - 2.6, total * 0.82) if cta_text else 0.0
     hook_y = 0.09 if chat else 0.15
     chat_plan = None
     if chat:
