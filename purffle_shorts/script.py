@@ -124,7 +124,7 @@ REVIEW_TEMPERATURE = 0.2  # grading should be repeatable; writing stays creative
 
 # Slightly above typical narration pace so generated scripts have enough spoken material;
 # the final runtime still follows measured TTS duration rather than silently padding audio.
-WORDS_PER_SECOND = 2.85
+WORDS_PER_SECOND = 4.1
 
 
 @dataclass
