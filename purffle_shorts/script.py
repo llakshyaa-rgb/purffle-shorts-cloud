@@ -272,6 +272,18 @@ def build_prompt(subject: str, style: str, settings: Settings, avoid: list[str],
     ins = f"{insights.strip()}\n\n" if insights else ""
     ins += f"{keywords.strip()}\n\n" if keywords else ""
     brief = (f"CREATOR CREATIVE DIRECTION (follow unless it conflicts with factual accuracy or safety):\n{creative_brief.strip()[:1000]}\n\n" if creative_brief.strip() else "")
+    hybrid_rules = ""
+    if style == "auto":
+        hybrid_rules = """HYBRID STORY + FACTS QUALITY BAR (mandatory):
+- Choose ONE clear central question or promise. Build one connected progression from hook to evidence/events to payoff; do not switch to unrelated facts just to vary the format.
+- Use factual details only when they strengthen the same thread. If the topic is a true story, distinguish confirmed facts from uncertainty. Never invent statistics, quotes, dates, study results, or citations.
+- Every scene must add a new beat: specific evidence, a concrete example, a consequence, a meaningful comparison, or the payoff. Remove repeated claims and generic bridge lines.
+- Each scene's search_query must name the visible subject plus its action/place/context. Each image_prompt must describe what the viewer should actually see in that beat, not merely repeat the topic or say "cinematic footage".
+- Prefer relevant moving footage for real-world subjects when a credible match exists. Use close-ups, wide shots, processes, comparisons, maps, or simple diagrams only when they clarify the spoken beat. Avoid repeated topic wallpaper, random people, unrelated stock clips, and decorative gradients. A still is a fallback when it is the best available match; subtle camera movement is not character animation.
+- Keep visuals aligned with the spoken line at every cut. A scene about a specific object, action, place, or experiment must show that subject/action; a general atmosphere shot is not enough. If the exact visual is unavailable, use the closest honest explanatory visual rather than implying unrelated footage is evidence.
+- End by resolving the opening question or delivering the promised reveal. No generic engagement-bait ending, fake cliffhanger, or extra fact that does not complete the thread.
+
+"""
     user = f"""Write one YouTube Short.
 
 Subject: {subject}
@@ -280,7 +292,7 @@ Format: {STYLES[style]}
 Audience: {settings.audience}
 Language: {lang} for narration, title, hook_text, cast and description. search_query and image_prompt are ALWAYS English.
 
-{ctx}{ins}{brief}{avoid_block}Rules:
+{ctx}{ins}{brief}{hybrid_rules}{avoid_block}Rules:
 - HARD LENGTH TARGET: write about {words} spoken words for a {settings.target_seconds}-second video. Treat this as a requirement, not a loose suggestion; do not finish early after making the point. The measured voice duration should land close to the requested duration. Aim for {n_scenes} scenes; acceptable range is {scene_count_bounds(style, settings.target_seconds)[0]}–{scene_count_bounds(style, settings.target_seconds)[1]}. Scene count is a real visual-editing requirement, not a suggestion to ignore. For a 30–60 second Short, do NOT compress the entire script into 3–5 oversized scene boxes. Use roughly one scene per 2–3 seconds where the narration supports it: usually one sentence or one compact spoken beat per scene. Keep the full narration length; divide it across more scenes instead of cutting text. Each scene needs its own specific visible action, evidence, reaction, transition, or payoff. Do not create empty/filler scenes, split every clause mechanically, or combine distinct visual beats into one box.
 {_format_rules(style, settings.target_seconds)}- For fantasy scenes, use speaker A–F as real character attribution, not a single narrator placeholder; map each letter to the matching cast entry. Every fantasy image_prompt must start with a reusable character identity line and a separate exact-shot line. Keep every named character recognizable whenever they reappear, with story-specific identity details; show physical action, meaningful reactions, and consequences in consecutive shots. Pixabay may provide reference candidates but is not an AI image generator. Prefer the configured AI image provider for original reference portraits; never substitute unrelated stock people for original characters. Keep the central conflict resolved before an optional sequel tease.
 - Scene 1 is the hook: make a specific, vivid opening that stops the scroll in under 2 seconds. NEVER default to "Did you know?" or repeat a generic hook formula. Vary openings naturally: an unusual concrete detail, a counterintuitive claim, a vivid moment, a sharp question, a tiny mystery, or a direct scene-setting line. Use "Did you know?" only when it is genuinely the best fit, and never in consecutive/recent videos if avoid titles or insights suggest it was used.
