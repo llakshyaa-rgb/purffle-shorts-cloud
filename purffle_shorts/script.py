@@ -596,7 +596,7 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
     if script.style not in CARD_STYLES and script.style not in MULTI_SPEAKER and n_hook > 16:
         advisory(f"The first spoken sentence is {n_hook} words; consider tightening the hook.")
     if english and _GREETING.search(hook.strip()):
-        out.append("The hook opens with a greeting or 'in this video' instead of the most interesting line.")
+        advisory("The hook opens with a greeting or 'in this video'; consider starting closer to the point.")
     target = scene_plan(script.style, settings.target_seconds)[0]
     n = word_count(script.narration, script.language)
     if target and abs(n - target) > 0.25 * target:
@@ -792,7 +792,28 @@ def lint_script(script: Script, settings: Settings) -> list[str]:
             advisory(f"{fillers} filler words (basically, really, just...) slow the pace.")
         if script.style in FACTUAL_STYLES and not _NUMBER.search(script.narration):
             advisory("No concrete number anywhere; a precise figure can help, but is not mandatory.")
-    return out
+    # Only actionable defects should trigger a Script Doctor rewrite. The other findings
+    # above are useful editing suggestions, not reasons to hold up a generated video.
+    hard_prefixes = (
+        "Fiction continuity:",
+        "Scene ",  # missing/ unusable visual query or prompt
+        "Scenes ",  # duplicate narration
+        "The ending may not reconnect to the opening",
+        "The final line may leave a vague dangling implication",
+    )
+    return [
+        issue for issue in out
+        if issue.startswith(hard_prefixes)
+        and (
+            issue.startswith("Fiction continuity:")
+            or "no usable visual search query" in issue
+            or "vague visual search" in issue
+            or "specific visual prompt" in issue
+            or "repeat the same narration" in issue
+            or "ending may not reconnect" in issue
+            or "final line may leave" in issue
+        )
+    ]
 
 
 def rubric_score(rubric: dict | None) -> int | None:
