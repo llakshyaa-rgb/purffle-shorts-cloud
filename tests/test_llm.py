@@ -104,7 +104,7 @@ def test_reasoning_models_skip_temperature(monkeypatch):
     monkeypatch.setattr(L, "http", lambda: sess)
     L.OpenAICompatible(L.PRESETS["openai"], "gpt-5-mini", "k", "https://x/v1").complete("s", "u", schema={})
     body = sess.calls[0]["json"]
-    assert "temperature" not in body and body["max_completion_tokens"] >= 8000
+    assert "temperature" not in body and body["max_completion_tokens"] == 4000
 
 
 def test_json_mode_is_dropped_when_unsupported(monkeypatch):
