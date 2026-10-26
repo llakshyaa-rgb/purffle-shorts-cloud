@@ -138,6 +138,10 @@ def test_lint_flags_repeated_visual_search_and_weak_prompt():
 
 
 def test_script_prompt_sets_strong_runtime_length_target():
+    from purffle_shorts.script import WORDS_PER_SECOND
+
+    # 30 seconds should request about 123 words, not ~86 words.
+    assert round(30 * WORDS_PER_SECOND) >= 120
     settings = Settings.from_env()
     settings.target_seconds = 25
     system, user = build_prompt("Saturn density", "facts", settings, [])
