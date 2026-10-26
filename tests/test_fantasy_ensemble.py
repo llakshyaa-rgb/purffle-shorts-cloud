@@ -39,6 +39,10 @@ def test_fantasy_keeps_story_specific_ensemble_and_speaker_mapping():
 
 def test_fantasy_prompt_requires_fresh_purposeful_cast_not_recycled_roles():
     system, user = build_prompt("A witch bargaining with a living storm", "fantasy", Settings(), [])
-    assert "Invent a fresh cast specifically for this exact prompt" in system
-    assert "never reuse a default cast" in system
-    assert "character must affect events" in system.lower()
+    # These creative constraints belong in the user prompt assembled for the model,
+    # not in the generic system-role message.
+    assert "Invent a fresh cast for this exact prompt and episode" in user
+    assert "never reuse a default cast" in user
+    assert "Add characters only when they improve plot" in user
+    assert "ZERO NARRATION OR VOICE-OVER" in user
+    assert "REUSABLE CHARACTER:" in user
