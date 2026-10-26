@@ -267,47 +267,17 @@ class OpenAICompatible(Provider):
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"{self}: unexpected response {str(data)[:200]}") from e
 
-        # OpenRouter's rotating free route can truncate a long JSON script even when the
-        # response contains partial text. Retry once with a larger output budget, not the
-        # same 4000-token request. This is bounded to avoid multiplying long free-route waits.
+        # Do not retry a truncated free-route prompt with a bigger token budget: Job #022
+        # showed that the route can still truncate at 6000, wasting another long request.
+        # Surface truncation to complete_json, which can issue a compact recovery prompt.
         if finish_reason == "length":
-            current_budget = int(payload.get("max_tokens", payload.get("max_completion_tokens", max_tokens)))
-            if (self.name == "openrouter"
-                    and ("/free" in self.model.lower() or self.model.lower().endswith(":free"))
-                    and current_budget < 6000):
-                retry_payload = dict(payload)
-                if "max_completion_tokens" in retry_payload:
-                    retry_payload["max_completion_tokens"] = 6000
-                else:
-                    retry_payload["max_tokens"] = 6000
-                log.warning("%s: response truncated at %s tokens; retrying once with 6000 tokens",
-                            self, current_budget)
-                retry = http().post(f"{self.base_url}/chat/completions", json=retry_payload,
-                                     headers=headers, timeout=timeout)
-                raise_for_status(retry, f"{self} (larger output retry)")
-                retry_data = retry.json()
-                try:
-                    retry_choice = retry_data["choices"][0]
-                    retry_message = retry_choice["message"]
-                    retry_content = retry_message.get("content")
-                    retry_reason = retry_choice.get("finish_reason")
-                except (KeyError, IndexError, TypeError) as e:
-                    raise LLMError(f"{self}: unexpected retry response {str(retry_data)[:200]}") from e
-                if retry_reason != "length" and retry_content:
-                    return retry_content
-                content, finish_reason = retry_content, retry_reason
-                payload = retry_payload
-
-            if not content:
-                raise LLMError(
-                    f"{self}: output was cut off at the token limit (finish_reason=length, "
-                    f"requested max_tokens={payload.get('max_tokens', payload.get('max_completion_tokens'))}). "
-                    "The script request did not complete; retry budget exhausted."
-                )
+            budget = payload.get("max_tokens", payload.get("max_completion_tokens", max_tokens))
+            raise LLMError(
+                f"{self}: output truncated by provider (finish_reason=length, requested max_tokens={budget}); "
+                "use compact JSON recovery instead of repeating the same long request"
+            )
         if not content:
             raise LLMError(f"{self}: empty reply (finish_reason={finish_reason})")
-        if finish_reason == "length":
-            raise LLMError(f"{self}: output was cut off at the token limit after retry")
         return content
 
 
