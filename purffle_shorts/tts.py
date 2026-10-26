@@ -483,12 +483,14 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
         voice_filter = f"atrim=start={cut0:.3f}:end={cut1:.3f},asetpts=PTS-STARTPTS"
         if settings.style == "fantasy" and speaker in "BCDEF":
             # Same base TTS voice, subtle character-specific pitch/loudness shifts.
+            # Keep character differentiation subtle. Large sample-rate shifts made voices
+            # sound robotic/chipmunk-like and noticeably changed perceived speed.
             profiles = {
-                "B": (0.88, 0.82),
-                "C": (0.96, 0.90),
-                "D": (0.82, 0.72),
-                "E": (1.05, 0.88),
-                "F": (0.91, 0.78),
+                "B": (0.97, 0.96),
+                "C": (0.99, 0.98),
+                "D": (0.95, 0.94),
+                "E": (1.02, 0.97),
+                "F": (0.98, 0.95),
             }
             pitch, loudness = profiles[speaker]
             tempo = 1.0 / pitch
