@@ -208,7 +208,9 @@ class OpenAICompatible(Provider):
             payload["max_completion_tokens"] = max(max_tokens, 8000)
         else:
             payload["temperature"] = temperature
-            payload["max_tokens"] = max(max_tokens, 12000)
+            # Respect the caller's budget. Forcing 12,000 output tokens wastes the
+            # free route's context budget and can cause empty/truncated replies.
+            payload["max_tokens"] = max(512, min(int(max_tokens), 8000))
 
 
         if schema and self._schema_mode:
@@ -253,11 +255,20 @@ class OpenAICompatible(Provider):
             raise
         data = r.json()
         try:
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            message = choice["message"]
+            content = message.get("content")
+            finish_reason = choice.get("finish_reason")
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"{self}: unexpected response {str(data)[:200]}") from e
         if not content:
-            raise LLMError(f"{self}: empty reply (finish_reason={data['choices'][0].get('finish_reason')})")
+            if finish_reason == "length":
+                raise LLMError(
+                    f"{self}: output was cut off at the token limit (finish_reason=length, "
+                    f"requested max_tokens={payload.get('max_tokens', payload.get('max_completion_tokens'))}). "
+                    "The script request did not complete; reduce output length or use a model with a larger output limit."
+                )
+            raise LLMError(f"{self}: empty reply (finish_reason={finish_reason})")
         return content
 
 
