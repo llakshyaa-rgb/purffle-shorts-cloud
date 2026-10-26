@@ -131,7 +131,7 @@ def test_free_route_truncation_uses_short_recovery_prompt(monkeypatch):
     provider = L.OpenAICompatible(L.PRESETS["openrouter"], "openrouter/free", "k", "https://x/v1")
     chain = object.__new__(L.LLM)
     chain.settings, chain.providers = Settings(), [provider]
-    long_user = "Subject: Falling sensation\\nFormat: auto\\nAudience: general\\nLanguage: English\\n" + ("LONG ORIGINAL PROMPT " * 1000)
+    long_user = "Subject: Falling sensation\nFormat: auto\nAudience: general\nLanguage: English\n" + ("LONG ORIGINAL PROMPT " * 1000)
     assert chain.complete_json("system prompt", long_user) == {"ok": True}
     assert len(session.calls) == 2
     recovery = session.calls[1]
