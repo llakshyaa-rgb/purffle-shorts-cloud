@@ -396,13 +396,13 @@ class LLM:
                     log.warning("%s failed; attempting compact JSON recovery: %s", p, reason)
                     compact_system = (
                         system.rstrip()
-                        + "\\n\\nRECOVERY RULE: Return only one complete, valid JSON object. "
+                        + "\n\nRECOVERY RULE: Return only one complete, valid JSON object. "
                           "No safety commentary, markdown, explanations, or preamble. "
                           "Keep strings concise; preserve all required fields."
                     )
                     compact_user = (
                         user.rstrip()
-                        + "\\n\\nCOMPACT RECOVERY: Produce a complete, compact result. "
+                        + "\n\nCOMPACT RECOVERY: Produce a complete, compact result. "
                           "Use concise strings and the minimum valid number of scenes/items allowed by the original request. "
                           "Do not repeat the prompt. Ensure every bracket and quote is closed."
                     )
