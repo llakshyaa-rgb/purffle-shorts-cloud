@@ -423,7 +423,9 @@ class LLM:
                         try:
                             return compact_recovery(request_error)
                         except Exception as recovery_error:
-                            raise LLMError(
+                            # Truncation is deterministic for this prompt/route. Do not repeat the
+                            # same original + compact requests; let the outer provider chain advance.
+                            raise PermanentError(
                                 f"{p}: original response was truncated and compact recovery failed: {recovery_error}"
                             ) from recovery_error
                     raise
@@ -436,7 +438,9 @@ class LLM:
                     try:
                         return compact_recovery(parse_error)
                     except Exception as recovery_error:
-                        raise LLMError(
+                        # The same malformed/truncated free-route response will not improve by
+                        # replaying the exact same two prompts. Advance to the next provider.
+                        raise PermanentError(
                             f"{p}: invalid JSON and compact recovery failed; "
                             f"initial error: {parse_error}; recovery error: {recovery_error}"
                         ) from recovery_error
