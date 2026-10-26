@@ -107,6 +107,14 @@ def test_reasoning_models_skip_temperature(monkeypatch):
     assert "temperature" not in body and body["max_completion_tokens"] == 8000
 
 
+def test_compact_recovery_budget_is_not_overridden_by_normal_minimum(monkeypatch):
+    sess = FakeSession(_ok())
+    monkeypatch.setattr(L, "http", lambda: sess)
+    p = L.OpenAICompatible(L.PRESETS["openrouter"], "openrouter/free", "k", "https://x/v1")
+    p.complete("s", "u", schema={}, max_tokens=1800)
+    assert sess.calls[0]["json"]["max_tokens"] == 1800
+
+
 def test_json_mode_is_dropped_when_unsupported(monkeypatch):
     calls = []
 
