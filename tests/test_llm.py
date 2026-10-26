@@ -48,7 +48,7 @@ def test_openai_payload_for_chat_model(monkeypatch):
     p = L.OpenAICompatible(L.PRESETS["openai"], "gpt-4o-mini", "k", L.PRESETS["openai"].base_url)
     assert p.complete("sys", "user", schema={}) == '{"x": 1}'
     body = sess.calls[0]["json"]
-    assert body["temperature"] == 0.9 and body["max_tokens"] == 4000
+    assert body["temperature"] == 0.9 and body["max_tokens"] == 12000
     assert body["response_format"] == {"type": "json_object"}
     assert sess.calls[0]["headers"]["Authorization"] == "Bearer k"
 
@@ -104,7 +104,7 @@ def test_reasoning_models_skip_temperature(monkeypatch):
     monkeypatch.setattr(L, "http", lambda: sess)
     L.OpenAICompatible(L.PRESETS["openai"], "gpt-5-mini", "k", "https://x/v1").complete("s", "u", schema={})
     body = sess.calls[0]["json"]
-    assert "temperature" not in body and body["max_completion_tokens"] == 4000
+    assert "temperature" not in body and body["max_completion_tokens"] == 8000
 
 
 def test_json_mode_is_dropped_when_unsupported(monkeypatch):
