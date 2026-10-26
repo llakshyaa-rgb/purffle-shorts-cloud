@@ -459,7 +459,7 @@ class Studio:
             # Offline rendering, editor-supplied scripts, and script files are deterministic
             # rendering workflows: do not reject them because their content is intentionally short.
             # Enforce the runtime gate only for generated scripts in online production.
-            enforce_runtime = not s.offline and writer not in ("script file", "editor")
+            enforce_runtime = not s.offline and parent_id is None and writer not in ("script file", "editor")
             if enforce_runtime and abs(total - target) / target > 0.08:
                 raise RuntimeError(
                     f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
@@ -519,7 +519,7 @@ class Studio:
                 # AI images cost money or are rate-limited: the extra shots of a scene reuse its picture with a
                 # new camera move instead of asking for another one.
                 ai_first = bool(s.visual_sources) and s.visual_sources[0] in AI_SOURCES
-                wanted = [st for st in shots if st.part == 0 or not ai_first]
+                wanted = [st for st in shots if st.part == 0]
                 jobs = [(script.scenes[st.index].search_query, script.scenes[st.index].image_prompt,
                          st.duration + T) for st in wanted]
                 # split layout: the footage fills the top half, so search for the shape of that half
