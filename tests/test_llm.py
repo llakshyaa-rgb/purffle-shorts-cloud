@@ -115,6 +115,31 @@ def test_compact_recovery_budget_is_not_overridden_by_normal_minimum(monkeypatch
     assert sess.calls[0]["json"]["max_tokens"] == 1800
 
 
+def test_free_route_truncation_uses_short_recovery_prompt(monkeypatch):
+    class SequenceSession:
+        def __init__(self):
+            self.calls = []
+
+        def post(self, url, json=None, headers=None, timeout=None):
+            self.calls.append(json)
+            if len(self.calls) == 1:
+                return FakeResp(200, {"choices": [{"message": {"content": ""}, "finish_reason": "length"}]})
+            return _ok('{"ok": true}')
+
+    session = SequenceSession()
+    monkeypatch.setattr(L, "http", lambda: session)
+    provider = L.OpenAICompatible(L.PRESETS["openrouter"], "openrouter/free", "k", "https://x/v1")
+    chain = object.__new__(L.LLM)
+    chain.settings, chain.providers = Settings(), [provider]
+    long_user = "Subject: Falling sensation\\nFormat: auto\\nAudience: general\\nLanguage: English\\n" + ("LONG ORIGINAL PROMPT " * 1000)
+    assert chain.complete_json("system prompt", long_user) == {"ok": True}
+    assert len(session.calls) == 2
+    recovery = session.calls[1]
+    assert len(recovery["messages"][1]["content"]) < 1000
+    assert "LONG ORIGINAL PROMPT" not in recovery["messages"][1]["content"]
+    assert recovery["max_tokens"] == 2800
+
+
 def test_json_mode_is_dropped_when_unsupported(monkeypatch):
     calls = []
 
