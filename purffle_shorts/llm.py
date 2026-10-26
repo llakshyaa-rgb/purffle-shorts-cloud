@@ -211,11 +211,11 @@ class OpenAICompatible(Provider):
         }
 
         if self._is_reasoning_model():
-            payload["max_completion_tokens"] = max(512, min(int(max_tokens), 8000))
+            payload["max_completion_tokens"] = max(int(max_tokens), 8000)
         else:
             payload["temperature"] = temperature
-            # Respect the caller's budget; a large forced limit can exceed free-route caps.
-            payload["max_tokens"] = max(512, min(int(max_tokens), 6000))
+            # Preserve the established 12k output budget; free routes may still enforce their own limits.
+            payload["max_tokens"] = max(int(max_tokens), 12000)
 
 
         if schema and self._schema_mode:
@@ -267,9 +267,8 @@ class OpenAICompatible(Provider):
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"{self}: unexpected response {str(data)[:200]}") from e
 
-        # Do not retry a truncated free-route prompt with a bigger token budget: Job #022
-        # showed that the route can still truncate at 6000, wasting another long request.
-        # Surface truncation to complete_json, which can issue a compact recovery prompt.
+        # Providers may truncate even when given the restored 12k budget. Surface this to
+        # complete_json, which can issue compact recovery for free OpenRouter routes.
         if finish_reason == "length":
             budget = payload.get("max_tokens", payload.get("max_completion_tokens", max_tokens))
             raise LLMError(
