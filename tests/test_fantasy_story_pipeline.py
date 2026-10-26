@@ -1,5 +1,5 @@
-from purffle_shorts.script import MULTI_SPEAKER, normalize
 from purffle_shorts.creative_director import apply_to_script
+from purffle_shorts.script import MULTI_SPEAKER, normalize
 
 
 def test_fantasy_mode_uses_two_attributed_speakers_and_keeps_cast():
