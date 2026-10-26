@@ -428,13 +428,11 @@ class Studio:
                         creative_brief=(
                             f"RUNTIME REPAIR: target {target} seconds, not a loose estimate. "
                             f"The previous narration rendered to {total:.1f} seconds. "
-                            f"Write approximately {max(1, round(target * 4.1))} spoken words, with an acceptable range of "
-                            f"{max(1, round(target * 3.7))}–{max(1, round(target * 4.5))} words, including the hook and ending. "
+                            f"Write approximately {max(1, round(target * 2.85))} spoken words, with an acceptable range of "
+                            f"{max(1, round(target * 2.55))}–{max(1, round(target * 3.15))} words, including the hook and ending. "
                             "Rewrite the narration; do not explain the revision. The prior attempt was too short, so do NOT compress it further. "
                             "Keep enough spoken dialogue to fill the target runtime; never solve timing by using fewer than the minimum "
-                            "word count above. Spoken dialogue must be paced naturally and include meaningful reactions and actions, not padding. "
-                            "For a 30-second target, aim near 120–130 spoken words unless the selected voice's measured pace proves otherwise. "
-                            "Remove only repeated or irrelevant phrases. Preserve the central reveal, causal logic, "
+                            "word count above. Remove only repeated or irrelevant phrases. Preserve the central reveal, causal logic, "
                             "character reactions, and satisfying ending. No filler or CTA. Use short natural spoken sentences, "
                             "and keep each scene visually concrete. Split the full spoken word budget across enough scenes. "
                             "The narration must fit the requested runtime when spoken aloud."
@@ -462,16 +460,10 @@ class Studio:
             # rendering workflows: do not reject them because their content is intentionally short.
             # Enforce the runtime gate only for generated scripts in online production.
             enforce_runtime = not s.offline and s.tts_engine != "silent" and parent_id is None and writer not in ("script file", "editor")
-            if enforce_runtime and abs(total - target) / target > 0.20:
+            if enforce_runtime and abs(total - target) / target > 0.08:
                 raise RuntimeError(
                     f"Runtime gate: requested {target}s, generated {total:.1f}s of narration after repair. "
-                    "The narration remains more than 20% off target after the bounded repair."
-                )
-            if enforce_runtime and abs(total - target) / target > 0.08:
-                log.warning(
-                    "Narration remains %.1fs from the %ss target after repair; continuing to render rather than "
-                    "discarding the entire video (within the 20%% hard limit).",
-                    abs(total - target), target
+                    "The generated script did not meet the requested duration after one repair attempt."
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
