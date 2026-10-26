@@ -11,8 +11,8 @@ import logging
 import re
 from typing import Any
 
-from .script import Script
 from .fantasy_video_library import FANTASY_VISUAL_RULES
+from .script import Script
 
 log = logging.getLogger("purffle")
 
@@ -136,9 +136,9 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "gradient": "intentional animated gradient background, deep cinematic color, restrained slow light movement, clean negative space for captions; no people, no stock photo, no icons",
         "illustration": "original cinematic illustrated scene, clear readable silhouette and specific visible action",
         "diagram": "clean custom explanatory diagram, labeled only when genuinely useful, simple visual cause-and-effect",
-        "footage": ("cinematic live-action fantasy footage or high-end realistic fantasy-game cinematic, " 
-                    "real actors or photoreal CGI creatures, one clear subject and visible action, " 
-                    "dramatic natural camera movement, detailed environments; no cartoon, no flat drawing, " 
+        "footage": ("cinematic live-action fantasy footage or high-end realistic fantasy-game cinematic, "
+                    "real actors or photoreal CGI creatures, one clear subject and visible action, "
+                    "dramatic natural camera movement, detailed environments; no cartoon, no flat drawing, "
                     "no vector art, no icons, no subtitles, no UI, no logos, no watermarks") if style == "fantasy" else "documentary-style real-world footage, one clear subject and visible action",
         "photo": "cinematic editorial photograph, realistic lighting and a single focal subject",
         "symbolic": "visual metaphor with one unmistakable central symbol, cinematic composition",
