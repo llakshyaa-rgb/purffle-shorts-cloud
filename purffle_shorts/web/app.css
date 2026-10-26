@@ -234,13 +234,13 @@ a.chip:hover, .chip[data-open]:hover { box-shadow: inset 0 0 0 1px currentColor;
 .src-tabs { margin-bottom: 14px; }
 .formats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .fmt { position: relative; text-align: left; border: 1px solid var(--rule-2); background: var(--well); border-radius: var(--r-sm);
-  padding: 11px 12px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; min-height: 104px;
+  padding: 8px 9px 9px; cursor: pointer; display: flex; flex-direction: column; gap: 5px; min-height: 88px; min-width: 0;
   transition: border-color .12s, background .12s; }
 .fmt:hover { border-color: var(--rule-3); background: var(--sheet); }
 .fmt .g { color: var(--ink-3); }
 .fmt .g svg { width: 26px; height: 26px; stroke-width: 1.4; }
-.fmt b { font-size: 14px; display: flex; align-items: center; gap: 7px; letter-spacing: -.01em; font-weight: 700; margin-top: auto; }
-.fmt span { font-size: 12px; color: var(--ink-3); line-height: 1.35; }
+.fmt b { font-size: 13px; display: flex; align-items: center; gap: 6px; letter-spacing: -.01em; font-weight: 700; margin-top: auto; min-width: 0; overflow-wrap: anywhere; }
+.fmt span { font-size: 11px; color: var(--ink-3); line-height: 1.3; overflow-wrap: anywhere; }
 .fmt[aria-pressed=true] { border-color: var(--ink); background: var(--sheet); box-shadow: inset 0 0 0 1px var(--ink); }
 .fmt[aria-pressed=true] .g { color: var(--tally); }
 .fmt[aria-pressed=true]::after { content: ""; position: absolute; top: 0; right: 0; border: 7px solid transparent;
