@@ -807,12 +807,8 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
     draft = {k: v for k, v in script.to_dict().items() if k not in ("style", "language", "score", "review", "rubric")}
     system = ("You are a ruthless YouTube Shorts retention editor. You know that viewers decide in 1-2 "
               "seconds and swipe away at any slow moment. You reply with a single JSON object and nothing else.")
-    rubric = "
-".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
-    found = ("Automatic checks already found:
-" + "
-".join(f"- {c}" for c in checks) + "
-") if checks else ""
+    rubric = "\n".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
+    found = ("Automatic checks already found:\n" + "\n".join(f"- {c}" for c in checks) + "\n") if checks else ""
     task = (f"""Then rewrite it into the strongest version you can. Keep the same subject, format, language ({lang}),
 the same JSON structure and a narration length appropriate for the selected runtime (target about {words} words). Aim for {n_scenes} scenes, within {scene_count_bounds(script.style, settings.target_seconds)[0]}–{scene_count_bounds(script.style, settings.target_seconds)[1]}; preserve all useful narration while redistributing it into more distinct, visual beats when needed. Fix every issue and automatic finding. Do a complete rewrite where needed—not a cosmetic line edit. Rebuild weak structure, replace generic phrasing, strengthen cause-and-effect, improve spoken rhythm, ensure visuals match each beat, and make the payoff earn the opening. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
 Creative-quality requirements:
