@@ -387,43 +387,59 @@ class LLM:
         temp = self.settings.llm_temperature if temperature is None else temperature
         for p in self.providers:
             def _call(p=p):
-                text = p.complete(system, user, schema=schema if schema is not None else {}, max_tokens=max_tokens,
-                                  temperature=temp)
-                try:
-                    return extract_json(text)
-                except LLMError as parse_error:
-                    # Free routes sometimes return policy preambles or truncated, oversized JSON.
-                    # Do one explicitly compact recovery request instead of repeating the same huge prompt.
-                    is_free_route = (
-                        getattr(p, "name", "") == "openrouter"
-                        and ("/free" in getattr(p, "model", "").lower()
-                             or getattr(p, "model", "").lower().endswith(":free"))
-                    )
-                    if not is_free_route:
-                        raise
-                    log.warning("%s returned invalid JSON; attempting one compact JSON recovery", p)
+                is_free_route = (
+                    getattr(p, "name", "") == "openrouter"
+                    and ("/free" in getattr(p, "model", "").lower()
+                         or getattr(p, "model", "").lower().endswith(":free"))
+                )
+
+                def compact_recovery(reason: Exception) -> dict[str, Any]:
+                    log.warning("%s failed; attempting compact JSON recovery: %s", p, reason)
                     compact_system = (
                         system.rstrip()
                         + "\\n\\nRECOVERY RULE: Return only one complete, valid JSON object. "
-                          "Do not include safety commentary, markdown, explanations, or a preamble. "
-                          "Keep every string concise and omit optional descriptive detail before omitting required fields."
+                          "No safety commentary, markdown, explanations, or preamble. "
+                          "Keep strings concise; preserve all required fields."
                     )
                     compact_user = (
                         user.rstrip()
                         + "\\n\\nCOMPACT RECOVERY: Produce a complete, compact result. "
-                          "Use short strings and the minimum valid number of items/scenes required by the original request. "
-                          "Do not repeat the prompt. Ensure all brackets and quotes are closed."
+                          "Use concise strings and the minimum valid number of scenes/items allowed by the original request. "
+                          "Do not repeat the prompt. Ensure every bracket and quote is closed."
                     )
                     recovery_text = p.complete(
                         compact_system, compact_user, schema=schema if schema is not None else {},
-                        max_tokens=min(max_tokens, 2500), temperature=temp
+                        max_tokens=min(max_tokens, 1800), temperature=temp
                     )
+                    return extract_json(recovery_text)
+
+                try:
+                    text = p.complete(system, user, schema=schema if schema is not None else {},
+                                      max_tokens=max_tokens, temperature=temp)
+                except LLMError as request_error:
+                    # A truncation raises before parsing, so parse-only recovery misses this common failure.
+                    if is_free_route and ("truncat" in str(request_error).lower()
+                                          or "token limit" in str(request_error).lower()
+                                          or "finish_reason=length" in str(request_error).lower()):
+                        try:
+                            return compact_recovery(request_error)
+                        except Exception as recovery_error:
+                            raise LLMError(
+                                f"{p}: original response was truncated and compact recovery failed: {recovery_error}"
+                            ) from recovery_error
+                    raise
+
+                try:
+                    return extract_json(text)
+                except LLMError as parse_error:
+                    if not is_free_route:
+                        raise
                     try:
-                        return extract_json(recovery_text)
-                    except LLMError as recovery_error:
+                        return compact_recovery(parse_error)
+                    except Exception as recovery_error:
                         raise LLMError(
-                            f"{p}: invalid JSON after compact recovery; initial error: {parse_error}; "
-                            f"recovery error: {recovery_error}"
+                            f"{p}: invalid JSON and compact recovery failed; "
+                            f"initial error: {parse_error}; recovery error: {recovery_error}"
                         ) from recovery_error
             try:
                 result = with_retries(_call, attempts=2, base_delay=3, label=f"LLM {p}")
