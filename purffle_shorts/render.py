@@ -78,9 +78,18 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
             lo = min(0.5, max_start)
             hi = max(lo, min(max_start, src * 0.35))
             pre = ["-ss", f"{random.uniform(lo, hi):.2f}"]
+        # Add a restrained handheld-style camera float to footage too. The oversized cover gives
+        # the crop room to drift in both axes without exposing borders or changing the scene.
+        # Keep the motion slow and small so it feels like a camera breathing, not a distracting shake.
+        drift_w, drift_h = int(W * 1.08) // 2 * 2, int(H * 1.08) // 2 * 2
+        float_x = f"(iw-ow)*(0.5+0.30*sin(t*0.42))"
+        float_y = f"(ih-oh)*(0.5+0.26*cos(t*0.34))"
+        float_vf = (f"scale={drift_w}:{drift_h}:force_original_aspect_ratio=increase:flags=lanczos,"
+                    f"crop={drift_w}:{drift_h},"
+                    f"crop={W}:{H}:x='{float_x}':y='{float_y}',setsar=1,fps={F}{grade}")
         ffmpeg.run([*pre, "-i", str(item.path), "-t", f"{seconds:.3f}", "-an",
-                    "-vf", f"{cover},fps={F}{grade}", *enc, "-frames:v", str(frames), str(out)],
-                   label=f"segment {idx}")
+                    "-vf", float_vf, *enc, "-frames:v", str(frames), str(out)],
+                   label=f"segment {idx} (camera float)")
         return out
 
     if item.kind == "image" and item.path:
