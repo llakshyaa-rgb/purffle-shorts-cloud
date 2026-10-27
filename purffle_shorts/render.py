@@ -86,7 +86,7 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
         float_y = f"(ih-oh)*(0.5+0.26*cos(t*0.34))"
         float_vf = (f"scale={drift_w}:{drift_h}:force_original_aspect_ratio=increase:flags=lanczos,"
                     f"crop={drift_w}:{drift_h},"
-                    f"crop={W}:{H}:x='{float_x}':y='{float_y}':eval=frame,setsar=1,fps={F}{grade}")
+                    f"crop={W}:{H}:x='{float_x}':y='{float_y}',setsar=1,fps={F}{grade}")
         ffmpeg.run([*pre, "-i", str(item.path), "-t", f"{seconds:.3f}", "-an",
                     "-vf", float_vf, *enc, "-frames:v", str(frames), str(out)],
                    label=f"segment {idx} (camera float)")
