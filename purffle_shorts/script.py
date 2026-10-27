@@ -122,9 +122,10 @@ SCORE_SCHEMA = {
 }
 REVIEW_TEMPERATURE = 0.2  # grading should be repeatable; writing stays creative
 
-# Slightly above typical narration pace so generated scripts have enough spoken material;
-# the final runtime still follows measured TTS duration rather than silently padding audio.
-WORDS_PER_SECOND = 4.0
+# Conservative starting estimate for spoken narration. The actual pace depends on the
+# selected voice, punctuation, and pauses; pipeline.py measures the rendered TTS and can
+# make a bounded, story-preserving correction before rendering the visuals.
+WORDS_PER_SECOND = 3.0
 
 
 @dataclass
