@@ -758,9 +758,9 @@ class Visuals:
                     error_text = str(first_error).casefold()
                     if not any(term in error_text for term in ("nsfw", "safety", "unsafe", "moderation")):
                         raise
-                    compact = re.sub(r"\\b(?:boy|girl|child|kid|teenager)\\b", "young person", prompt, flags=re.IGNORECASE)
+                    compact = re.sub(r"\b(?:boy|girl|child|kid|teenager)\b", "young person", prompt, flags=re.IGNORECASE)
                     compact = re.sub(r"REUSABLE CHARACTER:.*$", "", compact, flags=re.IGNORECASE | re.DOTALL)
-                    compact = re.sub(r"\\s+", " ", compact).strip(" .")
+                    compact = re.sub(r"\s+", " ", compact).strip(" .")
                     compact = (
                         "Non-sexual fictional cinematic illustration, fully clothed characters. "
                         + compact[:650]
