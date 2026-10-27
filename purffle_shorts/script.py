@@ -562,7 +562,31 @@ def write_script(llm, subject: str, settings: Settings, *, source: str = "niche"
         return offline_script(subject, settings, style)
     system, user = build_prompt(subject, style, settings, avoid or [], context, insights, keywords, creative_brief)
     data = llm.complete_json(system, user, SCRIPT_SCHEMA)
-    script = normalize(data, subject, style, settings.language)
+    try:
+        script = normalize(data, subject, style, settings.language)
+    except (ValueError, TypeError, AttributeError) as first_error:
+        # Free OpenRouter routes can return schema-shaped JSON with an empty/missing scenes array
+        # after a truncated long response. Do one small, explicit repair request instead of failing
+        # the entire job or repeating the original long prompt.
+        if "narration" not in str(first_error).lower() and "scene" not in str(first_error).lower():
+            raise
+        log.warning("Script response contained no usable narration; requesting one compact repair: %s", first_error)
+        compact_system = (
+            "You are a reliable YouTube Shorts scriptwriter. Return one complete JSON object only, "
+            "matching the provided schema. Every scene MUST contain a non-empty spoken narration sentence. "
+            "Never return an empty scenes array, blank narration, or metadata-only output."
+        )
+        words, n_scenes = scene_plan(style, settings.target_seconds)
+        compact_user = (
+            f"Topic: {subject}\nFormat: {STYLES[style]}\nLanguage: {LANGUAGES.get(settings.language, settings.language)}\n"
+            f"Runtime: {settings.target_seconds} seconds; aim for about {words} spoken words across {n_scenes} scenes.\n"
+            "Write a complete, coherent script: directly explain the topic early, give the cause in plain language, "
+            "include a concrete example, and end with a clear payoff. Each scene must have actual narration plus "
+            "a specific matching search_query and image_prompt. Keep each scene concise but meaningful. "
+            "Return every required field from the schema; narration must never be blank."
+        )
+        data = llm.complete_json(compact_system, compact_user, SCRIPT_SCHEMA, max_tokens=4200, temperature=0.5)
+        script = normalize(data, subject, style, settings.language)
     log.info("Script (%s, %d words, %d scenes): %s", style, word_count(script.narration, settings.language),
              len(script.scenes), script.title)
     return script
