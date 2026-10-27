@@ -52,6 +52,8 @@ PRESETS: dict[str, Preset] = {p.name: p for p in [
            "llama-3.3-70b-versatile"),
     Preset("openrouter", "OpenRouter (hundreds of models)", "https://openrouter.ai/api/v1",
            ("OPENROUTER_API_KEY",), "openai/gpt-4o-mini", schema_mode=True),
+    Preset("apinex", "APInex (OpenAI-compatible free models)", "https://api.apinex.bond/v1",
+           ("APINEX_API_KEY",), "free/deepseek-v4.1-flash", schema_mode=False),
     Preset("deepseek", "DeepSeek", "https://api.deepseek.com/v1", ("DEEPSEEK_API_KEY",), "deepseek-chat"),
     Preset("mistral", "Mistral", "https://api.mistral.ai/v1", ("MISTRAL_API_KEY",), "mistral-small-latest"),
     Preset("together", "Together AI", "https://api.together.xyz/v1", ("TOGETHER_API_KEY",),
@@ -64,7 +66,7 @@ PRESETS: dict[str, Preset] = {p.name: p for p in [
     Preset("custom", "Any OpenAI-compatible URL (LLM_BASE_URL)", "", ("LLM_API_KEY",), ""),
 ]}
 
-AUTO_ORDER = ["openai", "anthropic", "gemini", "groq", "openrouter", "deepseek", "mistral", "together", "xai"]
+AUTO_ORDER = ["openai", "anthropic", "gemini", "groq", "apinex", "openrouter", "deepseek", "mistral", "together", "xai"]
 
 # Claude models whose requests get server-side refusal fallbacks ("default" routing) by default.
 _CLAUDE_FALLBACK_MODELS = {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}

@@ -404,55 +404,96 @@ class Studio:
             speech = self._speak(script, work, s)
             total = round(speech.duration + END_PAD, 3)
 
-            # One bounded duration-repair pass: never silently stretch audio or ship a wildly
-            # off-target runtime. Keep the same topic/style and ask the script writer for a tighter
-            # word budget, then synthesize the revised narration once.
+            # Bounded, measured duration repair. Allow up to two attempts because a model
+            # can miss a word budget once; keep the best measured candidate and never trade
+            # away the story merely to make the numbers look right.
             target = max(1, int(s.target_seconds))
             repair_llm = None
-            # A 20% tolerance made a 33-second video pass for a 25-second request.
-            # Repair anything more than 8% off target; publish readiness remains a separate gate.
             if abs(total - target) / target > 0.08 and not s.offline:
                 try:
                     repair_llm = self.llm
                 except LLMConfigError:
-                    # A supplied script file is renderable without an LLM; simply skip optional repair.
+                    # Supplied/offline scripts remain renderable without an LLM.
                     repair_llm = None
             if repair_llm is not None:
-                try:
-                    log.warning("Narration runtime %.1fs misses %ss target; attempting one script repair",
-                                total, target)
-                    repaired = write_script(
-                        repair_llm, script.topic, s, source=pick.source, style=script.style,
-                        context=(f"Original title: {script.title}. Preserve the original factual topic, "
-                                 "central reveal, and intended audience."),
-                        creative_brief=(
-                            f"RUNTIME REPAIR: target {target} seconds, not a loose estimate. "
-                            f"The previous narration rendered to {total:.1f} seconds. "
-                            f"Write approximately {max(1, round(target * 2.85))} spoken words, with an acceptable range of "
-                            f"{max(1, round(target * 2.55))}–{max(1, round(target * 3.15))} words, including the hook and ending. "
-                            "Rewrite the narration; do not explain the revision. The prior attempt was too short, so do NOT compress it further. "
-                            "Keep enough spoken dialogue to fill the target runtime; never solve timing by using fewer than the minimum "
-                            "word count above. Remove only repeated or irrelevant phrases. Preserve the central reveal, causal logic, "
-                            "character reactions, and satisfying ending. No filler or CTA. Use short natural spoken sentences, "
-                            "and keep each scene visually concrete. Split the full spoken word budget across enough scenes. "
-                            "The narration must fit the requested runtime when spoken aloud."
-                        ),
-                    )
-                    repaired = review_script(repair_llm, repaired, s)
-                    repaired_speech = self._speak(repaired, work, s)
-                    repaired_total = round(repaired_speech.duration + END_PAD, 3)
-                    if abs(repaired_total - target) < abs(total - target):
-                        script, speech, total = repaired, repaired_speech, repaired_total
-                        (folder / "script.json").write_text(
-                            json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+                best_script, best_speech, best_total = script, speech, total
+                for repair_no in range(1, 3):
+                    delta = abs(best_total - target) / max(1.0, target)
+                    if delta <= 0.08:
+                        break
+                    try:
+                        current_words = sum(
+                            len((scene.narration or "").split()) for scene in best_script.scenes
                         )
-                        log.info("Runtime repair improved duration to %.1fs (target %ss)", total, target)
-                    else:
-                        log.warning("Runtime repair did not improve duration (%.1fs -> %.1fs)",
-                                    total, repaired_total)
-                except Exception as repair_error:
-                    log.warning("Runtime repair failed; quality gate will block off-target publishing: %s",
-                                redact(repair_error))
+                        measured_wps = current_words / max(1.0, best_speech.duration)
+                        # Estimate from the chosen voice's measured speed, with conservative
+                        # bounds to avoid extreme word budgets for unusually fast/slow speech.
+                        target_wps = min(3.25, max(2.45, measured_wps))
+                        target_words = max(12, round(target * target_wps))
+                        low_words = max(10, round(target_words * 0.88))
+                        high_words = max(low_words + 1, round(target_words * 1.12))
+                        original_beats = "\n".join(
+                            f"{index + 1}. {scene.narration.strip()}"
+                            for index, scene in enumerate(best_script.scenes)
+                            if (scene.narration or "").strip()
+                        )
+                        direction = (
+                            "The narration is TOO LONG. Compress it to the word budget below."
+                            if best_total > target else
+                            "The narration is TOO SHORT. Expand it only with meaningful story beats."
+                        )
+                        log.warning(
+                            "Narration runtime %.1fs misses %ss target; attempting targeted repair %d/2",
+                            best_total, target, repair_no,
+                        )
+                        candidate = write_script(
+                            repair_llm, best_script.topic, s, source=pick.source, style=best_script.style,
+                            context=(
+                                f"Original title: {best_script.title}. Preserve this exact story's premise, "
+                                "characters, point of view, key cause-and-effect, and central reveal. "
+                                "Do not replace it with a different story or invent a new twist. "
+                                "Original scene narration for continuity:\n" + original_beats
+                            ),
+                            creative_brief=(
+                                f"RUNTIME REPAIR {repair_no}/2: target {target} seconds. {direction} "
+                                f"The current narration rendered to {best_total:.1f} seconds with the selected voice. "
+                                f"Aim for {target_words} spoken words; acceptable range {low_words}–{high_words}, "
+                                "including hook and ending. This is a measured timing correction, not a request "
+                                "to make the story less creative. Preserve the strongest original moments, specific "
+                                "details, character reactions, causal logic, and earned reveal. When shortening, "
+                                "remove repeated explanations and lower-value beats first; combine only beats that "
+                                "do not need separate visual actions. Do not flatten the story into a summary, "
+                                "remove the emotional reaction, or sacrifice the ending. When expanding, add only "
+                                "a necessary reaction, choice, clue, or consequence that strengthens the existing plot. "
+                                "No filler. Keep narration natural to speak aloud and each scene visually concrete. "
+                                "Return the revised script only."
+                            ),
+                        )
+                        candidate_speech = self._speak(candidate, work, s)
+                        candidate_total = round(candidate_speech.duration + END_PAD, 3)
+                        if abs(candidate_total - target) < abs(best_total - target):
+                            script, speech, total = candidate, candidate_speech, candidate_total
+                            best_script, best_speech, best_total = script, speech, total
+                            (folder / "script.json").write_text(
+                                json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+                            )
+                            log.info(
+                                "Runtime repair %d improved duration to %.1fs (target %ss)",
+                                repair_no, total, target,
+                            )
+                        else:
+                            log.warning(
+                                "Runtime repair %d was not closer (%.1fs -> %.1fs); keeping best candidate",
+                                repair_no, best_total, candidate_total,
+                            )
+                    except Exception as repair_error:
+                        log.warning(
+                            "Runtime repair %d failed; keeping best narration: %s",
+                            repair_no, redact(repair_error),
+                        )
+                        # A failed first attempt should not prevent one final bounded attempt.
+                        continue
+                script, speech, total = best_script, best_speech, best_total
             # Runtime mismatch is a warning, not a reason to discard a complete job.
             # Preserve the existing pipeline: continue through Creative Director, footage,
             # captions and rendering using the measured narration duration. Upload readiness
