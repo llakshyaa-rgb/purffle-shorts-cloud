@@ -761,11 +761,11 @@ class Visuals:
                     compact = re.sub(r"REUSABLE CHARACTER:.*$", "", prompt, flags=re.IGNORECASE | re.DOTALL)
                     # Avoid repeating terms that can trip a false-positive safety classifier.
                     compact = re.sub(
-                        r"\\b(?:boy|girl|child|children|kid|kids|teenager|teen|minor|young person|"
-                        r"bedroom|bed|sleeping|underwear|naked|nudity|sexual|blood|gore)\\b",
+                        r"\b(?:boy|girl|child|children|kid|kids|teenager|teen|minor|young person|"
+                        r"bedroom|bed|sleeping|underwear|naked|nudity|sexual|blood|gore)\b",
                         "character", compact, flags=re.IGNORECASE,
                     )
-                    compact = re.sub(r"\\s+", " ", compact).strip(" .")
+                    compact = re.sub(r"\s+", " ", compact).strip(" .")
                     compact = (
                         "Family-friendly illustrated story scene, adult fictional characters, fully clothed. "
                         + compact[:500]
