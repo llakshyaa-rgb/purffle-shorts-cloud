@@ -430,9 +430,6 @@ class Studio:
                         # bounds to avoid extreme word budgets for unusually fast/slow speech.
                         target_wps = min(3.25, max(2.45, measured_wps))
                         target_words = max(12, round(target * target_wps))
-                        # Tighten the request slightly on the second attempt if the first missed.
-                        if repair_no == 2:
-                            target_words = max(12, round(target_words * target / max(1.0, best_total)))
                         low_words = max(10, round(target_words * 0.88))
                         high_words = max(low_words + 1, round(target_words * 1.12))
                         original_beats = "\n".join(
