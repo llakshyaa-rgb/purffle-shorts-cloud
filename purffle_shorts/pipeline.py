@@ -421,24 +421,51 @@ class Studio:
                 try:
                     log.warning("Narration runtime %.1fs misses %ss target; attempting one script repair",
                                 total, target)
+                    # Use the actual TTS rate from this exact voice/run instead of a fixed
+                    # generic words-per-second guess. This keeps DeepSeek's storytelling intact
+                    # while making the repair budget specific to the selected voice.
+                    original_words = sum(len((scene.narration or "").split()) for scene in script.scenes)
+                    measured_wps = original_words / max(1.0, speech.duration)
+                    target_wps = min(3.25, max(2.45, measured_wps))
+                    target_words = max(12, round(target * target_wps))
+                    low_words = max(10, round(target_words * 0.88))
+                    high_words = max(low_words + 1, round(target_words * 1.12))
+                    original_beats = "\\n".join(
+                        f"{index + 1}. {scene.narration.strip()}"
+                        for index, scene in enumerate(script.scenes)
+                        if (scene.narration or "").strip()
+                    )
+                    too_long = total > target
+                    direction = (
+                        "The narration is TOO LONG. Compress it to the word budget below."
+                        if too_long else
+                        "The narration is TOO SHORT. Expand it only with meaningful story beats."
+                    )
                     repaired = write_script(
                         repair_llm, script.topic, s, source=pick.source, style=script.style,
-                        context=(f"Original title: {script.title}. Preserve the original factual topic, "
-                                 "central reveal, and intended audience."),
+                        context=(
+                            f"Original title: {script.title}. Preserve this exact story's premise, "
+                            "characters, point of view, key cause-and-effect, and central reveal. "
+                            "Do not replace it with a different story or invent a new twist. "
+                            "Original scene narration for continuity:\\n" + original_beats
+                        ),
                         creative_brief=(
-                            f"RUNTIME REPAIR: target {target} seconds, not a loose estimate. "
-                            f"The previous narration rendered to {total:.1f} seconds. "
-                            f"Write approximately {max(1, round(target * 2.85))} spoken words, with an acceptable range of "
-                            f"{max(1, round(target * 2.55))}–{max(1, round(target * 3.15))} words, including the hook and ending. "
-                            "Rewrite the narration; do not explain the revision. The prior attempt was too short, so do NOT compress it further. "
-                            "Keep enough spoken dialogue to fill the target runtime; never solve timing by using fewer than the minimum "
-                            "word count above. Remove only repeated or irrelevant phrases. Preserve the central reveal, causal logic, "
-                            "character reactions, and satisfying ending. No filler or CTA. Use short natural spoken sentences, "
-                            "and keep each scene visually concrete. Split the full spoken word budget across enough scenes. "
-                            "The narration must fit the requested runtime when spoken aloud."
+                            f"RUNTIME REPAIR: target {target} seconds. {direction} "
+                            f"The previous narration rendered to {total:.1f} seconds using the selected voice. "
+                            f"Aim for {target_words} spoken words; acceptable range {low_words}–{high_words} words "
+                            "including the hook and ending. This is a measured duration correction, not a request "
+                            "to make the story less creative. Preserve the strongest original moments, distinctive "
+                            "details, character reactions, causal logic, and earned reveal. "
+                            "When shortening, remove repeated explanations and lower-value beats first; combine only "
+                            "beats that do not need their own visual action. Do not flatten the story into a summary, "
+                            "remove the emotional reaction, or sacrifice the ending. When expanding, add only a necessary "
+                            "reaction, choice, clue, or consequence that strengthens the existing plot; never add filler. "
+                            "Keep scene narration natural to speak aloud and give each scene a concrete visual beat. "
+                            "Keep scene count appropriate for the requested runtime. Return the revised script only."
                         ),
                     )
-                    repaired = review_script(repair_llm, repaired, s)
+                    # Do not run the general Script Doctor after a targeted runtime repair:
+                    # its rewrite can expand the script again and undo the measured word budget.
                     repaired_speech = self._speak(repaired, work, s)
                     repaired_total = round(repaired_speech.duration + END_PAD, 3)
                     if abs(repaired_total - target) < abs(total - target):
