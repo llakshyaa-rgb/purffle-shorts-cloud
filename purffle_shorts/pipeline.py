@@ -430,7 +430,7 @@ class Studio:
                     target_words = max(12, round(target * target_wps))
                     low_words = max(10, round(target_words * 0.88))
                     high_words = max(low_words + 1, round(target_words * 1.12))
-                    original_beats = "\\n".join(
+                    original_beats = "\n".join(
                         f"{index + 1}. {scene.narration.strip()}"
                         for index, scene in enumerate(script.scenes)
                         if (scene.narration or "").strip()
@@ -447,7 +447,7 @@ class Studio:
                             f"Original title: {script.title}. Preserve this exact story's premise, "
                             "characters, point of view, key cause-and-effect, and central reveal. "
                             "Do not replace it with a different story or invent a new twist. "
-                            "Original scene narration for continuity:\\n" + original_beats
+                            "Original scene narration for continuity:\n" + original_beats
                         ),
                         creative_brief=(
                             f"RUNTIME REPAIR: target {target} seconds. {direction} "
