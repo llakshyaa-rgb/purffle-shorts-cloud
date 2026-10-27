@@ -50,42 +50,55 @@ END_PAD = 0.6          # seconds of breathing room after the last word
 
 
 def _compress_script_to_word_budget(script: Script, target_words: int) -> Script:
-    """Deterministic last-resort timing repair when the LLM ignores its word budget.
+    """Shorten only at sentence boundaries; never cut narration in the middle of a sentence.
 
-    Keep every scene, preserve the opening of the hook and the ending/reveal, and remove
-    excess middle narration instead of silently rendering a video twice the requested length.
+    This is a last-resort timing repair. If complete sentences cannot fit the budget, prefer
+    a longer but coherent narration over clipped words or a broken story reveal.
     """
     result = copy.deepcopy(script)
     scenes = [scene for scene in result.scenes if (scene.narration or "").strip()]
     if not scenes:
         return result
-    tokens = [scene.narration.split() for scene in scenes]
-    counts = [len(words) for words in tokens]
-    total = sum(counts)
-    if total <= target_words:
-        return result
-    # Give every existing scene a short beat, then distribute remaining words by original share.
-    floor = min(5, max(1, target_words // len(scenes)))
-    allocations = [max(floor, round(target_words * n / max(1, total))) for n in counts]
-    while sum(allocations) > target_words:
-        choices = [i for i, n in enumerate(allocations) if n > floor]
-        if not choices:
+
+    import re
+
+    sentence_groups = [
+        [part.strip() for part in re.split(r"(?<=[.!?])\\s+", scene.narration.strip()) if part.strip()]
+        for scene in scenes
+    ]
+
+    def word_count() -> int:
+        return sum(len(sentence.split()) for group in sentence_groups for sentence in group)
+
+    # Keep the opening sentence of each scene so the story remains legible, and keep the
+    # final sentence of the last scene so the payoff/reveal is never discarded.
+    protected = {(i, 0) for i, group in enumerate(sentence_groups) if group}
+    if sentence_groups and sentence_groups[-1]:
+        protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
+
+    while word_count() > target_words:
+        candidates = []
+        for i, group in enumerate(sentence_groups):
+            for j, sentence in enumerate(group):
+                if (i, j) in protected:
+                    continue
+                # Prefer removing the least costly complete sentence from the longest scene.
+                candidates.append((len(sentence.split()), -len(group), i, j))
+        if not candidates:
             break
-        i = max(choices, key=lambda j: allocations[j] - target_words * counts[j] / total)
-        allocations[i] -= 1
-    while sum(allocations) < target_words:
-        i = max(range(len(counts)), key=lambda j: counts[j] - allocations[j])
-        allocations[i] += 1
-    for i, (scene, words, limit) in enumerate(zip(scenes, tokens, allocations)):
-        if len(words) <= limit:
-            continue
-        if i == len(scenes) - 1 and limit >= 8:
-            # The last scene carries the payoff: retain both its setup and its final reveal.
-            head = max(4, round(limit * 0.58))
-            scene.narration = " ".join(words[:head] + words[-(limit - head):])
-        else:
-            scene.narration = " ".join(words[:limit])
-        scene.emphasis = [term for term in scene.emphasis if term.casefold() in scene.narration.casefold()]
+        _, _, i, j = min(candidates)
+        sentence_groups[i].pop(j)
+        # Removing a sentence shifts later indices in that scene; recompute protected indices.
+        protected = {(idx, 0) for idx, group in enumerate(sentence_groups) if group}
+        if sentence_groups and sentence_groups[-1]:
+            protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
+
+    for scene, group in zip(scenes, sentence_groups):
+        scene.narration = " ".join(group).strip()
+        scene.emphasis = [
+            term for term in scene.emphasis
+            if term.casefold() in scene.narration.casefold()
+        ]
     return result
 
 
