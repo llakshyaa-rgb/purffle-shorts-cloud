@@ -813,7 +813,8 @@ class Studio:
                 log.info("Visual coverage: %d%% (%d/%d shots have real media)",
                          visual_coverage, visual_real, visual_total)
             target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
-            duration_ok = target_delta <= 0.20
+            # Publishing requires close adherence to the requested runtime, not merely a loose 20% bound.
+            duration_ok = target_delta <= 0.08
             visuals_ok = visual_coverage >= 70
             captions_ok = bool(chunks) and all(
                 chunk.end > chunk.start
@@ -840,7 +841,7 @@ class Studio:
             }
             if not duration_ok:
                 quality_report["reasons"].append(
-                    f"Runtime differs from requested {s.target_seconds}s by more than 20%; revise narration."
+                    f"Runtime differs from requested {s.target_seconds}s by more than 8%; revise narration."
                 )
                 log.warning("Quality gate: rendered runtime %.2fs is too far from target %ss",
                             info["duration"], s.target_seconds)
