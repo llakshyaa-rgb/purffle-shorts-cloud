@@ -49,17 +49,6 @@ log = logging.getLogger("purffle")
 END_PAD = 0.6          # seconds of breathing room after the last word
 
 
-def _compress_script_to_word_budget(script: Script, target_words: int) -> Script:
-    """Keep the complete story when timing repair cannot meet its word budget.
-
-    Deterministic sentence deletion cannot reliably distinguish expendable wording from
-    a clue, reaction, causal beat, or payoff. Runtime repair belongs in write_script(),
-    where the model can rewrite the story coherently. This fallback intentionally
-    returns an unchanged copy rather than silently damaging the plot.
-    """
-    return copy.deepcopy(script)
-
-
 def _can_adaptively_reuse(item: MediaItem) -> bool:
     """Only replace failed generated placeholders; preserve deliberate gradient art direction."""
     return item.source == "generated" and not bool(item.extra.get("intentional_gradient"))
