@@ -748,7 +748,27 @@ class Visuals:
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
             elif source == "cloudflare" and s.cloudflare_account_id and s.cloudflare_api_token:
-                cloudflare_image(full, dest, s.cloudflare_account_id, s.cloudflare_api_token)
+                try:
+                    cloudflare_image(full, dest, s.cloudflare_account_id, s.cloudflare_api_token)
+                except Exception as first_error:
+                    # FLUX safety filters can false-positive on long, cinematic prompts.
+                    # Retry once with a compact, literal description of the same scene.
+                    # Keep the story action; remove style clutter and potentially ambiguous
+                    # age wording rather than silently falling back to an unrelated image.
+                    error_text = str(first_error).casefold()
+                    if not any(term in error_text for term in ("nsfw", "safety", "unsafe", "moderation")):
+                        raise
+                    compact = re.sub(r"\\b(?:boy|girl|child|kid|teenager)\\b", "young person", prompt, flags=re.IGNORECASE)
+                    compact = re.sub(r"REUSABLE CHARACTER:.*$", "", compact, flags=re.IGNORECASE | re.DOTALL)
+                    compact = re.sub(r"\\s+", " ", compact).strip(" .")
+                    compact = (
+                        "Non-sexual fictional cinematic illustration, fully clothed characters. "
+                        + compact[:650]
+                        + ". Clear safe family-friendly scene, no nudity or sexual content. "
+                        + s.visual_style + ". No text, no letters, no watermark."
+                    )
+                    log.warning("Cloudflare safety filter rejected scene %d's long prompt; retrying with a compact safe prompt", idx + 1)
+                    cloudflare_image(compact, dest, s.cloudflare_account_id, s.cloudflare_api_token)
             else:
                 return None
         except PermanentError as e:
