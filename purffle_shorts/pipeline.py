@@ -449,6 +449,7 @@ class Studio:
             # can miss a word budget once; keep the best measured candidate and never trade
             # away the story merely to make the numbers look right.
             target = max(1, int(s.target_seconds))
+            best_script, best_speech, best_total = script, speech, total
             repair_llm = None
             if abs(total - target) / target > 0.08 and not s.offline:
                 try:
@@ -457,7 +458,6 @@ class Studio:
                     # Supplied/offline scripts remain renderable without an LLM.
                     repair_llm = None
             if repair_llm is not None:
-                best_script, best_speech, best_total = script, speech, total
                 for repair_no in range(1, 5):
                     delta = abs(best_total - target) / max(1.0, target)
                     if delta <= 0.08:
@@ -548,7 +548,9 @@ class Studio:
             # If the model repeatedly ignores the word budget, apply a deterministic local fallback.
             # Re-measure with the real voice; never fake duration by changing playback speed.
             if abs(best_total - target) / max(1.0, target) > 0.08 and best_total > target:
-                fallback_words = max(12, round(target * min(3.25, max(2.45, current_words / max(1.0, best_speech.duration))))
+                current_words = sum(len((scene.narration or "").split()) for scene in best_script.scenes)
+                measured_wps = current_words / max(1.0, best_speech.duration)
+                fallback_words = max(12, round(target * min(3.25, max(2.45, measured_wps))))
                 fallback = _compress_script_to_word_budget(best_script, fallback_words)
                 fallback_speech = self._speak(fallback, work, s)
                 fallback_total = round(fallback_speech.duration + END_PAD, 3)
