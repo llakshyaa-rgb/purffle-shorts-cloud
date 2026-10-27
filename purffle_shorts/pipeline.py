@@ -50,56 +50,14 @@ END_PAD = 0.6          # seconds of breathing room after the last word
 
 
 def _compress_script_to_word_budget(script: Script, target_words: int) -> Script:
-    """Shorten only at sentence boundaries; never cut narration in the middle of a sentence.
+    """Keep the complete story when timing repair cannot meet its word budget.
 
-    This is a last-resort timing repair. If complete sentences cannot fit the budget, prefer
-    a longer but coherent narration over clipped words or a broken story reveal.
+    Deterministic sentence deletion cannot reliably distinguish expendable wording from
+    a clue, reaction, causal beat, or payoff. Runtime repair belongs in write_script(),
+    where the model can rewrite the story coherently. This fallback intentionally
+    returns an unchanged copy rather than silently damaging the plot.
     """
-    result = copy.deepcopy(script)
-    scenes = [scene for scene in result.scenes if (scene.narration or "").strip()]
-    if not scenes:
-        return result
-
-    import re
-
-    sentence_groups = [
-        [part.strip() for part in re.split(r"(?<=[.!?])\s+", scene.narration.strip()) if part.strip()]
-        for scene in scenes
-    ]
-
-    def word_count() -> int:
-        return sum(len(sentence.split()) for group in sentence_groups for sentence in group)
-
-    # Keep the opening sentence of each scene so the story remains legible, and keep the
-    # final sentence of the last scene so the payoff/reveal is never discarded.
-    protected = {(i, 0) for i, group in enumerate(sentence_groups) if group}
-    if sentence_groups and sentence_groups[-1]:
-        protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
-
-    while word_count() > target_words:
-        candidates = []
-        for i, group in enumerate(sentence_groups):
-            for j, sentence in enumerate(group):
-                if (i, j) in protected:
-                    continue
-                # Prefer removing the least costly complete sentence from the longest scene.
-                candidates.append((len(sentence.split()), -len(group), i, j))
-        if not candidates:
-            break
-        _, _, i, j = min(candidates)
-        sentence_groups[i].pop(j)
-        # Removing a sentence shifts later indices in that scene; recompute protected indices.
-        protected = {(idx, 0) for idx, group in enumerate(sentence_groups) if group}
-        if sentence_groups and sentence_groups[-1]:
-            protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
-
-    for scene, group in zip(scenes, sentence_groups):
-        scene.narration = " ".join(group).strip()
-        scene.emphasis = [
-            term for term in scene.emphasis
-            if term.casefold() in scene.narration.casefold()
-        ]
-    return result
+    return copy.deepcopy(script)
 
 
 def _can_adaptively_reuse(item: MediaItem) -> bool:
@@ -558,26 +516,15 @@ class Studio:
                         # A failed first attempt should not prevent one final bounded attempt.
                         continue
                 script, speech, total = best_script, best_speech, best_total
-            # If the model repeatedly ignores the word budget, apply a deterministic local fallback.
-            # Re-measure with the real voice; never fake duration by changing playback speed.
+            # Do not delete sentences locally to force the runtime: that can remove clues,
+            # reactions, and the story payoff. If the bounded model repairs miss, keep the best
+            # complete script and let the quality gate block publishing when duration is off.
             if abs(best_total - target) / max(1.0, target) > 0.08 and best_total > target:
-                current_words = sum(len((scene.narration or "").split()) for scene in best_script.scenes)
-                measured_wps = current_words / max(1.0, best_speech.duration)
-                fallback_words = max(12, round(target * min(3.25, max(2.45, measured_wps))))
-                fallback = _compress_script_to_word_budget(best_script, fallback_words)
-                fallback_speech = self._speak(fallback, work, s)
-                fallback_total = round(fallback_speech.duration + END_PAD, 3)
-                if abs(fallback_total - target) < abs(best_total - target):
-                    script, speech, total = fallback, fallback_speech, fallback_total
-                    best_script, best_speech, best_total = script, speech, total
-                    (folder / "script.json").write_text(
-                        json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
-                    )
-                    log.warning("Deterministic duration fallback improved narration to %.1fs (%d words; target %ss)",
-                                total, sum(len((sc.narration or "").split()) for sc in script.scenes), target)
-                else:
-                    log.warning("Deterministic duration fallback was not closer (%.1fs); keeping best measured version",
-                                fallback_total)
+                log.warning(
+                    "Runtime remains %.1fs over target after measured repair; preserving the complete story "
+                    "instead of deleting narration to hit the duration.",
+                    best_total - target,
+                )
             script, speech, total = best_script, best_speech, best_total
             # Keep the voice at its native TTS speed: never time-stretch narration to fake the target.
             # If repair misses, render with measured timing so captions remain synchronized;
