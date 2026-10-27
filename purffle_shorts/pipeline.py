@@ -404,7 +404,7 @@ class Studio:
             speech = self._speak(script, work, s)
             total = round(speech.duration + END_PAD, 3)
 
-            # Bounded, measured duration repair. Allow up to two attempts because a model
+            # Bounded, measured duration repair. Allow up to four attempts because a model
             # can miss a word budget once; keep the best measured candidate and never trade
             # away the story merely to make the numbers look right.
             target = max(1, int(s.target_seconds))
@@ -417,7 +417,7 @@ class Studio:
                     repair_llm = None
             if repair_llm is not None:
                 best_script, best_speech, best_total = script, speech, total
-                for repair_no in range(1, 3):
+                for repair_no in range(1, 5):
                     delta = abs(best_total - target) / max(1.0, target)
                     if delta <= 0.08:
                         break
@@ -443,7 +443,7 @@ class Studio:
                             "The narration is TOO SHORT. Expand it only with meaningful story beats."
                         )
                         log.warning(
-                            "Narration runtime %.1fs misses %ss target; attempting targeted repair %d/2",
+                            "Narration runtime %.1fs misses %ss target; attempting targeted repair %d/4",
                             best_total, target, repair_no,
                         )
                         candidate = write_script(
@@ -455,7 +455,7 @@ class Studio:
                                 "Original scene narration for continuity:\n" + original_beats
                             ),
                             creative_brief=(
-                                f"RUNTIME REPAIR {repair_no}/2: target {target} seconds. {direction} "
+                                f"RUNTIME REPAIR {repair_no}/4: target {target} seconds. {direction} "
                                 f"The current narration rendered to {best_total:.1f} seconds with the selected voice. "
                                 f"Aim for {target_words} spoken words; acceptable range {low_words}–{high_words}, "
                                 "including hook and ending. This is a measured timing correction, not a request "
@@ -469,6 +469,16 @@ class Studio:
                                 "Return the revised script only."
                             ),
                         )
+                        candidate_words = sum(
+                            len((scene.narration or "").split()) for scene in candidate.scenes
+                        )
+                        if not low_words <= candidate_words <= high_words:
+                            log.warning(
+                                "Runtime repair %d returned %d words outside the %d–%d word budget; "
+                                "rejecting it before TTS and asking again",
+                                repair_no, candidate_words, low_words, high_words,
+                            )
+                            continue
                         candidate_speech = self._speak(candidate, work, s)
                         candidate_total = round(candidate_speech.duration + END_PAD, 3)
                         if abs(candidate_total - target) < abs(best_total - target):
@@ -494,10 +504,9 @@ class Studio:
                         # A failed first attempt should not prevent one final bounded attempt.
                         continue
                 script, speech, total = best_script, best_speech, best_total
-            # Runtime mismatch is a warning, not a reason to discard a complete job.
-            # Preserve the existing pipeline: continue through Creative Director, footage,
-            # captions and rendering using the measured narration duration. Upload readiness
-            # is still governed by the existing render/check/publish workflow.
+            # Keep the voice at its native TTS speed: never time-stretch narration to fake the target.
+            # If repair misses, render with measured timing so captions remain synchronized;
+            # the downstream quality gate must block publishing when the final runtime is off.
             runtime_delta = abs(total - target) / max(1.0, target)
             if runtime_delta > 0.08:
                 log.warning(
