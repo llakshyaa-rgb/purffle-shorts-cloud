@@ -63,7 +63,7 @@ def _compress_script_to_word_budget(script: Script, target_words: int) -> Script
     import re
 
     sentence_groups = [
-        [part.strip() for part in re.split(r"(?<=[.!?])\\s+", scene.narration.strip()) if part.strip()]
+        [part.strip() for part in re.split(r"(?<=[.!?])\s+", scene.narration.strip()) if part.strip()]
         for scene in scenes
     ]
 
