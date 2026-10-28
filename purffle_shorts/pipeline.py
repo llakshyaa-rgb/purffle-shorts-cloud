@@ -940,13 +940,8 @@ class Studio:
         if not on_youtube and not others:
             log.info("Video #%d is already on %s", rid, ", ".join(to))
             return rec["status"]
-        if self.quota_left() <= 0:
-            log.warning("Daily upload limit (%d) reached — video #%d queued for tomorrow", self.s.daily_upload_limit, rid)
-            self.history.update_video(rid, status="queued")
-            if result:
-                result.status = "queued"
-            notify.send(self.s, "queued", title=rec["title"], detail="daily upload limit reached")
-            return "queued"
+        # Check uncertain uploads before quota handling, which otherwise could turn the record
+        # back into a retryable queued item.
         # An interrupted upload can have reached YouTube before the response was saved locally.
         # Never retry that uncertain state automatically: doing so could create a duplicate video.
         if on_youtube and rec.get("status") == "uploading":
@@ -957,6 +952,13 @@ class Studio:
                 result.status, result.error = "upload-uncertain", message
             return "upload-uncertain"
 
+        if self.quota_left() <= 0:
+            log.warning("Daily upload limit (%d) reached — video #%d queued for tomorrow", self.s.daily_upload_limit, rid)
+            self.history.update_video(rid, status="queued")
+            if result:
+                result.status = "queued"
+            notify.send(self.s, "queued", title=rec["title"], detail="daily upload limit reached")
+            return "queued"
         status = rec["status"]
         when = _future(rec.get("publish_at"))
         if on_youtube:
