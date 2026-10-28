@@ -438,24 +438,33 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
     try:
         ffmpeg.run(args(encode), label="final render", cwd=work, progress=progress, duration=total)
     except ffmpeg.FFmpegError as error:
-        # Some FFmpeg builds crash (exit -11 / SIGSEGV) while processing particular xfade
-        # transitions. Retry once with a simpler concat-only graph and a conservative CPU encoder.
-        # Preserve the original scene lengths by undoing the half-transition padding added upstream.
+        # A SIGSEGV may be caused by the selected encoder or by xfade itself. First retry
+        # the exact same transition graph with the conservative CPU encoder so we preserve
+        # the intended motion whenever possible. Only if that fails do we remove transitions.
         if "exit -11" in str(error) and T > 0 and not _safe_retry:
-            log.warning("FFmpeg crashed during final render; retrying once without transitions")
-            plain_lengths = list(lengths)
-            half = T / 2
-            for i in range(len(plain_lengths)):
-                if i > 0 and not (joins and joins[i - 1]):
-                    plain_lengths[i] -= half
-                if i < len(plain_lengths) - 1 and not (joins and joins[i]):
-                    plain_lengths[i] -= half
-                plain_lengths[i] = max(1.0 / F, plain_lengths[i])
-            safe_settings = replace(settings, transition="none", video_encoder="libx264",
-                                    preset="ultrafast", crf=max(settings.crf, 24))
-            return compose(safe_settings, segments, plain_lengths, voice, total, plan, out, work, music,
-                           joins=None, progress=progress, effects=effects, background=background,
-                           _safe_retry=True, narrator_topic=narrator_topic)
+            safe_settings = replace(settings, video_encoder="libx264", preset="ultrafast",
+                                    crf=max(settings.crf, 24))
+            log.warning("FFmpeg crashed during final render; retrying with libx264 while preserving transitions")
+            try:
+                return compose(safe_settings, segments, lengths, voice, total, plan, out, work, music,
+                               joins=joins, progress=progress, effects=effects, background=background,
+                               _safe_retry=True, narrator_topic=narrator_topic)
+            except ffmpeg.FFmpegError as transition_error:
+                log.warning("Transition-preserving retry failed (%s); falling back to cuts",
+                            redact(transition_error))
+                # Undo the half-transition padding added upstream so cuts keep the intended runtime.
+                plain_lengths = list(lengths)
+                half = T / 2
+                for i in range(len(plain_lengths)):
+                    if i > 0 and not (joins and joins[i - 1]):
+                        plain_lengths[i] -= half
+                    if i < len(plain_lengths) - 1 and not (joins and joins[i]):
+                        plain_lengths[i] -= half
+                    plain_lengths[i] = max(1.0 / F, plain_lengths[i])
+                plain_settings = replace(safe_settings, transition="none")
+                return compose(plain_settings, segments, plain_lengths, voice, total, plan, out, work, music,
+                               joins=None, progress=progress, effects=effects, background=background,
+                               _safe_retry=True, narrator_topic=narrator_topic)
         if encode[1] == "libx264":
             raise
         # Hardware encoders fail on some machines/drivers (busy GPU, unsupported size): use the CPU.

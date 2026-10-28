@@ -47,59 +47,7 @@ from .utils import Cancelled, check_cancel, redact, slugify, truncate_words
 log = logging.getLogger("purffle")
 
 END_PAD = 0.6          # seconds of breathing room after the last word
-
-
-def _compress_script_to_word_budget(script: Script, target_words: int) -> Script:
-    """Shorten only at sentence boundaries; never cut narration in the middle of a sentence.
-
-    This is a last-resort timing repair. If complete sentences cannot fit the budget, prefer
-    a longer but coherent narration over clipped words or a broken story reveal.
-    """
-    result = copy.deepcopy(script)
-    scenes = [scene for scene in result.scenes if (scene.narration or "").strip()]
-    if not scenes:
-        return result
-
-    import re
-
-    sentence_groups = [
-        [part.strip() for part in re.split(r"(?<=[.!?])\s+", scene.narration.strip()) if part.strip()]
-        for scene in scenes
-    ]
-
-    def word_count() -> int:
-        return sum(len(sentence.split()) for group in sentence_groups for sentence in group)
-
-    # Keep the opening sentence of each scene so the story remains legible, and keep the
-    # final sentence of the last scene so the payoff/reveal is never discarded.
-    protected = {(i, 0) for i, group in enumerate(sentence_groups) if group}
-    if sentence_groups and sentence_groups[-1]:
-        protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
-
-    while word_count() > target_words:
-        candidates = []
-        for i, group in enumerate(sentence_groups):
-            for j, sentence in enumerate(group):
-                if (i, j) in protected:
-                    continue
-                # Prefer removing the least costly complete sentence from the longest scene.
-                candidates.append((len(sentence.split()), -len(group), i, j))
-        if not candidates:
-            break
-        _, _, i, j = min(candidates)
-        sentence_groups[i].pop(j)
-        # Removing a sentence shifts later indices in that scene; recompute protected indices.
-        protected = {(idx, 0) for idx, group in enumerate(sentence_groups) if group}
-        if sentence_groups and sentence_groups[-1]:
-            protected.add((len(sentence_groups) - 1, len(sentence_groups[-1]) - 1))
-
-    for scene, group in zip(scenes, sentence_groups):
-        scene.narration = " ".join(group).strip()
-        scene.emphasis = [
-            term for term in scene.emphasis
-            if term.casefold() in scene.narration.casefold()
-        ]
-    return result
+DURATION_TOLERANCE_SECONDS = 5.0  # requested runtime may vary by at most five seconds
 
 
 def _can_adaptively_reuse(item: MediaItem) -> bool:
@@ -464,7 +412,7 @@ class Studio:
             target = max(1, int(s.target_seconds))
             best_script, best_speech, best_total = script, speech, total
             repair_llm = None
-            if abs(total - target) / target > 0.08 and not s.offline:
+            if abs(total - target) > DURATION_TOLERANCE_SECONDS and not s.offline:
                 try:
                     repair_llm = self.llm
                 except LLMConfigError:
@@ -472,8 +420,8 @@ class Studio:
                     repair_llm = None
             if repair_llm is not None:
                 for repair_no in range(1, 5):
-                    delta = abs(best_total - target) / max(1.0, target)
-                    if delta <= 0.08:
+                    delta = abs(best_total - target)
+                    if delta <= DURATION_TOLERANCE_SECONDS:
                         break
                     try:
                         current_words = sum(
@@ -558,36 +506,25 @@ class Studio:
                         # A failed first attempt should not prevent one final bounded attempt.
                         continue
                 script, speech, total = best_script, best_speech, best_total
-            # If the model repeatedly ignores the word budget, apply a deterministic local fallback.
-            # Re-measure with the real voice; never fake duration by changing playback speed.
-            if abs(best_total - target) / max(1.0, target) > 0.08 and best_total > target:
-                current_words = sum(len((scene.narration or "").split()) for scene in best_script.scenes)
-                measured_wps = current_words / max(1.0, best_speech.duration)
-                fallback_words = max(12, round(target * min(3.25, max(2.45, measured_wps))))
-                fallback = _compress_script_to_word_budget(best_script, fallback_words)
-                fallback_speech = self._speak(fallback, work, s)
-                fallback_total = round(fallback_speech.duration + END_PAD, 3)
-                if abs(fallback_total - target) < abs(best_total - target):
-                    script, speech, total = fallback, fallback_speech, fallback_total
-                    best_script, best_speech, best_total = script, speech, total
-                    (folder / "script.json").write_text(
-                        json.dumps(script.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
-                    )
-                    log.warning("Deterministic duration fallback improved narration to %.1fs (%d words; target %ss)",
-                                total, sum(len((sc.narration or "").split()) for sc in script.scenes), target)
-                else:
-                    log.warning("Deterministic duration fallback was not closer (%.1fs); keeping best measured version",
-                                fallback_total)
+            # Do not delete sentences locally to force the runtime: that can remove clues,
+            # reactions, and the story payoff. If the bounded model repairs miss, keep the best
+            # complete script and let the quality gate block publishing when duration is off.
+            if abs(best_total - target) > DURATION_TOLERANCE_SECONDS and best_total > target:
+                log.warning(
+                    "Runtime remains %.1fs over target after measured repair; preserving the complete story "
+                    "instead of deleting narration to hit the duration.",
+                    best_total - target,
+                )
             script, speech, total = best_script, best_speech, best_total
             # Keep the voice at its native TTS speed: never time-stretch narration to fake the target.
             # If repair misses, render with measured timing so captions remain synchronized;
             # the downstream quality gate must block publishing when the final runtime is off.
-            runtime_delta = abs(total - target) / max(1.0, target)
-            if runtime_delta > 0.08:
+            runtime_delta = abs(total - target)
+            if runtime_delta > DURATION_TOLERANCE_SECONDS:
                 log.warning(
-                    "Narration is %.1fs (%.0f%%) away from requested %ss after repair; "
+                    "Narration is %.1fs away from requested %ss after repair; "
                     "continuing with the established render workflow using actual voice duration.",
-                    abs(total - target), runtime_delta * 100, target
+                    runtime_delta, target
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
@@ -826,8 +763,9 @@ class Studio:
                 log.info("Visual coverage: %d%% (%d/%d shots have real media)",
                          visual_coverage, visual_real, visual_total)
             target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
-            # Publishing requires close adherence to the requested runtime, not merely a loose 20% bound.
-            duration_ok = target_delta <= 0.08
+            duration_delta_seconds = abs(info["duration"] - s.target_seconds)
+            # A rendered video may differ from the requested duration by at most five seconds.
+            duration_ok = duration_delta_seconds <= DURATION_TOLERANCE_SECONDS
             visuals_ok = visual_coverage >= 70
             captions_ok = bool(chunks) and all(
                 chunk.end > chunk.start
@@ -844,6 +782,8 @@ class Studio:
                 "target_seconds": s.target_seconds,
                 "actual_seconds": round(info["duration"], 2),
                 "duration_deviation_percent": round(target_delta * 100, 1),
+                "duration_deviation_seconds": round(duration_delta_seconds, 2),
+                "duration_tolerance_seconds": DURATION_TOLERANCE_SECONDS,
                 "duration_ok": duration_ok,
                 "visual_coverage_percent": visual_coverage,
                 "visual_coverage_ok": visuals_ok,
@@ -854,10 +794,10 @@ class Studio:
             }
             if not duration_ok:
                 quality_report["reasons"].append(
-                    f"Runtime differs from requested {s.target_seconds}s by more than 8%; revise narration."
+                    f"Runtime differs from requested {s.target_seconds}s by {duration_delta_seconds:.1f}s; maximum allowed difference is {DURATION_TOLERANCE_SECONDS:.0f}s."
                 )
-                log.warning("Quality gate: rendered runtime %.2fs is too far from target %ss",
-                            info["duration"], s.target_seconds)
+                log.warning("Quality gate: rendered runtime %.2fs differs from target %ss by %.1fs (limit %.1fs)",
+                            info["duration"], s.target_seconds, duration_delta_seconds, DURATION_TOLERANCE_SECONDS)
             if not visuals_ok:
                 quality_report["reasons"].append(
                     "Fewer than 70% of shots use scene assets; generic artwork/gradients do not count as visual evidence."
