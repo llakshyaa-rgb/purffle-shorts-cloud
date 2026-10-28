@@ -947,9 +947,22 @@ class Studio:
                 result.status = "queued"
             notify.send(self.s, "queued", title=rec["title"], detail="daily upload limit reached")
             return "queued"
+        # An interrupted upload can have reached YouTube before the response was saved locally.
+        # Never retry that uncertain state automatically: doing so could create a duplicate video.
+        if on_youtube and rec.get("status") == "uploading":
+            message = ("Upload was interrupted before Purffle saved YouTube's video ID. "
+                       "Check YouTube Studio for this title before retrying.")
+            log.error("Video #%d has an uncertain upload state; refusing automatic retry.", rid)
+            if result:
+                result.status, result.error = "upload-uncertain", message
+            return "upload-uncertain"
+
         status = rec["status"]
         when = _future(rec.get("publish_at"))
         if on_youtube:
+            # Persist the in-flight state before sending bytes. If the process dies after YouTube
+            # accepts the upload but before its ID is saved, recovery will stop for a manual check.
+            self.history.update_video(rid, status="uploading", error=None)
             # A creator-selected time takes precedence over configured default slots.
             when = _future(rec.get("publish_at")) or youtube.next_publish_slot(self.s, self.history.scheduled_times())
             status = self._to_youtube(rid, rec, meta, folder, when, result)
