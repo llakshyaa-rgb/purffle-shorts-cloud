@@ -854,10 +854,21 @@ class Studio:
                             score=script.score, language=s.language)
             if upload and publish_ready:
                 self._step("upload")
-                self.upload_record(rid, result)
+                upload_status = self.upload_record(rid, result)
+                # Rendering success must not hide a failed publishing attempt. Studio uses Result.ok
+                # to decide whether the job succeeded, so propagate the uploader's final state.
+                if upload_status not in ("uploaded", "scheduled", "queued"):
+                    result.ok = False
+                    result.status = upload_status or "upload-failed"
+                    result.error = result.error or (
+                        f"YouTube publishing did not complete (status: {result.status}). "
+                        "Check the Upload stage log and YouTube authorization/settings."
+                    )
+                    log.error("Video rendered, but publishing did not complete: %s", result.error)
             elif upload:
                 result.status = "needs-review"
                 result.reason = "; ".join(quality_report["reasons"])
+                result.error = "Video rendered, but automatic publishing was blocked by the quality gate: " + result.reason
                 log.error("Publishing blocked by quality gate: %s", result.reason)
                 notify.send(s, "failed", title=title, detail="Publishing blocked for review: " + result.reason)
             else:
