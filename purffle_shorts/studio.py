@@ -180,8 +180,13 @@ class StudioServer:
             self._changed.wait_for(lambda: self.version != seen, timeout=timeout)
             return self.version
 
-    def jobs_public(self) -> list[dict]:
-        return [j.public() for j in sorted(self.jobs.values(), key=lambda j: j.id, reverse=True)[:40]]
+    def jobs_public(self, limit: int = 7, full_log: bool = False) -> list[dict]:
+        ordered = sorted(self.jobs.values(), key=lambda j: j.id, reverse=True)
+        active = [j for j in ordered if j.status in {"queued", "running"}]
+        finished = [j for j in ordered if j.status not in {"queued", "running"}]
+        visible = active + finished[:max(0, limit - len(active))]
+        visible.sort(key=lambda j: j.id, reverse=True)
+        return [j.public(full_log=full_log) for j in visible]
 
     # ------------------------------------------------------------------ jobs
     def submit(self, kind: str, params: dict, label: str = "") -> Job:
@@ -743,7 +748,9 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 v = app.video(int(m.group(1)))
                 return self._json(v) if v else self._json({"error": "not found"}, 404)
             if path == "/api/jobs":
-                return self._json(app.jobs_public())
+                return self._json(app.jobs_public(limit=7))
+            if path == "/api/jobs/history":
+                return self._json([j.public(full_log=True) for j in sorted(app.jobs.values(), key=lambda j: j.id, reverse=True)[:100]])
             if path == "/api/events":
                 return self._events()
             m = re.fullmatch(r"/api/jobs/(\d+)", path)
