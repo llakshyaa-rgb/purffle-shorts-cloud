@@ -141,7 +141,7 @@ class StudioServer:
             if not isinstance(rows, list):
                 return
             for data in rows[-100:]:
-                if not isinstance(data, dict) or data.get("kind") not in {"make", "draft", "clip", "plan", "upload", "stats"}:
+                if not isinstance(data, dict) or data.get("kind") not in {"make", "draft", "clip", "plan", "upload", "stats", "learn"}:
                     continue
                 try:
                     job = Job(
@@ -339,8 +339,25 @@ class StudioServer:
                     from .analytics import sync_stats
                     job.result = {"updated": sync_stats(self.settings, self.studio.history)}
                     ok = True
+                elif job.kind == "learn":
+                    from .learning import refresh_learning
+                    job.result = refresh_learning(self.settings, self.studio.history, sync=True)
+                    ok = True
                 else:
                     s = self.overrides(p)
+                    if job.kind == "make" and p.get("auto_creator"):
+                        from .learning import refresh_learning
+                        learning = refresh_learning(s, self.studio.history, sync=True)
+                        p["topic"] = None
+                        p["source"] = None
+                        p["style"] = "auto"
+                        p["upload"] = bool(self.settings.upload)
+                        p["privacy"] = self.settings.privacy
+                        notes = str(learning.get("prompt_notes") or "")
+                        p["creative_brief"] = (str(p.get("creative_brief") or "") + "\n\nCHANNEL LEARNING NOTES:\n" + notes).strip()[:5000]
+                        job.label = "Auto Creator · " + str(learning.get("tracked_videos", 0)) + " videos analysed"
+                        self._persist_jobs()
+                        self.changed()
                     studio = Studio(s, progress=self._progress(job))
                     job.eta_fn = studio.eta
                     ok = self._run(job, studio, s, p)
@@ -365,7 +382,7 @@ class StudioServer:
             script, pick, writer = studio.draft(p.get("topic") or None, source=p.get("source") or None,
                                                 style=s.style if s.style != "auto" else None,
                                                 url=p.get("url") or None,
-                                                creative_brief=str(p.get("creative_brief") or "")[:1000])
+                                                creative_brief=str(p.get("creative_brief") or "")[:5000 if p.get("auto_creator") else 1000])
             job.result = {"script": script.to_dict(), "source": pick.source, "llm": writer}
             job.stage, job.pct = "done", 100
             return True
@@ -740,6 +757,9 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 return self._json(checks(app.settings))
             if path == "/api/channel":
                 return self._json(app.channel())
+            if path == "/api/learning":
+                from .learning import read_learning
+                return self._json(read_learning(app.studio.history))
             if path == "/api/assets":
                 return self._json(app.assets(params.get("q", ""), params.get("kind", "")))
             m = re.fullmatch(r"/assets/([0-9a-f]{24})\.png", path)
@@ -834,6 +854,16 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
                 return self._json({"job": app.submit("plan", body, label).id})
             if path == "/api/stats":
                 return self._json({"job": app.submit("stats", {}, "Refresh channel stats").id})
+            if path == "/api/learning/refresh":
+                return self._json({"job": app.submit("learn", {}, "Refresh performance + creator notes").id})
+            if path == "/api/learning/notes":
+                from .learning import save_manual_notes
+                saved = save_manual_notes(h, str(body.get("notes") or ""))
+                return self._json({"ok": True, "learning": saved})
+            if path == "/api/make-next":
+                payload = {"auto_creator": True, "style": "auto", "upload": bool(app.settings.upload),
+                           "privacy": app.settings.privacy, "source": None, "topic": None}
+                return self._json({"job": app.submit("make", payload, "Auto Creator · choose topic from learning").id})
             if path == "/api/ideas":
                 subject = str(body.get("subject") or "").strip()
                 if not subject:
