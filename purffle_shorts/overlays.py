@@ -1016,14 +1016,21 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
                    labels: dict[str, str] | None = None, chat: list[ChatMessage] | None = None,
                    contact: str = "", card: tuple[str, str, str] | None = None,
                    card_until: float = 0.0, emphasis: set[str] | None = None,
-                   emoji: list[tuple[float, float, str]] | None = None,\n                   creator_panels: list[tuple[float, float, str, str, str]] | None = None) -> OverlayPlan:
+                   emoji: list[tuple[float, float, str]] | None = None,
+                   creator_panels: list[tuple[float, float, str, str, str]] | None = None) -> OverlayPlan:
     """labels: speaker name tags over the captions (dialogue). chat: render a text-message screen
     instead of captions (the messages are the captions). card: (community, poster, title) of a post card
     shown until ``card_until`` in place of the hook title (pass captions that start after it).
     emphasis: key words (see utils.emphasis_key) drawn in the style's emphasis colour, as are numbers.
     emoji: (start, end, emoji) shown above the captions."""
     emphasis = (set(emphasis or ()) if settings.caption_emphasis else None)
-    emoji_plan = emoji_pops(settings, emoji, total, work / "emoji") if emoji and settings.caption_emoji else None\n    panel_plan = []\n    if creator_panels:\n        panel_font, _ = resolve_font(settings, "sans")\n        for pi, (start, end, kicker, title, body) in enumerate(creator_panels[:8]):\n            png, px, py = creator_panel_png(settings, panel_font, kicker, title, body, pi, work / "creator_panels" / f"panel{pi:02d}.png")\n            panel_plan.append((png, px, py, max(0.0, start), min(total, end)))
+    emoji_plan = emoji_pops(settings, emoji, total, work / "emoji") if emoji and settings.caption_emoji else None
+    panel_plan = []
+    if creator_panels:
+        panel_font, _ = resolve_font(settings, "sans")
+        for pi, (start, end, kicker, title, body) in enumerate(creator_panels[:8]):
+            png, px, py = creator_panel_png(settings, panel_font, kicker, title, body, pi, work / "creator_panels" / f"panel{pi:02d}.png")
+            panel_plan.append((png, px, py, max(0.0, start), min(total, end)))
     selected_style = settings.caption_style
     if selected_style == "auto":
         selected_style = _auto_caption_style(settings, chunks, chat)
