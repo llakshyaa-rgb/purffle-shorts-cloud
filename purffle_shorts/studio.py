@@ -410,7 +410,7 @@ class StudioServer:
                         upload=bool(p.get("upload")) and s.upload,
                         style=s.style if s.style != "auto" else None, script=script, url=p.get("url") or None,
                         languages=[str(x)[:8] for x in (langs or [])][:6],
-                        creative_brief=str(p.get("creative_brief") or "")[:1000])
+                        creative_brief=str(p.get("creative_brief") or "")[:5000 if p.get("auto_creator") else 1000])
         job.result = _result(r)
         return r.ok
 
