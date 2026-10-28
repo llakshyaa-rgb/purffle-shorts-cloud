@@ -62,7 +62,7 @@ function head(view, title, text, aside = "") {
 // A sheet's heading: its number in the brief, the title, and anything that sits on the right.
 const sh = (n, title, aside = "") => `<header class="sheet-h"><span class="n">${n}</span><h2>${title}</h2>${aside ? `<span class="aside">${aside}</span>` : ""}</header>`;
 const empty = (k, title, text) => `<div class="empty" data-k="${k}"><b>${title}</b>${text}</div>`;
-const KIND_ICON = { make: I.film, draft: I.pen, clip: I.scissors, plan: I.bulb, upload: I.upload, stats: I.chart };
+const KIND_ICON = { make: I.film, draft: I.pen, clip: I.scissors, plan: I.bulb, upload: I.upload, stats: I.chart, learn: I.spark };
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem("purffle." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
