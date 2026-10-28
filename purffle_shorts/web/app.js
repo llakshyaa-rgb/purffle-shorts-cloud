@@ -286,6 +286,10 @@ function finished(j) {
 }
 
 document.addEventListener("click", e => {
+  const auto = e.target.closest("[data-auto-next]");
+  if (auto) { e.preventDefault(); startAutoCreator(); return; }
+  const history = e.target.closest("[data-job-history]");
+  if (history) { e.preventDefault(); openJobHistory(); return; }
   const o = e.target.closest("[data-open]");
   if (o) { e.preventDefault(); if (S.view !== "library") location.hash = "#library"; openVideo(+o.dataset.open); }
 });
@@ -355,6 +359,7 @@ function drawForm() {
   <section class="card">
     ${sh("01", "What is it about?")}
     <div class="src-tabs">${seg("mode", [["topic", "Topic"], ["url", "Web page"], ["queue", "Idea queue"], ["auto", "Surprise me"]], f.mode)}</div>
+    <div class="create-auto-row"><div><b>Auto Creator</b><p class="hint">Let Purffle learn from past uploads, choose a fresh topic, and make the next Short.</p></div><button class="btn primary" type="button" data-auto-next>${I.spark} Choose & make next</button></div>
     ${f.mode === "topic" ? `<div class="field big"><div class="clearable-input"><input type="text" data-f="topic" value="${esc(f.topic)}" placeholder="Why octopuses have three hearts" aria-label="Topic"><button class="clear-field" type="button" data-clear-field="topic" aria-label="Clear topic" title="Clear topic">×</button></div><p class="hint">Broad or specific: the AI finds the surprising angle, using what people actually search for.</p></div>`
     : f.mode === "url" ? `<div class="field big"><input type="url" data-f="url" value="${esc(f.url)}" placeholder="https://… an article, a blog post or a Reddit post" aria-label="Web page"><p class="hint">The page's text becomes the script's source material.</p></div>`
     : f.mode === "queue" ? `<p class="hint">Uses the oldest idea in your queue (${i_ideas()} waiting). Plan more on the <a href="#ideas">Ideas</a> page.</p>`
@@ -903,10 +908,50 @@ function closeDrawer() {
   document.body.style.overflow = "";
 }
 
+async function startAutoCreator() {
+  if (!confirm("Let Purffle refresh performance notes, choose a fresh topic, make a video, and use the current upload setting?")) return;
+  try {
+    const r = await post("/api/make-next");
+    S.seen.set(r.job, "queued");
+    S.createJob = { id: r.job, kind: "make", session: TOKEN };
+    store.set("createJob", S.createJob);
+    toast("Auto Creator is choosing a topic and making the next video.", "info", 4000);
+    location.hash = "#create";
+    tick();
+  } catch (e) { toast(esc(e.message), "bad"); }
+}
+
+async function openJobHistory() {
+  const drawer = $("#drawer"), panel = $("#drawer-panel");
+  panel.innerHTML = `<button class="btn ghost close" type="button" data-close aria-label="Close">${I.x}</button>
+    <p class="eyebrow"><b>03</b>Queue archive</p>
+    <h2>Past job logs</h2>
+    <p class="hint">Older runs are kept here so the main Queue stays tidy. Scroll to inspect a job and expand its log.</p>
+    <div id="job-history-list" class="job-history-list">${empty("LOADING", "Loading saved runs…", "")}</div>`;
+  drawer.hidden = false;
+  document.body.style.overflow = "hidden";
+  try {
+    const jobs = await get("/api/jobs/history");
+    const list = $("#job-history-list", panel);
+    if (!list) return;
+    list.innerHTML = jobs.length ? jobs.map(j => {
+      const r = j.result || {};
+      return `<details class="history-job">
+        <summary><span class="status-pill ${esc(j.status)}">${esc(j.status)}</span><b>#${String(j.id).padStart(3,"0")} · ${esc(r.title || j.label || j.kind)}</b><small>${esc(j.kind)} · ${j.created ? esc(new Date(j.created*1000).toLocaleString()) : "time unavailable"}</small></summary>
+        ${r.error ? `<p class="err">${esc(r.error)}</p>` : ""}
+        <pre class="log history-log">${esc((j.log || []).join("\n")) || "No log was saved for this run."}</pre>
+      </details>`;
+    }).join("") : empty("NO HISTORY", "No saved jobs yet", "Future runs will appear here.");
+  } catch (error) {
+    const list = $("#job-history-list", panel);
+    if (list) list.innerHTML = `<div class="empty">${esc(error.message || "Could not load job history.")}</div>`;
+  }
+}
+
 // ------------------------------------------------------------------ QUEUE
 const openLogs = new Set();
 function viewQueue() {
-  $("#main").innerHTML = `${head("queue", "Queue", "Jobs run one at a time, in order. Each shows its live stage, time left and log.")}<div class="jobs" id="jobs"></div>`;
+  $("#main").innerHTML = `${head("queue", "Queue", "Recent jobs at a glance. Older runs and their full logs stay available when you need them.")}<div class="queue-tools"><span class="hint">Showing the latest 7 jobs</span><button class="btn ghost" type="button" data-job-history>${I.doc}See more past logs</button></div><div class="jobs" id="jobs"></div>`;
   drawJobs();
 }
 function drawJobs() {
@@ -1220,7 +1265,7 @@ function drawLearning(data) {
     <section class="card">
       ${sh("01", "Learn from YouTube", `<span class="chip">${fmtNum(data.tracked_videos || 0)} tracked</span>`)}
       <p class="muted">Refresh pulls current channel statistics and available average-view metrics. YouTube retention reports can lag; missing metrics stay marked as unavailable rather than guessed.</p>
-      <div class="go-row"><button class="btn" id="learning-refresh" type="button">${I.refresh} Refresh performance + notes</button><button class="btn primary" id="learning-next" type="button">${I.spark} Let Purffle choose & make next video</button></div>
+      <div class="go-row learning-actions"><button class="btn" id="learning-refresh" type="button">${I.refresh} Refresh performance + notes</button></div>
       <p class="hint" id="learning-status">${data.updated_at ? `Last refreshed ${esc(ago(data.updated_at))}. Updated ${fmtNum(data.stats_updated || 0)} video records.` : "No saved learning run yet. Refresh now, or let Auto Creator refresh before making its first video."}</p>
       <div class="kpis">
         <div class="kpi"><small>With view counts</small><b>${fmtNum(data.videos_with_stats || 0)}</b></div>
@@ -1244,18 +1289,6 @@ function drawLearning(data) {
   $("#learning-refresh").onclick = async () => {
     try { const r = await post("/api/learning/refresh"); toast("Refreshing channel performance…", "info"); trackLearningJob(r.job); }
     catch (e) { toast(esc(e.message), "bad"); }
-  };
-  $("#learning-next").onclick = async () => {
-    if (!confirm("Let Purffle choose a fresh topic, refresh performance notes, render a video, and use the configured upload setting?")) return;
-    try {
-      const r = await post("/api/make-next");
-      S.seen.set(r.job, "queued");
-      S.createJob = { id: r.job, kind: "make", session: TOKEN };
-      store.set("createJob", S.createJob);
-      toast("Auto Creator is choosing a topic and making the next video.", "info", 4000);
-      location.hash = "#create";
-      tick();
-    } catch (e) { toast(esc(e.message), "bad"); }
   };
   $("#learning-save").onclick = async () => {
     try {
