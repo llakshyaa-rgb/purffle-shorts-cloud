@@ -97,7 +97,8 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     if any(phrase in narration.lower() for phrase in abstract_phrases) or (generic_query and len(narration.split()) <= 8):
         mode = "gradient"
     # Reserve diagram treatment for an actual mechanism, not generic words like "why" or "brain".
-    # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.    diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
+    # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.
+    diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
     story_words = ("door", "room", "shadow", "dark", "heard", "knock", "footsteps", "ran", "screamed", "blood", "monster", "stranger", "alone", "silhouette")
     if style == "fantasy":
         # Fantasy role-play should look like a cinematic scene, not our offline vector library.
@@ -221,7 +222,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "You are the scene-level creative director for a vertical short-form video. "
         "Return valid JSON matching the provided schema. Plan every scene in the background. "
         "Return practical instructions the renderer can use, not an essay. "
-        + treatment_rules + "\n" 
+        + treatment_rules + "\n" +
         "Choose a visual mode scene-by-scene: use real footage/photos for concrete factual subjects and evidence, diagrams only "
         "for mechanisms that genuinely need explaining, original illustrations for fictional/horror beats, and symbolic visuals only when clearer. "
         "Gradient is an intentional first-class mode, not a failed search fallback: use it for abstract connective lines, transitions, "
