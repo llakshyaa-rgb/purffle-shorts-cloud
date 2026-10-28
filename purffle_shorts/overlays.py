@@ -981,7 +981,8 @@ class OverlayPlan:
     chat: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) for chat stories
     card: tuple[Path, int, int] | None = None  # (png, x, y) post card for Reddit-style stories
     card_until: float = 0.0
-    emoji: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) emoji popping up above the captions\n    panels: list[tuple[Path, int, int, float, float]] = field(default_factory=list)  # timed creator cards
+    emoji: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) emoji popping up above the captions
+    panels: list[tuple[Path, int, int, float, float]] = field(default_factory=list)  # timed creator cards
 
 
 def _auto_caption_style(settings: Settings, chunks: list[Chunk], chat: list[ChatMessage] | None = None) -> str:
