@@ -160,6 +160,10 @@ async function boot() {
     emoji: true,
   }, S.form);
   if (!i.llm_ok) S.form.offline = true;
+  // Publishing is an explicit per-video action; never restore an enabled state after reload.
+  S.form.upload = false;
+  S.form.privacy = "private";
+  saveForm();
   status();
   window.addEventListener("hashchange", route);
   document.addEventListener("keydown", e => {
@@ -293,7 +297,8 @@ function payload(extra = {}) {
     style: f.style || "auto", language: f.language, duration: f.duration, aspect: f.aspect,
     caption_style: f.caption_style, caption_position: f.caption_position, grade: f.grade, transition: f.transition,
     tts: f.tts, voice: f.voice, voice_b: f.voice_b, provider: f.provider, model: f.model, review: f.review,
-    also_langs: f.also_langs, music: f.music, upload: f.upload && S.info.upload && !f.offline, offline: f.offline,
+    also_langs: f.also_langs, music: f.music, upload: f.upload && S.info.upload && !f.offline,
+    privacy: f.privacy === "public" ? "public" : "private", offline: f.offline,
     visual_mode: f.visual_mode || "match", visuals: f.visuals, background: f.background || "", layout: f.layout, sfx: f.sfx !== false,
     emphasis: f.emphasis !== false, emoji: f.emoji !== false,
   };
@@ -412,13 +417,16 @@ function drawForm() {
     <div class="field"><label>Script Doctor</label>${seg("review", [["off", "Off"], ["score", "Score only"], ["rewrite", "Score & rewrite"]], f.review)}<p class="hint">A second AI pass grades the hook and pacing, then rewrites weak lines.</p></div>
     <div class="field"><label>Also make it in</label><input type="text" data-f="also_langs" value="${esc(f.also_langs)}" placeholder="e.g. es, hi, pt — translated copies, same footage"></div>
     <div class="grid2">
-      <label class="switch"><input type="checkbox" data-f="upload"${f.upload ? " checked" : ""}${S.info.upload ? "" : " disabled"}><span>Publish when done<small>${S.info.upload ? publishTo() : "disabled in .env (UPLOAD=false)"}</small></span></label>
       <label class="switch"><input type="checkbox" data-f="offline"${f.offline ? " checked" : ""}><span>Demo mode<small>No keys: sample script, generated backgrounds</small></span></label>
     </div>
   </section>
 
-  <div class="go-row">
+  <div class="go-row publish-row">
     <button class="btn" id="draft-btn" type="button">${I.pen}Draft the script first</button>
+    <div class="publish-controls">
+      <label class="switch publish-switch"><input type="checkbox" data-f="upload"${f.upload ? " checked" : ""}${S.info.upload ? "" : " disabled"}><span>Publish after render<small>${S.info.upload ? publishTo() : "Publishing disabled in .env"}</small></span></label>
+      ${f.upload && S.info.upload && !f.offline ? `<label class="field privacy-field"><span>Visibility</span>${sel("privacy", [["private", "Private"], ["public", "Public"]], f.privacy || "private")}</label>` : ""}
+    </div>
     <button class="btn rec" id="make-btn" type="button"><span class="dot"></span>Create video<kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl"} ↵</kbd></button>
   </div>`;
   bindForm();
@@ -623,7 +631,10 @@ function drawEditor() {
     <div class="actions"><button class="btn ghost sm" type="button" data-act="add">${I.plus}Add scene</button></div></div>
     <div class="field"><label>Description</label><textarea data-k="description">${esc(d.description)}</textarea></div>
     <div class="field"><label>Hashtags</label><input type="text" data-tags value="${esc((d.hashtags || []).join(" "))}"></div>
-    <div class="go-row"><span></span><button class="btn rec" id="render-btn" type="button"><span class="dot"></span>Render this script</button></div>
+    <div class="go-row publish-row"><span></span><div class="publish-controls">
+      <label class="switch publish-switch"><input type="checkbox" data-f="upload"${S.form.upload ? " checked" : ""}${S.info.upload ? "" : " disabled"}><span>Publish after render<small>${S.info.upload ? publishTo() : "Publishing disabled in .env"}</small></span></label>
+      ${S.form.upload && S.info.upload && !S.form.offline ? `<label class="field privacy-field"><span>Visibility</span>${sel("privacy", [["private", "Private"], ["public", "Public"]], S.form.privacy || "private")}</label>` : ""}
+    </div><button class="btn rec" id="render-btn" type="button"><span class="dot"></span>Render this script</button></div>
   </section>`;
   paint(box);
   box.oninput = e => {
@@ -631,6 +642,10 @@ function drawEditor() {
     if (el.dataset.k) d[el.dataset.k] = el.value;
     else if (el.dataset.s) d.scenes[+el.dataset.i][el.dataset.s] = el.value;
     else if (el.dataset.cast) { d.cast = d.cast || ["", ""]; d.cast[+el.dataset.cast] = el.value; }
+    else if (el.dataset.f) {
+      S.form[el.dataset.f] = el.type === "checkbox" ? el.checked : el.value;
+      if (el.dataset.f === "upload") { saveForm(); drawEditor(); return; }
+    }
     else if (el.hasAttribute("data-tags")) d.hashtags = el.value.split(/\s+/).filter(Boolean);
     const t = d.scenes.reduce((n, s) => n + words(s.narration), 0);
     $("#wc").textContent = `${t} words · ~${Math.round(t / 2.6)}s`;
