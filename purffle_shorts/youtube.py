@@ -165,10 +165,11 @@ def to_rfc3339(dt: datetime) -> str:
 
 def build_body(settings: Settings, title: str, description: str, tags: list[str], category_id: str,
                language: str, publish_at: datetime | None = None,
-               localizations: dict[str, dict] | None = None) -> dict:
+               localizations: dict[str, dict] | None = None,
+               made_for_kids: bool | None = None) -> dict:
     status = {
         "privacyStatus": "private" if publish_at else settings.privacy,
-        "selfDeclaredMadeForKids": settings.made_for_kids,
+        "selfDeclaredMadeForKids": settings.made_for_kids if made_for_kids is None else made_for_kids,
         "embeddable": True,
     }
     if settings.synthetic_media:
