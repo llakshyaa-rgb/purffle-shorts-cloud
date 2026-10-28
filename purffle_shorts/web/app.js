@@ -491,6 +491,7 @@ function bindForm() {
       S.form[el.dataset.f] = el.type === "checkbox" ? el.checked : el.type === "range" ? +el.value : el.value;
       if (el.dataset.f === "duration") $("#dur-out").textContent = +el.value >= 60 ? Math.floor(+el.value/60) + "m " + (+el.value%60 ? (+el.value%60) + "s" : "") : el.value + "s";
       if (el.dataset.f === "language" || el.dataset.f === "tts") loadVoices();
+      if (el.dataset.f === "upload") { saveForm(); return drawForm(); }
       if (el.dataset.f === "background") { saveForm(); return drawForm(); }
     }
     saveForm();
