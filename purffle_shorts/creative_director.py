@@ -263,6 +263,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         for i, base in enumerate(fallback, 1):
             row = by_scene.get(i, {})
             clean = dict(base)
+            clean["visual_treatment"] = treatment
             for key in ("purpose", "visual_prompt", "reason"):
                 value = row.get(key)
                 if isinstance(value, str) and value.strip():
