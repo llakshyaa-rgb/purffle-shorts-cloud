@@ -97,8 +97,7 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     if any(phrase in narration.lower() for phrase in abstract_phrases) or (generic_query and len(narration.split()) <= 8):
         mode = "gradient"
     # Reserve diagram treatment for an actual mechanism, not generic words like "why" or "brain".
-    # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.
-    diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
+    # Broad triggers made unrelated factual scenes collapse into the same flat infographic style.    diagram_words = ("process", "flowchart", "cause and effect", "mechanism", "cross-section", "cutaway", "step by step", "orbit around", "gravity pulls", "energy transfer")
     story_words = ("door", "room", "shadow", "dark", "heard", "knock", "footsteps", "ran", "screamed", "blood", "monster", "stranger", "alone", "silhouette")
     if style == "fantasy":
         # Fantasy role-play should look like a cinematic scene, not our offline vector library.
@@ -156,15 +155,62 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
     }
 
 
+def _choose_reel_treatment(script: Script) -> tuple[str, str]:
+    """Choose one lead visual treatment automatically; content format remains independent."""
+    topic = f"{script.topic} {script.title} " + " ".join(
+        f"{scene.narration} {scene.search_query} {scene.image_prompt}" for scene in script.scenes
+    )
+    text = topic.casefold()
+    story_words = ("story", "mystery", "secret", "disappear", "door", "stranger", "family", "fear",
+                   "character", "dragon", "ghost", "betray", "revealed", "nightmare")
+    tutorial_words = ("how to", "tutorial", "tool", "app", "software", "ai ", "artificial intelligence",
+                      "workflow", "setup", "step", "website", "money", "business", "creator", "youtube",
+                      "instagram", "shorts", "reel", "product", "feature", "system")
+    if script.style in ("fantasy", "story", "chat", "reddit") or any(w in text for w in story_words):
+        treatment = "character_stage"
+        instructions = (
+            "LEAD VISUAL TREATMENT: CHARACTER STAGE. Keep one coherent environment and a stable recurring "
+            "host/character design when the subject supports it. Use a medium/wide establishing shot, then "
+            "subtle push-ins and reaction/detail shots. The character must serve the topic, never be a random "
+            "person inserted as filler. Use only the characters and actions justified by the script."
+        )
+    elif script.style in ("facts", "listicle", "myth", "quiz", "explainer", "news") or any(w in text for w in tutorial_words):
+        treatment = "floating_panels"
+        instructions = (
+            "LEAD VISUAL TREATMENT: FLOATING INFORMATION PANELS. Compose a clean creator-style explainer: "
+            "one consistent visual world, a clear subject/background, and room for large separate information "
+            "cards to be composited over it. Plan one card per idea, not a wall of tiny text. Use short exact "
+            "phrases, one key number or claim per card, generous margins, strong hierarchy, and a deliberate "
+            "sequence: hook, evidence/steps, contrast or reveal, payoff, concise CTA when appropriate. Keep "
+            "the main subject visible around cards. Do not ask image models to render readable text; the renderer "
+            "must add typography separately. Avoid unrelated stock people, clutter, and repetitive wallpaper."
+        )
+    else:
+        treatment = "kinetic_typography"
+        instructions = (
+            "LEAD VISUAL TREATMENT: KINETIC TYPOGRAPHY. Let a few large, sharply legible phrases carry the "
+            "message over relevant footage or a restrained animated gradient. Reveal words in timed beats, "
+            "emphasize only the key number/contrast, and vary scale and position with safe margins. Keep each "
+            "screen to one message; use imagery as evidence rather than decoration. No tiny UI, text walls, "
+            "random photos, or constant motion."
+        )
+    return treatment, instructions
+
+
 def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
     """Plan each scene; one structured LLM call, with a deterministic local fallback."""
+    treatment, treatment_rules = _choose_reel_treatment(script)
     fallback = [_fallback(scene, i, script.style) for i, scene in enumerate(script.scenes)]
+    for beat in fallback:
+        beat["visual_treatment"] = treatment
+        beat["reason"] = (beat.get("reason", "") + f" Lead treatment: {treatment}.")[:240]
     if llm is None or not script.scenes:
         return fallback
     payload = {
         "topic": script.topic,
         "title": script.title,
         "style": script.style,
+        "automatically_selected_visual_treatment": treatment,
         "scenes": [
             {"scene": i + 1, "narration": sc.narration, "search_query": sc.search_query,
              "existing_visual_prompt": sc.image_prompt}
@@ -175,6 +221,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
         "You are the scene-level creative director for a vertical short-form video. "
         "Return valid JSON matching the provided schema. Plan every scene in the background. "
         "Return practical instructions the renderer can use, not an essay. "
+        + treatment_rules + "\n" 
         "Choose a visual mode scene-by-scene: use real footage/photos for concrete factual subjects and evidence, diagrams only "
         "for mechanisms that genuinely need explaining, original illustrations for fictional/horror beats, and symbolic visuals only when clearer. "
         "Gradient is an intentional first-class mode, not a failed search fallback: use it for abstract connective lines, transitions, "
@@ -197,8 +244,7 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
     )
     if script.style in ("auto", "facts", "story", "myth", "quiz", "explainer", "news", "listicle"):
         system += (
-            "\n\nHYBRID / FACTUAL VISUAL EDIT RULES:\n"
-            "- Match the visible subject to the exact sentence, not merely the overall topic.\n"
+            "\n\nHYBRID / FACTUAL VISUAL EDIT RULES:\n"            "- Match the visible subject to the exact sentence, not merely the overall topic.\n"
             "- Use real moving footage for real-world events, animals, places, objects, experiments, and processes when a relevant match exists.\n"
             "- Use photos only for moments where a still is genuinely appropriate; use diagrams for a mechanism/comparison that needs explanation, not as generic decoration.\n"
             "- Vary shot scale and visual purpose: establishing context, close-up evidence, action/process, comparison, consequence, payoff. Do not repeat the same broad shot or wallpaper in consecutive scenes.\n"
@@ -317,8 +363,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 # Keep identity and shot instructions on separate lines so the media layer can
                 # cache the canonical identity key while generating a different action each time.
                 prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
-                visible_names = [visible_name]
-                # When a shot includes the other named lead, carry that character's fixed
+                visible_names = [visible_name]                # When a shot includes the other named lead, carry that character's fixed
                 # identity too; otherwise the generator tends to invent a new face in two-shots.
                 scene_context = " ".join((
                     prompt,
