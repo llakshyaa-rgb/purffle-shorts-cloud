@@ -668,9 +668,30 @@ class Studio:
             for k, (sc, tm) in enumerate(zip(script.scenes, timeline)):
                 if sc.emoji and not chat and not (card and k == 0):
                     emoji.append((tm.start + 0.05, min(tm.end, tm.start + 1.65), sc.emoji))
+            creator_panels = []
+            chosen_treatment = director_plan[0].get("visual_treatment", "kinetic_typography") if director_plan else "kinetic_typography"
+            if chosen_treatment == "floating_panels" and not chat and not card:
+                for panel_i, (scene, scene_time) in enumerate(zip(script.scenes, timeline)):
+                    narration = " ".join((scene.narration or "").split())
+                    words = narration.split()
+                    if not words or scene_time.end - scene_time.start < 1.6:
+                        continue
+                    # Keep each panel short enough to read on a phone; narration remains the source of truth.
+                    title = " ".join(words[:min(7, len(words))]).strip(" ,.:;!?")
+                    body = " ".join(words[7:15]).strip(" ,.:;!?")
+                    if len(title) < 8:
+                        title = narration[:52].strip(" ,.:;!?")
+                    if not body:
+                        body = " ".join(words[-min(5, len(words)):]).strip(" ,.:;!?")
+                    span = scene_time.end - scene_time.start
+                    start = max(scene_time.start + 0.12, scene_time.end - min(3.2, max(1.8, span * 0.68)))
+                    end = min(scene_time.end - 0.08, start + min(3.0, max(1.6, span - 0.25)))
+                    if end > start + 0.7:
+                        creator_panels.append((start, end, f"KEY IDEA {panel_i+1}", title, body))
             plan = build_overlays(s, on_screen, total, script.hook_text, work, labels=labels, chat=messages,
                                   contact=script.speaker_name("A"), card=card, card_until=card_until,
-                                  emphasis={k for sc in script.scenes for k in sc.emphasis}, emoji=emoji)
+                                  emphasis={k for sc in script.scenes for k in sc.emphasis}, emoji=emoji,
+                                  creator_panels=creator_panels)
 
             self._step("render", f"{s.width}x{s.height}")
             video = folder / ("short.mp4" if s.vertical else "video.mp4")
