@@ -389,6 +389,21 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
         f.append(f"[{idx}:v]format=yuva420p[emo]")
         overlay("emo", f"x={ex}:y={ey}", "vemo")
         idx += 1
+    # Creator-style information panels are timed to scene beats and rendered as native overlays.
+    # Each card fades in/out over continuous footage; text stays crisp and readable.
+    for pi, (png, px, py, start, end) in enumerate(plan.panels):
+        if end <= start:
+            continue
+        still(png, end - start)
+        label = f"creatorpanel{pi}"
+        f.append(
+            f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS+{start:.3f}/TB,"
+            f"fade=t=in:st=0:d=0.16:alpha=1,"
+            f"fade=t=out:st={max(0.0, end-start-0.22):.3f}:d=0.22:alpha=1[{label}]"
+        )
+        overlay(label, f"x={px}:y={py}:enable='between(t,{start:.3f},{end:.3f})':eof_action=pass",
+                f"vcreatorpanel{pi}")
+        idx += 1
     # Transparent recurring narrator: locally drawn RGBA sprites, no external image service.
     # NARRATOR_ENABLED=false disables it without changing the existing render pipeline.
     if os.getenv("NARRATOR_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}:

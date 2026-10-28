@@ -17,7 +17,7 @@ import os
 import re
 import shutil
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, features
@@ -916,6 +916,55 @@ def emoji_pops(settings: Settings, events: list[tuple[float, float, str]], total
     return playlist, (settings.width - canvas) // 2, max(0, y)
 
 
+# ------------------------------------------------------------------------------------------ creator-style floating information cards
+def creator_panel_png(settings: Settings, font_path: Path | None, kicker: str, title: str,
+                      body: str, index: int, dest: Path) -> tuple[Path, int, int]:
+    """Draw one legible information card; typography is rendered locally, never baked by an image model."""
+    W, H, U = settings.width, settings.height, settings.unit
+    cw = int(W * 0.82) // 2 * 2
+    pad = int(U * 0.045)
+    kicker_font = load_font(str(font_path) if font_path else None, max(16, int(U * 0.028)), 700)
+    title_size = int(U * 0.065)
+    body_size = int(U * 0.040)
+    inner = cw - 2 * pad
+    def wrap(text: str, font: ImageFont.FreeTypeFont, limit: int, max_lines: int) -> list[str]:
+        lines, cur = [], ""
+        for word in text.split():
+            candidate = (cur + " " + word).strip()
+            if cur and font.getlength(candidate) > limit:
+                lines.append(cur); cur = word
+            else:
+                cur = candidate
+        if cur: lines.append(cur)
+        return lines[:max_lines]
+    tf = load_font(str(font_path) if font_path else None, title_size, 800)
+    title_lines = wrap(title.strip(), tf, inner, 2)
+    bf = load_font(str(font_path) if font_path else None, body_size, 500)
+    body_lines = wrap(body.strip(), bf, inner, 2)
+    ka, kd = kicker_font.getmetrics()
+    ta, td = tf.getmetrics()
+    ba, bd = bf.getmetrics()
+    gap = int(U * 0.018)
+    ch = pad * 2 + ka + kd + gap + len(title_lines) * (ta + td) + gap + len(body_lines) * (ba + bd)
+    img = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    accents = [(255, 116, 64, 255), (93, 211, 158, 255), (109, 170, 255, 255), (255, 205, 79, 255)]
+    accent = accents[index % len(accents)]
+    d.rounded_rectangle((0, 0, cw-1, ch-1), radius=int(U * 0.035),
+                        fill=(14, 18, 27, 238), outline=(255, 255, 255, 72), width=max(2, U // 180))
+    d.rounded_rectangle((0, 0, max(8, int(U * 0.012)), ch), radius=int(U * 0.006), fill=accent)
+    x, y = pad + int(U * 0.012), pad
+    d.text((x, y + ka), kicker.upper(), font=kicker_font, anchor="ls", fill=accent); y += ka + kd + gap
+    for line in title_lines:
+        d.text((x, y + ta), line, font=tf, anchor="ls", fill=(255,255,255,255)); y += ta + td
+    y += gap // 2
+    for line in body_lines:
+        d.text((x, y + ba), line, font=bf, anchor="ls", fill=(202,210,222,255)); y += ba + bd
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest, compress_level=1)
+    return dest, (W-cw)//2, int(H*0.235)
+
+
 # ------------------------------------------------------------------------------------------ plan
 @dataclass
 class OverlayPlan:
@@ -933,6 +982,7 @@ class OverlayPlan:
     card: tuple[Path, int, int] | None = None  # (png, x, y) post card for Reddit-style stories
     card_until: float = 0.0
     emoji: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) emoji popping up above the captions
+    panels: list[tuple[Path, int, int, float, float]] = field(default_factory=list)  # timed creator cards
 
 
 def _auto_caption_style(settings: Settings, chunks: list[Chunk], chat: list[ChatMessage] | None = None) -> str:
@@ -966,7 +1016,8 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
                    labels: dict[str, str] | None = None, chat: list[ChatMessage] | None = None,
                    contact: str = "", card: tuple[str, str, str] | None = None,
                    card_until: float = 0.0, emphasis: set[str] | None = None,
-                   emoji: list[tuple[float, float, str]] | None = None) -> OverlayPlan:
+                   emoji: list[tuple[float, float, str]] | None = None,
+                   creator_panels: list[tuple[float, float, str, str, str]] | None = None) -> OverlayPlan:
     """labels: speaker name tags over the captions (dialogue). chat: render a text-message screen
     instead of captions (the messages are the captions). card: (community, poster, title) of a post card
     shown until ``card_until`` in place of the hook title (pass captions that start after it).
@@ -974,6 +1025,12 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     emoji: (start, end, emoji) shown above the captions."""
     emphasis = (set(emphasis or ()) if settings.caption_emphasis else None)
     emoji_plan = emoji_pops(settings, emoji, total, work / "emoji") if emoji and settings.caption_emoji else None
+    panel_plan = []
+    if creator_panels:
+        panel_font, _ = resolve_font(settings, "sans")
+        for pi, (start, end, kicker, title, body) in enumerate(creator_panels[:8]):
+            png, px, py = creator_panel_png(settings, panel_font, kicker, title, body, pi, work / "creator_panels" / f"panel{pi:02d}.png")
+            panel_plan.append((png, px, py, max(0.0, start), min(total, end)))
     selected_style = settings.caption_style
     if selected_style == "auto":
         selected_style = _auto_caption_style(settings, chunks, chat)
