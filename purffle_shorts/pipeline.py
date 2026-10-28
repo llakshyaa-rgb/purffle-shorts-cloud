@@ -544,6 +544,7 @@ class Studio:
                 "title": script.title,
                 "topic": script.topic,
                 "mode": "llm" if director_llm is not None else "local_fallback",
+                "visual_treatment": (director_plan[0].get("visual_treatment") if director_plan else "kinetic_typography"),
                 "scenes": director_plan,
             }
             (folder / "director.json").write_text(
@@ -815,6 +816,7 @@ class Studio:
                 "title": title, "description": description, "tags": script.tags,
                 "category_id": script.category_id, "language": s.language,
                 "topic": script.topic, "source": pick.source, "style": script.style,
+                "visual_treatment": (director_plan[0].get("visual_treatment") if director_plan else "kinetic_typography"),
                 "duration": round(info["duration"], 2), "resolution": f"{s.width}x{s.height}",
                 "llm": writer, "score": script.score, "rubric": script.rubric, "review": script.review,
                 "search_keywords": pick.keywords, "localizations": localizations, "cover_at": round(cover_at, 2),
