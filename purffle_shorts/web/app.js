@@ -54,7 +54,7 @@ const MULTI = new Set(["dialogue", "chat", "fantasy"]);
 const STAGES = [["topic", "Topic"], ["script", "Script"], ["review", "Review"], ["voice", "Voice"], ["footage", "Footage"],
   ["captions", "Captions"], ["render", "Render"], ["check", "Check"], ["upload", "Upload"]];
 const STATUS_CHIP = { uploaded: "ok", scheduled: "blue", rendered: "accent", queued: "", failed: "bad" };
-const VIEW_NO = { create: "01", library: "02", queue: "03", ideas: "04", clip: "05", channel: "06", system: "07" };
+const VIEW_NO = { create: "01", library: "02", queue: "03", ideas: "04", clip: "05", channel: "06", learning: "07", system: "08" };
 // The page heading: a numbered eyebrow, the title and one line of what the page is for.
 function head(view, title, text, aside = "") {
   return `<div class="page-head"><div><p class="eyebrow"><b>${VIEW_NO[view] || "00"}</b>Studio</p><h1>${title}</h1>${text ? `<p>${text}</p>` : ""}</div>${aside}</div>`;
@@ -188,7 +188,7 @@ function status() {
   ib.textContent = i.ideas;
 }
 
-const VIEWS = { create: viewCreate, library: viewLibrary, queue: viewQueue, ideas: viewIdeas, clip: viewClip, channel: viewChannel, system: viewSystem };
+const VIEWS = { create: viewCreate, library: viewLibrary, queue: viewQueue, ideas: viewIdeas, clip: viewClip, channel: viewChannel, learning: viewLearning, system: viewSystem };
 function route() {
   const v = (location.hash || "#create").slice(1).split("/")[0];
   S.view = VIEWS[v] ? v : "create";
@@ -1201,6 +1201,90 @@ async function viewChannel() {
     : empty("NO DATA YET", "No stats yet", "Publish some videos, then refresh. View counts need a day or two to mean something.")}`;
   paint(main);
   $("#sync").onclick = async () => { try { await post("/api/stats"); toast("Refreshing stats…", "info"); tick(); } catch (e) { toast(esc(e.message), "bad"); } };
+}
+
+// ------------------------------------------------------------------ LEARNING
+async function viewLearning() {
+  const main = $("#main");
+  main.innerHTML = `${head("learning", "Creator learning", "Performance evidence, persistent notes, and the next video chosen by Purffle.")}<div id="learning-body">${empty("LOADING", "Reading creator notes…", "")}</div>`;
+  let data;
+  try { data = await get("/api/learning"); } catch (e) { $("#learning-body").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view !== "learning") return;
+  drawLearning(data);
+}
+function drawLearning(data) {
+  const root = $("#learning-body");
+  if (!root) return;
+  const c = data.calibration || {};
+  root.innerHTML = `
+    <section class="card">
+      ${sh("01", "Learn from YouTube", `<span class="chip">${fmtNum(data.tracked_videos || 0)} tracked</span>`)}
+      <p class="muted">Refresh pulls current channel statistics and available average-view metrics. YouTube retention reports can lag; missing metrics stay marked as unavailable rather than guessed.</p>
+      <div class="go-row"><button class="btn" id="learning-refresh" type="button">${I.refresh} Refresh performance + notes</button><button class="btn primary" id="learning-next" type="button">${I.spark} Let Purffle choose & make next video</button></div>
+      <p class="hint" id="learning-status">${data.updated_at ? `Last refreshed ${esc(ago(data.updated_at))}. Updated ${fmtNum(data.stats_updated || 0)} video records.` : "No saved learning run yet. Refresh now, or let Auto Creator refresh before making its first video."}</p>
+      <div class="kpis">
+        <div class="kpi"><small>With view counts</small><b>${fmtNum(data.videos_with_stats || 0)}</b></div>
+        <div class="kpi"><small>With average-view %</small><b>${fmtNum(data.videos_with_retention || 0)}</b></div>
+        <div class="kpi"><small>Mature 48h+ videos</small><b>${fmtNum(data.mature_videos || 0)}</b></div>
+      </div>
+    </section>
+    <section class="card">
+      ${sh("02", "Purffle's performance notes")}
+      <p class="hint">Generated from recorded channel data. The notes are saved locally in Purffle's history database and included in Auto Creator's next-video brief.</p>
+      <pre class="learning-notes">${esc(data.notes || "No performance notes saved yet. Refresh performance to create the first report.")}</pre>
+    </section>
+    <section class="card">
+      ${sh("03", "Your instructions for future videos")}
+      <p class="muted">Optional persistent guidance. Purffle combines this with performance notes; it does not override factual accuracy or make weak sample sizes look conclusive.</p>
+      <textarea id="learning-manual" rows="5" maxlength="5000" placeholder="e.g. Keep the opening hook immediate, avoid repeating the same topic, make story scenes connect clearly…">${esc(data.manual_notes || "")}</textarea>
+      <div class="go-row"><button class="btn" id="learning-save" type="button">${I.check} Save my notes</button></div>
+    </section>
+    ${(c.styles || []).length ? `<section class="card">${sh("04", "Format evidence")}<div class="metric-list">${c.styles.map(r => `<div class="metric-row"><b>${esc(r.style)}</b><span>${fmtNum(r.median_views)} median views</span><small>${r.videos} tracked videos${r.median_average_view_percentage == null ? "" : ` · ${r.median_average_view_percentage.toFixed(1)}% median average-view percentage`}</small></div>`).join("")}</div></section>` : ""}
+  `;
+  $("#learning-refresh").onclick = async () => {
+    try { const r = await post("/api/learning/refresh"); toast("Refreshing channel performance…", "info"); trackLearningJob(r.job); }
+    catch (e) { toast(esc(e.message), "bad"); }
+  };
+  $("#learning-next").onclick = async () => {
+    if (!confirm("Let Purffle choose a fresh topic, refresh performance notes, render a video, and use the configured upload setting?")) return;
+    try {
+      const r = await post("/api/make-next");
+      S.seen.set(r.job, "queued");
+      S.createJob = { id: r.job, kind: "make", session: TOKEN };
+      store.set("createJob", S.createJob);
+      toast("Auto Creator is choosing a topic and making the next video.", "info", 4000);
+      location.hash = "#create";
+      tick();
+    } catch (e) { toast(esc(e.message), "bad"); }
+  };
+  $("#learning-save").onclick = async () => {
+    try {
+      const r = await post("/api/learning/notes", {notes: $("#learning-manual").value});
+      toast("Your creator notes are saved.", "ok");
+      drawLearning(r.learning);
+    } catch (e) { toast(esc(e.message), "bad"); }
+  };
+}
+function trackLearningJob(id) {
+  S.seen.set(id, "queued");
+  tick();
+  const poll = async () => {
+    try {
+      const jobs = await get("/api/jobs/" + id);
+      if (jobs.status === "done") {
+        toast("Performance notes refreshed.", "ok");
+        if (S.view === "learning") viewLearning();
+        return;
+      }
+      if (jobs.status === "failed" || jobs.status === "cancelled") {
+        toast(esc(jobs.message || jobs.result?.error || "Learning refresh failed."), "bad");
+        if (S.view === "learning") viewLearning();
+        return;
+      }
+    } catch { /* a temporary server restart is handled by the next normal refresh */ }
+    setTimeout(poll, 1500);
+  };
+  setTimeout(poll, 1200);
 }
 
 // ------------------------------------------------------------------ SYSTEM
