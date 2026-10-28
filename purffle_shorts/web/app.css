@@ -171,6 +171,12 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 18px; }
 .actions.end { justify-content: flex-end; }
 .go-row { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; margin-top: 18px; }
 .go-row .btn { padding: 14px 18px; font-size: 15.5px; }
+.publish-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); align-items: stretch; }
+.publish-controls { display: flex; align-items: stretch; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.publish-switch { flex: 1 1 145px; min-width: 0; }
+.privacy-field { flex: 0 1 120px; min-width: 105px; margin: 0; }
+.privacy-field select { width: 100%; }
+.publish-row .btn { min-width: 0; }
 .go-row .btn kbd { margin-left: 6px; background: transparent; color: inherit; border-color: rgba(255, 255, 255, .45); opacity: .85; }
 
 /* ---------- segmented, switches, checks ---------- */
