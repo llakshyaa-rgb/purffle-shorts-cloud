@@ -371,6 +371,14 @@ function drawForm() {
     ${sh("02", "Format", `${FORMATS.length} kinds`)}
     <div class="formats">${FORMATS.map(([k, name, blurb, isNew]) =>
       `<button type="button" class="fmt" data-seg="style" data-v="${k}" aria-pressed="${f.style === k}"><span class="g">${G[k] || G.auto}</span><b>${name}${isNew ? '<span class="new">new</span>' : ""}</b><span>${blurb}</span></button>`).join("")}</div>
+    <div class="field hybrid-mix-field"><label>Hybrid approach <span class="hint">(optional blend)</span></label>${sel("hybrid_mix", [
+      ["balanced", "Balanced blend · Purffle chooses what fits"],
+      ["story_facts", "Story + surprising facts"],
+      ["myth_explainer", "Myth-busting + clear explanation"],
+      ["quiz_reveal", "Quick quiz + satisfying reveal"],
+      ["cinematic", "Cinematic story + character moments"],
+      ["fast_list", "Fast countdown + punchy facts"]
+    ], f.hybrid_mix || "balanced")}<p class="hint">Keeps Auto Hybrid selected and guides the script’s structure. You can still add your own creative direction above.</p></div>
   </section>
 
   <section class="card">
@@ -388,8 +396,15 @@ function drawForm() {
     <datalist id="voices"></datalist>
   </section>
 
-  <section class="card">
-    ${sh("04", "Look and sound")}
+  <details class="card advanced-card">
+    <summary class="advanced-summary">${sh("04", "Look and sound", "Visuals, captions and audio")}<span class="chevron">${I.arrow}</span></summary>
+    <div class="advanced-content">
+    <div class="field"><label>Visual vibe</label>${sel("look_preset", [
+      ["balanced", "Balanced hybrid · Recommended"],
+      ["cinematic", "Cinematic · Moody, smoother transitions"],
+      ["punchy", "Punchy · Bright, fast and energetic"],
+      ["minimal", "Minimal · Clean captions, fewer effects"]
+    ], f.look_preset || "balanced")}<p class="hint">A starting point for the visual and audio settings below. You can fine-tune every option.</p></div>
     <div class="swatches">${o.caption_styles.map(c => `<button type="button" class="sw" data-seg="caption_style" data-v="${c}" aria-pressed="${f.caption_style === c}">${capSample(c)}<small>${c}</small></button>`).join("")}</div>
     <div class="field"><label>Caption position</label>${seg("caption_position", [["upper", "Top"], ["center", "Middle"], ["lower", "Lower third"], ["bottom", "Bottom safe"]], f.caption_position)}</div>
     <div class="grid2">
@@ -411,10 +426,11 @@ function drawForm() {
       <label class="switch"><input type="checkbox" data-f="emphasis"${f.emphasis !== false ? " checked" : ""}><span>Highlight key words<small>Numbers and the words that matter, in colour</small></span></label>
       <label class="switch"><input type="checkbox" data-f="emoji"${f.emoji !== false ? " checked" : ""}><span>Emoji<small>One per scene pops up above the captions</small></span></label>
     </div>
-  </section>
+  </details>
 
-  <section class="card">
-    ${sh("05", "Model and publishing")}
+  <details class="card advanced-card">
+    <summary class="advanced-summary">${sh("05", "Model and publishing", "AI, review and upload")}<span class="chevron">${I.arrow}</span></summary>
+    <div class="advanced-content">
     <div class="grid2">
       <div class="field"><label>AI model provider</label>${sel("provider", provs, f.provider)}</div>
       <div class="field"><label>Model</label><input type="text" data-f="model" value="${esc(f.model)}" placeholder="provider default"></div>
@@ -424,7 +440,7 @@ function drawForm() {
     <div class="grid2">
       <label class="switch"><input type="checkbox" data-f="offline"${f.offline ? " checked" : ""}><span>Demo mode<small>No keys: sample script, generated backgrounds</small></span></label>
     </div>
-  </section>
+  </details>
 
   <div class="go-row publish-row">
     <button class="btn" id="draft-btn" type="button">${I.pen}Draft the script first</button>
@@ -489,6 +505,34 @@ function bindForm() {
     if (el.dataset.visual) {
       S.form.visuals = $$("[data-visual]", root).filter(x => x.checked).map(x => x.dataset.visual);
     } else if (el.dataset.f) {
+      if (el.dataset.f === "hybrid_mix") {
+        const guidance = {
+          balanced: "",
+          story_facts: "Blend a relatable story with surprising, accurate factual reveals. Facts should advance the story rather than interrupt it.",
+          myth_explainer: "Blend a common myth with a clear, evidence-led explanation and memorable payoff. Avoid a dry listicle structure.",
+          quiz_reveal: "Blend a quick curiosity question with escalating clues and a satisfying, accurate reveal.",
+          cinematic: "Use cinematic storytelling, character moments and visual continuity, weaving relevant facts naturally into the plot.",
+          fast_list: "Blend countdown pacing with punchy, accurate facts. Make each beat lead naturally into the next."
+        };
+        const prior = String(S.form.creative_brief || "").replace(/\n?\[Purffle hybrid approach: [^\]]+\]\n?/g, "").trim();
+        const guidanceText = guidance[el.value] || "";
+        S.form.creative_brief = (guidanceText ? "[Purffle hybrid approach: " + guidanceText + "]\n" : "") + prior;
+        S.form.hybrid_mix = el.value;
+        saveForm();
+        return drawForm();
+      }
+      if (el.dataset.f === "look_preset") {
+        const presets = {
+          balanced: { grade: "random", transition: "random", visual_mode: "match", music: true, sfx: true, emphasis: true, emoji: true },
+          cinematic: { grade: "cinematic", transition: "dissolve", visual_mode: "match", music: true, sfx: true, emphasis: true, emoji: false },
+          punchy: { grade: "vivid", transition: "random", visual_mode: "match", music: true, sfx: true, emphasis: true, emoji: true },
+          minimal: { grade: "none", transition: "fade", visual_mode: "match", music: false, sfx: false, emphasis: true, emoji: false }
+        };
+        S.form.look_preset = el.value;
+        Object.assign(S.form, presets[el.value] || presets.balanced);
+        saveForm();
+        return drawForm();
+      }
       if (el.dataset.f === "duration" && el.type === "range") {
         // Slider drags snap to five-second increments; +/- buttons set exact seconds.
         el.value = Math.max(15, Math.min(170, Math.round(+el.value / 5) * 5));

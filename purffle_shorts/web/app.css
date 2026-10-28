@@ -557,3 +557,39 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 .history-log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto;margin:10px 0 0;padding:12px;background:var(--well);border-radius:var(--r-sm);font:11px/1.6 var(--mono)}
 .learning-actions{margin:12px 0}
 @media(max-width:480px){.create-auto-row{align-items:stretch;flex-direction:column}.create-auto-row .btn{width:100%}.queue-tools{align-items:stretch;flex-direction:column}.queue-tools .btn{width:100%}}
+
+
+/* Cleaner creation flow: hybrid guidance and expandable advanced controls */
+.hybrid-mix-field{margin-top:14px;padding:14px 15px;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--well)}
+.advanced-card{padding:0;overflow:hidden}
+.advanced-summary{display:flex;align-items:center;gap:12px;padding:18px 22px;cursor:pointer;list-style:none;min-height:58px}
+.advanced-summary::-webkit-details-marker{display:none}
+.advanced-summary .sheet-h{flex:1;margin:0;min-width:0}
+.advanced-summary .sheet-h .aside{margin-left:auto}
+.advanced-summary .chevron{display:flex;align-items:center;color:var(--ink-3);transition:transform .18s ease}
+.advanced-summary .chevron svg{width:17px;height:17px;transform:rotate(90deg)}
+.advanced-card[open] .advanced-summary .chevron svg{transform:rotate(-90deg)}
+.advanced-content{padding:0 22px 22px;border-top:1px solid var(--rule)}
+.advanced-content>.field:first-child{margin-top:18px}
+.create{gap:26px}
+.create>.card,.create>.advanced-card{margin-top:0}
+.create .card{padding:22px}
+.create .advanced-card{padding:0}
+.create .advanced-content{padding-left:22px;padding-right:22px}
+.create .card+.card,.create .card+.advanced-card,.create .advanced-card+.card,.create .advanced-card+.advanced-card{margin-top:18px}
+.create .field{gap:9px}
+.create .field+.field,.create .grid2+.field,.create .field+.grid2,.create .grid2+.grid2,.create .swatches+.field,.create .formats+.field{margin-top:20px}
+.create .sheet-h{margin-bottom:20px}
+.create .src-tabs{margin-bottom:18px}
+.create .formats{gap:10px}
+.create .fmt{padding:15px;min-height:142px;gap:9px}
+.create .swatches{gap:10px}
+.create .switch{padding:13px;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--well)}
+@media(max-width:700px){
+ .advanced-summary{padding:16px}
+ .advanced-content{padding:0 16px 18px}
+ .create .card{padding:18px}
+ .create .advanced-card{padding:0}
+ .create .advanced-content{padding-left:18px;padding-right:18px}
+ .create .fmt{min-height:125px;padding:12px}
+}
