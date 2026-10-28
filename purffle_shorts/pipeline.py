@@ -1013,10 +1013,25 @@ class Studio:
         return status
 
     def _to_youtube(self, rid: int, rec: dict, meta: dict, folder: Path, publish, result: Result | None) -> str:
+        made_for_kids = self.s.made_for_kids
+        if self.s.audience_mode != "manual":
+            try:
+                from .audience import classify_made_for_kids
+                script_file = folder / "script.json"
+                script_data = json.loads(script_file.read_text(encoding="utf-8")) if script_file.exists() else {}
+                decision = classify_made_for_kids(rec["title"], rec["description"] or "", script_data)
+                if decision is True:
+                    made_for_kids = True
+                    log.info("Audience check: strong child-directed signals; marking Made for Kids")
+                else:
+                    log.info("Audience check: no strong child-directed signals; using configured MADE_FOR_KIDS=%s",
+                             made_for_kids)
+            except Exception as e:
+                log.warning("Audience classification unavailable; using configured MADE_FOR_KIDS: %s", e)
         body = youtube.build_body(self.s, rec["title"], rec["description"] or "",
                                   json.loads(rec["tags"] or "[]"), meta.get("category_id", "27"),
                                   meta.get("language", self.s.language), publish,
-                                  localizations=meta.get("localizations"))
+                                  localizations=meta.get("localizations"), made_for_kids=made_for_kids)
         try:
             resp = youtube.upload(self.s, Path(rec["video_path"]), body)
         except youtube.QuotaExceeded:

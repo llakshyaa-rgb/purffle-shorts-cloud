@@ -197,6 +197,7 @@ class Settings:
     timezone: str = ""
     daily_upload_limit: int = 6       # a pace; the API gives uploads their own bucket of 100 a day
     made_for_kids: bool = False
+    audience_mode: str = "auto"       # auto|manual; auto only overrides when child-directed signals are strong
     synthetic_media: bool = True      # YouTube "altered or synthetic content" disclosure
     playlist_id: str = ""
     localize_metadata: list[str] = field(default_factory=list)  # e.g. es,pt,hi: translated title + description
@@ -369,6 +370,7 @@ class Settings:
             timezone=_env("TIMEZONE"),
             daily_upload_limit=_int("YT_DAILY_LIMIT", d.daily_upload_limit),
             made_for_kids=_bool(_env("MADE_FOR_KIDS", "false")),
+            audience_mode=_env("AUDIENCE_MODE", "auto").lower(),
             synthetic_media=_bool(_env("SYNTHETIC_MEDIA", "true")),
             playlist_id=_env("PLAYLIST_ID"),
             localize_metadata=[v for v in _list(_env("LOCALIZE_METADATA")) if _LANG_CODE.match(v)],
