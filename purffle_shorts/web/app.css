@@ -537,3 +537,23 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 /* Persistent creator-learning report */
 .learning-notes{white-space:pre-wrap;overflow-wrap:anywhere;max-height:60vh;overflow:auto;padding:16px;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--well);font:12px/1.7 var(--mono);color:var(--ink-2)}
 #learning-manual{display:block;width:100%;box-sizing:border-box;resize:vertical;padding:12px;border:1px solid var(--rule-2);border-radius:var(--r-sm);background:var(--well);color:var(--ink);line-height:1.5;margin:12px 0}
+
+
+/* Auto Creator entry point near the source picker */
+.create-auto-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 4px;padding:13px 14px;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--well)}
+.create-auto-row>div{min-width:0}
+.create-auto-row b{display:block;font-size:14px}
+.create-auto-row .hint{margin:3px 0 0}
+.create-auto-row .btn{flex-shrink:0}
+.queue-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.queue-tools .hint{margin:0}
+.job-history-list{display:flex;flex-direction:column;gap:8px;max-height:68vh;overflow:auto;padding:2px}
+.history-job{border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--sheet);padding:10px 12px}
+.history-job summary{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;cursor:pointer;list-style:none}
+.history-job summary::-webkit-details-marker{display:none}
+.history-job summary b{overflow-wrap:anywhere}
+.history-job summary small{grid-column:2;color:var(--ink-3);font-size:11px}
+.history-job[open] summary{padding-bottom:8px;border-bottom:1px solid var(--rule)}
+.history-log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:42vh;overflow:auto;margin:10px 0 0;padding:12px;background:var(--well);border-radius:var(--r-sm);font:11px/1.6 var(--mono)}
+.learning-actions{margin:12px 0}
+@media(max-width:480px){.create-auto-row{align-items:stretch;flex-direction:column}.create-auto-row .btn{width:100%}.queue-tools{align-items:stretch;flex-direction:column}.queue-tools .btn{width:100%}}
