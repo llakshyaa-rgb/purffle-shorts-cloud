@@ -47,6 +47,7 @@ from .utils import Cancelled, check_cancel, redact, slugify, truncate_words
 log = logging.getLogger("purffle")
 
 END_PAD = 0.6          # seconds of breathing room after the last word
+DURATION_TOLERANCE_SECONDS = 5.0  # requested runtime may vary by at most five seconds
 
 
 def _can_adaptively_reuse(item: MediaItem) -> bool:
@@ -411,7 +412,7 @@ class Studio:
             target = max(1, int(s.target_seconds))
             best_script, best_speech, best_total = script, speech, total
             repair_llm = None
-            if abs(total - target) / target > 0.08 and not s.offline:
+            if abs(total - target) > DURATION_TOLERANCE_SECONDS and not s.offline:
                 try:
                     repair_llm = self.llm
                 except LLMConfigError:
@@ -419,8 +420,8 @@ class Studio:
                     repair_llm = None
             if repair_llm is not None:
                 for repair_no in range(1, 5):
-                    delta = abs(best_total - target) / max(1.0, target)
-                    if delta <= 0.08:
+                    delta = abs(best_total - target)
+                    if delta <= DURATION_TOLERANCE_SECONDS:
                         break
                     try:
                         current_words = sum(
@@ -508,7 +509,7 @@ class Studio:
             # Do not delete sentences locally to force the runtime: that can remove clues,
             # reactions, and the story payoff. If the bounded model repairs miss, keep the best
             # complete script and let the quality gate block publishing when duration is off.
-            if abs(best_total - target) / max(1.0, target) > 0.08 and best_total > target:
+            if abs(best_total - target) > DURATION_TOLERANCE_SECONDS and best_total > target:
                 log.warning(
                     "Runtime remains %.1fs over target after measured repair; preserving the complete story "
                     "instead of deleting narration to hit the duration.",
@@ -518,12 +519,12 @@ class Studio:
             # Keep the voice at its native TTS speed: never time-stretch narration to fake the target.
             # If repair misses, render with measured timing so captions remain synchronized;
             # the downstream quality gate must block publishing when the final runtime is off.
-            runtime_delta = abs(total - target) / max(1.0, target)
-            if runtime_delta > 0.08:
+            runtime_delta = abs(total - target)
+            if runtime_delta > DURATION_TOLERANCE_SECONDS:
                 log.warning(
-                    "Narration is %.1fs (%.0f%%) away from requested %ss after repair; "
+                    "Narration is %.1fs away from requested %ss after repair; "
                     "continuing with the established render workflow using actual voice duration.",
-                    abs(total - target), runtime_delta * 100, target
+                    runtime_delta, target
                 )
             chat = script.style == "chat"
             timeline = scene_timeline([sc.narration for sc in script.scenes], speech.words, total, s.language,
@@ -762,8 +763,9 @@ class Studio:
                 log.info("Visual coverage: %d%% (%d/%d shots have real media)",
                          visual_coverage, visual_real, visual_total)
             target_delta = abs(info["duration"] - s.target_seconds) / max(1, s.target_seconds)
-            # Publishing requires close adherence to the requested runtime, not merely a loose 20% bound.
-            duration_ok = target_delta <= 0.08
+            duration_delta_seconds = abs(info["duration"] - s.target_seconds)
+            # A rendered video may differ from the requested duration by at most five seconds.
+            duration_ok = duration_delta_seconds <= DURATION_TOLERANCE_SECONDS
             visuals_ok = visual_coverage >= 70
             captions_ok = bool(chunks) and all(
                 chunk.end > chunk.start
@@ -780,6 +782,8 @@ class Studio:
                 "target_seconds": s.target_seconds,
                 "actual_seconds": round(info["duration"], 2),
                 "duration_deviation_percent": round(target_delta * 100, 1),
+                "duration_deviation_seconds": round(duration_delta_seconds, 2),
+                "duration_tolerance_seconds": DURATION_TOLERANCE_SECONDS,
                 "duration_ok": duration_ok,
                 "visual_coverage_percent": visual_coverage,
                 "visual_coverage_ok": visuals_ok,
@@ -790,10 +794,10 @@ class Studio:
             }
             if not duration_ok:
                 quality_report["reasons"].append(
-                    f"Runtime differs from requested {s.target_seconds}s by more than 8%; revise narration."
+                    f"Runtime differs from requested {s.target_seconds}s by {duration_delta_seconds:.1f}s; maximum allowed difference is {DURATION_TOLERANCE_SECONDS:.0f}s."
                 )
-                log.warning("Quality gate: rendered runtime %.2fs is too far from target %ss",
-                            info["duration"], s.target_seconds)
+                log.warning("Quality gate: rendered runtime %.2fs differs from target %ss by %.1fs (limit %.1fs)",
+                            info["duration"], s.target_seconds, duration_delta_seconds, DURATION_TOLERANCE_SECONDS)
             if not visuals_ok:
                 quality_report["reasons"].append(
                     "Fewer than 70% of shots use scene assets; generic artwork/gradients do not count as visual evidence."
