@@ -926,6 +926,7 @@ function drawJobs() {
         <div class="t"><b>${esc(r.title || j.label)}</b><small><span class="status-pill ${j.status}">${j.status}</span>${running && stage ? ` · ${esc(stage)}` : ""}${running ? ` · ${esc(progressText(j))}` : ""}${running && j.message ? ` · ${esc(j.message)}` : ""}${took != null ? ` · ${fmtSec(took)}` : ""}</small></div>
         <span class="acts">${j.status === "queued" || running ? `<button class="btn ghost sm" type="button" data-cancel="${j.id}">Cancel</button>` : ""}
         ${j.status === "done" && r.id ? `<button class="btn sm" type="button" data-open="${r.id}">${I.play}Watch</button>` : ""}
+        ${["failed", "cancelled"].includes(j.status) && j.kind !== "upload" ? `<button class="btn sm" type="button" data-retry="${j.id}">Recover</button>` : ""}
         ${j.status === "done" && j.kind === "draft" ? `<a class="btn sm" href="#create">${I.pen}Edit</a>` : ""}
         <button class="btn ghost sm" type="button" data-log="${j.id}">${open ? "Hide log" : "Log"}</button>
         ${j.log && j.log.length ? `<button class="btn ghost sm" type="button" data-copy-logs="${j.id}">${I.copy}Copy logs</button>` : ""}</span>
@@ -973,6 +974,16 @@ function drawJobs() {
     }
     const lg = e.target.closest("[data-log]");
     if (lg) { const id = +lg.dataset.log; openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id); drawJobs(); }
+    const retry = e.target.closest("[data-retry]");
+    if (retry) {
+      retry.disabled = true;
+      try {
+        const result = await post(`/api/jobs/${retry.dataset.retry}/retry`);
+        toast(`Recovery job #${result.job} queued. Generation restarts from the beginning; publishing is disabled for safety.`, "info", 6500);
+        tick();
+      } catch (error) { toast(esc(error.message), "bad"); retry.disabled = false; }
+      return;
+    }
     const c = e.target.closest("[data-cancel]");
     if (c) { await post(`/api/jobs/${c.dataset.cancel}/cancel`).catch(() => {}); tick(); }
   };
