@@ -140,3 +140,24 @@ def test_script_score_calibrates_against_average_view_percentage(tmp_path):
     assert cal["retention_scored"] == 5
     assert cal["score_vs_retention"] == 1.0
     assert cal["styles"][0]["median_average_view_percentage"] == 50.0
+
+
+def test_persistent_creator_notes_and_manual_guidance(tmp_path, monkeypatch, settings):
+    from purffle_shorts import learning
+
+    h = History(tmp_path / "creator-learning.db")
+    when = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat(timespec="seconds")
+    h.add_video(title="A mystery hook", subject="mysteries", topic="mysteries", style="story",
+                status="uploaded", youtube_id="creator-learning-id", uploaded_at=when)
+    h.set_stats("creator-learning-id", 1200, 80, 12)
+    monkeypatch.setattr(learning.analytics, "sync_stats", lambda _settings, _history: 1)
+    monkeypatch.setattr(learning.analytics, "insights", lambda _history: "Evidence: mystery hooks have useful engagement.")
+    monkeypatch.setattr(learning.analytics, "calibration", lambda _history, _tz: {"styles": [], "topics": []})
+
+    report = learning.refresh_learning(settings, h)
+    assert report["tracked_videos"] == 1
+    assert "mystery hooks" in report["notes"]
+    saved = learning.save_manual_notes(h, "Keep the opening visually specific.")
+    assert saved["manual_notes"] == "Keep the opening visually specific."
+    assert "Keep the opening visually specific." in saved["prompt_notes"]
+    assert learning.read_learning(h)["notes"] == report["notes"]

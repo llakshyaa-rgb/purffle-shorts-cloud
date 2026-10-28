@@ -533,3 +533,7 @@ pre.code { margin: 0; background: var(--well); border: 1px solid var(--rule); bo
 @media(max-width:480px){.asset-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.asset-meta{padding:9px}.asset-card>img{max-height:270px}}
 
 .log-tools{display:flex;justify-content:flex-end;gap:8px;margin:8px 0}
+
+/* Persistent creator-learning report */
+.learning-notes{white-space:pre-wrap;overflow-wrap:anywhere;max-height:60vh;overflow:auto;padding:16px;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--well);font:12px/1.7 var(--mono);color:var(--ink-2)}
+#learning-manual{display:block;width:100%;box-sizing:border-box;resize:vertical;padding:12px;border:1px solid var(--rule-2);border-radius:var(--r-sm);background:var(--well);color:var(--ink);line-height:1.5;margin:12px 0}
