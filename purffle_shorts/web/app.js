@@ -514,9 +514,9 @@ function bindForm() {
           cinematic: "Use cinematic storytelling, character moments and visual continuity, weaving relevant facts naturally into the plot.",
           fast_list: "Blend countdown pacing with punchy, accurate facts. Make each beat lead naturally into the next."
         };
-        const prior = String(S.form.creative_brief || "").replace(/\\n?\\[Purffle hybrid approach: [^\\]]+\\]\\n?/g, "").trim();
+        const prior = String(S.form.creative_brief || "").replace(/\n?\[Purffle hybrid approach: [^\]]+\]\n?/g, "").trim();
         const guidanceText = guidance[el.value] || "";
-        S.form.creative_brief = (guidanceText ? "[Purffle hybrid approach: " + guidanceText + "]\\n" : "") + prior;
+        S.form.creative_brief = (guidanceText ? "[Purffle hybrid approach: " + guidanceText + "]\n" : "") + prior;
         S.form.hybrid_mix = el.value;
         saveForm();
         return drawForm();
