@@ -877,6 +877,26 @@ def _handler(app: StudioServer, bound_host: str, password: str | None = None):
             m = re.fullmatch(r"/api/jobs/(\d+)/cancel", path)
             if m:
                 return self._json({"ok": app.cancel(int(m.group(1)))})
+            m = re.fullmatch(r"/api/jobs/(\d+)/retry", path)
+            if m:
+                original = app.jobs.get(int(m.group(1)))
+                if not original:
+                    return self._json({"error": "job not found"}, 404)
+                if original.status not in {"failed", "cancelled"}:
+                    return self._json({"error": "only failed or cancelled jobs can be recovered"}, 409)
+                if original.kind == "upload":
+                    return self._json({"error": "Uploads are not auto-retried to prevent duplicate publishing. Check the Library and YouTube first."}, 409)
+                if original.kind not in {"make", "draft", "clip", "plan", "stats"}:
+                    return self._json({"error": "this job type cannot be recovered"}, 400)
+                params = dict(original.params)
+                # Re-running generation must never publish as a side effect. Creator can review the result
+                # and explicitly approve/upload it after checking whether an earlier attempt reached YouTube.
+                if original.kind in {"make", "clip"}:
+                    params["upload"] = False
+                recovered = app.submit(original.kind, params, f"Recovery of #{original.id}: {original.label}"[:120])
+                recovered.log.append(f"Recovery created from job #{original.id}; restarts this job from the beginning, with publishing disabled.")
+                app._persist_jobs()
+                return self._json({"job": recovered.id, "recovered_from": original.id})
             self._json({"error": "not found"}, 404)
 
     return H
