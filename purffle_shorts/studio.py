@@ -248,6 +248,8 @@ class StudioServer:
             "llm_provider": str(p.get("provider") or "").strip().lower() or None,
             "llm_model": str(p.get("model") or "").strip()[:120] or None,
             "script_review": _choice(p.get("review"), ("off", "score", "rewrite")),
+            # Per-video visibility is explicit and defaults to private.
+            "privacy": _choice(p.get("privacy"), ("private", "public"), "private"),
         }
         if p.get("duration"):
             try:
