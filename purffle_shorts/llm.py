@@ -410,18 +410,20 @@ class LLM:
                     # fixed scene count, or impose arbitrary sentence/word limits.
                     compact_system = (
                         system.rstrip()
-                        + "\\n\\nReturn one complete, valid JSON object matching the requested schema. "
+                        + "\n\nReturn one complete, valid JSON object matching the requested schema. "
                           "Preserve the full creative brief, quality, pacing, detail, and natural amount "
                           "of content needed for the requested runtime. Do not add arbitrary word, sentence, "
                           "or scene-count limits. Do not shorten the creative work merely to fit a template. "
                           "Output JSON only and finish every required field."
                     )
-                    compact_user = user
                     recovery_text = p.complete(
-                        compact_system, compact_user, schema=schema if schema is not None else {},
+                        compact_system, user, schema=schema if schema is not None else {},
                         max_tokens=max_tokens, temperature=temp
                     )
-
+                    recovered = extract_json(recovery_text)
+                    if not isinstance(recovered, dict):
+                        raise LLMError(f"{p}: JSON recovery did not return an object")
+                    return recovered
 
                 try:
                     text = p.complete(system, user, schema=schema if schema is not None else {},
