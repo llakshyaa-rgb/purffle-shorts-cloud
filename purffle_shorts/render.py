@@ -17,6 +17,7 @@ from . import ffmpeg, sfx
 from .config import Settings
 from .media import MediaItem
 from .overlays import OverlayPlan
+from .utils import redact
 
 log = logging.getLogger("purffle")
 
