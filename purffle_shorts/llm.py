@@ -405,40 +405,23 @@ class LLM:
                 def compact_recovery(reason: Exception) -> dict[str, Any]:
                     log.warning("%s failed; attempting compact JSON recovery: %s", p, reason)
 
-                    # Do not append recovery instructions to the original prompt: script prompts can
-                    # be thousands of tokens long and leave too little room for a complete JSON reply.
-                    # Preserve only the key metadata and ask for a deliberately small, schema-valid draft.
-                    subject_match = re.search(r"(?im)^Subject:\s*(.+)$", user)
-                    format_match = re.search(r"(?im)^Format:\s*(.+)$", user)
-                    audience_match = re.search(r"(?im)^Audience:\s*(.+)$", user)
-                    language_match = re.search(r"(?im)^Language:\s*(.+)$", user)
-                    duration_match = re.search(r"(?i)(\d{2,3})-second video", user)
-                    subject = subject_match.group(1).strip() if subject_match else "the requested topic"
-                    fmt = format_match.group(1).strip() if format_match else "short-form video"
-                    audience = audience_match.group(1).strip() if audience_match else "general viewers"
-                    language = language_match.group(1).strip() if language_match else "English"
-                    duration = duration_match.group(1) if duration_match else "30"
+                    # Preserve the full creative brief and its natural scope. Recovery is
+                    # only for response formatting/truncation: never shrink the script, force a
+                    # fixed scene count, or impose arbitrary sentence/word limits.
                     compact_system = (
-                        "You write concise, accurate YouTube Shorts scripts. Return ONLY one complete JSON object "
-                        "matching the supplied schema. No markdown or commentary. Never invent factual claims. "
-                        "Keep every field short so the JSON finishes within the output budget."
+                        system.rstrip()
+                        + "\\n\\nReturn one complete, valid JSON object matching the requested schema. "
+                          "Preserve the full creative brief, quality, pacing, detail, and natural amount "
+                          "of content needed for the requested runtime. Do not add arbitrary word, sentence, "
+                          "or scene-count limits. Do not shorten the creative work merely to fit a template. "
+                          "Output JSON only and finish every required field."
                     )
-                    compact_user = (
-                        f"Topic: {subject}\nFormat: {fmt}\nAudience: {audience}\nLanguage: {language}\n"
-                        f"Target runtime: about {duration} seconds. Write a coherent beginning-to-payoff script. "
-                        "Use 5 concise scenes; each scene needs speaker, narration, search_query, image_prompt, "
-                        "emphasis, and emoji. Keep narration natural and factually careful. Each search_query must "
-                        "describe a relevant visible subject/action; each image_prompt must show that exact beat. "
-                        "Keep each scene's narration to 1 short sentence, search_query to 5-10 words, image_prompt "
-                        "to 10-18 words, emphasis to 0-2 short strings, and emoji to 1 character. "
-                        "Keep title, hook_text, description, hashtags and tags brief; cast should contain one narrator. "
-                        "Return all required schema fields and no extras."
-                    )
+                    compact_user = user
                     recovery_text = p.complete(
                         compact_system, compact_user, schema=schema if schema is not None else {},
-                        max_tokens=min(max_tokens, 2800), temperature=temp
+                        max_tokens=max_tokens, temperature=temp
                     )
-                    return extract_json(recovery_text)
+
 
                 try:
                     text = p.complete(system, user, schema=schema if schema is not None else {},
