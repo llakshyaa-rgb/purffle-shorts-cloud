@@ -491,8 +491,20 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
         return synthesize(text, out_dir / f"line{i:02d}", cfg[speaker])
 
     workers = 4 if settings.tts_engine in ("edge", "openai", "elevenlabs") else 1
+    from .utils import CANCEL, Cancelled
+    if CANCEL.is_set():
+        raise Cancelled("voice")
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
-        parts = list(ex.map(lambda a: one(*a), [(i, sp, t) for i, (sp, t) in enumerate(lines)]))
+        futures = [ex.submit(one, i, sp, text) for i, (sp, text) in enumerate(lines)]
+        parts = []
+        for future in futures:
+            if CANCEL.is_set():
+                for pending in futures:
+                    pending.cancel()
+                raise Cancelled("voice")
+            parts.append(future.result())
+    if CANCEL.is_set():
+        raise Cancelled("voice")
 
     # Normalise every line to the same PCM format and join them with a short pause in between.
     gap = out_dir / "gap.wav"
