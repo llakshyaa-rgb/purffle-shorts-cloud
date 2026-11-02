@@ -8,6 +8,8 @@ import json
 import logging
 import re
 import shutil
+import signal
+import os
 import subprocess
 import threading
 import time
@@ -71,15 +73,36 @@ _procs: set[subprocess.Popen] = set()
 _procs_lock = threading.Lock()
 
 
-def kill_all() -> int:
-    """Stop every running ffmpeg (used when a Studio job is cancelled). Returns how many were stopped."""
-    with _procs_lock:
-        procs = list(_procs)
-    for p in procs:
+def _stop_process(proc: subprocess.Popen) -> None:
+    """Stop FFmpeg and any child processes it started."""
+    try:
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=0.35)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.terminate()
+            try:
+                proc.wait(timeout=0.35)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+    except ProcessLookupError:
+        pass
+    except OSError:
         try:
-            p.kill()
+            proc.kill()
         except OSError:
             pass
+
+
+def kill_all() -> int:
+    """Stop every running FFmpeg process tree (used when a Studio job is cancelled)."""
+    with _procs_lock:
+        procs = list(_procs)
+    for proc in procs:
+        _stop_process(proc)
     return len(procs)
 
 
@@ -98,7 +121,8 @@ def run(args: list[str], *, label: str = "ffmpeg", cwd: str | Path | None = None
     proc = subprocess.Popen(
         cmd, stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE if watch else subprocess.DEVNULL,
-        stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", cwd=cwd
+        stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", cwd=cwd,
+        start_new_session=(os.name == "posix")
     )
     with _procs_lock:
         _procs.add(proc)
@@ -123,7 +147,7 @@ def run(args: list[str], *, label: str = "ffmpeg", cwd: str | Path | None = None
             stream_done = False
             while proc.poll() is None or not stream_done:
                 if CANCEL.is_set() or time.monotonic() > deadline:
-                    proc.kill()
+                    _stop_process(proc)
                     break
                 try:
                     line = events.get(timeout=0.1)
@@ -149,12 +173,12 @@ def run(args: list[str], *, label: str = "ffmpeg", cwd: str | Path | None = None
                     break
                 except subprocess.TimeoutExpired:
                     if CANCEL.is_set() or time.monotonic() > deadline:
-                        proc.kill()
+                        _stop_process(proc)
                         proc.wait()
                         break
     finally:
         if proc.poll() is None:
-            proc.kill()
+            _stop_process(proc)
             proc.wait()
         with _procs_lock:
             _procs.discard(proc)
