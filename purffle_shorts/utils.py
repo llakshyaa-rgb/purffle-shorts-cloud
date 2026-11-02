@@ -74,7 +74,8 @@ def with_retries(
                 raise
             wait = base_delay * (2 ** (i - 1)) + random.uniform(0, 0.5)
             log.warning("%s attempt %d/%d failed: %s — retrying in %.1fs", label, i, attempts, redact(e), wait)
-            if CANCEL.wait(wait):\n                raise Cancelled(label)
+            if CANCEL.wait(wait):
+                raise Cancelled(label)
     raise RuntimeError("unreachable")
 
 
