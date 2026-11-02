@@ -394,10 +394,12 @@ class LLM:
         temp = self.settings.llm_temperature if temperature is None else temperature
         for p in self.providers:
             def _call(p=p):
+                provider_name = getattr(p, "name", "").lower()
+                model_name = getattr(p, "model", "").lower()
                 is_free_route = (
-                    getattr(p, "name", "") == "openrouter"
-                    and ("/free" in getattr(p, "model", "").lower()
-                         or getattr(p, "model", "").lower().endswith(":free"))
+                    provider_name in ("openrouter", "apinex")
+                    and ("/free" in model_name or model_name.startswith("free/")
+                         or model_name.endswith(":free"))
                 )
 
                 def compact_recovery(reason: Exception) -> dict[str, Any]:
