@@ -328,6 +328,12 @@ def _align(audio: Path, settings: Settings, text: str = "") -> tuple[list[Word],
     if mode == "none":
         return [], "estimated"
     lang = settings.language.split("-")[0]
+    # On Android/CPU, automatic Whisper model loading can take several minutes and
+    # make the Studio appear frozen in the voice stage. Keep auto lightweight there;
+    # users can still explicitly select faster-whisper when they want local alignment.
+    if mode == "auto" and not _cuda():
+        log.info("Voice alignment: CPU detected; using fast audio-based timing (set ALIGN=faster-whisper to force Whisper)")
+        return [], "estimated"
     if mode in ("auto", "faster-whisper"):
         try:
             return _align_faster_whisper(audio, lang, whisper_model(settings), prompt=text), "aligned"
@@ -415,7 +421,14 @@ def synthesize(text: str, out_dir: Path, settings: Settings) -> Speech:
     if hit:
         log.info("Voice: %s/%s, %.1fs (from the voice cache)", hit.engine, hit.voice, hit.duration)
         return hit
+    from .utils import CANCEL, Cancelled
+    if CANCEL.is_set():
+        raise Cancelled("voice")
+    log.info("Voice: generating audio with %s", engine)
     audio, native, voice = _ENGINE_FUNCS[engine](text, out_dir, settings)
+    if CANCEL.is_set():
+        raise Cancelled("voice")
+    log.info("Voice: audio generated; measuring duration and aligning words")
     dur = ffmpeg.duration(audio)
     if dur <= 0:
         raise RuntimeError(f"{engine} produced unreadable audio: {audio}")

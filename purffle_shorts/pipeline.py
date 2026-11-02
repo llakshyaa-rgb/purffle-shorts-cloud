@@ -288,6 +288,8 @@ class Studio:
                 if lines:
                     return tts.synthesize_lines(lines, work / "voice", cfg)
                 return tts.synthesize(script.narration, work, cfg)
+            except tts.Cancelled:
+                raise
             except Exception as e:
                 last = e
                 log.warning("Voice engine '%s' failed: %s", eng, e)
