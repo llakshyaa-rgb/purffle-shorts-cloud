@@ -205,19 +205,34 @@ def upload(settings: Settings, video: Path, body: dict) -> dict:
         parts = "snippet,status" + (",localizations" if body.get("localizations") else "")
         request = yt.videos().insert(part=parts, body=body, media_body=media)
         response, retry, last_pct = None, 0, -1
+        total_bytes = max(1, video.stat().st_size)
+        last_log_time = time.monotonic()
+        last_log_bytes = 0
         while response is None:
             try:
                 status, response = request.next_chunk()
+                retry = 0  # Count consecutive failures, not the lifetime total.
                 if status:
-                    pct = int(status.progress() * 100)
-                    if pct >= last_pct + 25:
-                        log.info("Upload %d%%", pct)
+                    progress = status.progress()
+                    pct = int(progress * 100)
+                    transferred = min(total_bytes, int(progress * total_bytes))
+                    now = time.monotonic()
+                    elapsed = max(now - last_log_time, 0.001)
+                    speed = max(0, transferred - last_log_bytes) / elapsed
+                    if pct >= last_pct + 5 or now - last_log_time >= 15 or pct >= 100:
+                        log.info(
+                            "Upload %d%% (%.1f/%.1f MiB, %.2f MiB/s)",
+                            pct, transferred / (1024 * 1024), total_bytes / (1024 * 1024),
+                            speed / (1024 * 1024),
+                        )
                         last_pct = pct
+                        last_log_time = now
+                        last_log_bytes = transferred
             except HttpError as e:
-                text = str(e)
+                error_text = str(e)
                 # quotaExceeded comes as a 403 and uploadLimitExceeded as a 400; both clear at midnight Pacific
-                if "quotaExceeded" in text or "uploadLimitExceeded" in text:
-                    raise QuotaExceeded(text) from e
+                if "quotaExceeded" in error_text or "uploadLimitExceeded" in error_text:
+                    raise QuotaExceeded(error_text) from e
                 if e.resp.status not in RETRY_STATUS:
                     raise
                 retry += 1
@@ -227,10 +242,12 @@ def upload(settings: Settings, video: Path, body: dict) -> dict:
             else:
                 continue
             if retry > 8:
-                raise RuntimeError("Upload failed after 8 retries")
+                raise RuntimeError("Upload failed after 8 consecutive retries")
             wait = min(64, 2 ** retry) + random.random()
-            log.warning("Upload retry %d in %.0fs", retry, wait)
+            log.warning("Upload retry %d/8 in %.0fs", retry, wait)
             time.sleep(wait)
+
+        log.info("YouTube upload completed successfully.")
 
         if settings.playlist_id and response.get("id"):
             try:
