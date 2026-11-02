@@ -98,17 +98,30 @@ def _edge(text: str, out: Path, settings: Settings) -> tuple[Path, list[Word], s
     path = out / "voice.mp3"
 
     def _do():
+        import asyncio
         words: list[Word] = []
         comm = edge_tts.Communicate(text, voice, rate=settings.tts_rate, boundary="WordBoundary",
                                     receive_timeout=60)
-        with open(path, "wb") as f:
-            for chunk in comm.stream_sync():
-                if chunk["type"] == "audio":
-                    f.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    start = chunk["offset"] / 1e7
-                    words.append(Word(chunk["text"], start, start + chunk["duration"] / 1e7))
-        if path.stat().st_size == 0:
+
+        async def stream():
+            with open(path, "wb") as f:
+                async for chunk in comm.stream():
+                    from .utils import CANCEL, Cancelled
+                    if CANCEL.is_set():
+                        raise Cancelled("edge-tts")
+                    if chunk["type"] == "audio":
+                        f.write(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        start = chunk["offset"] / 1e7
+                        words.append(Word(chunk["text"], start, start + chunk["duration"] / 1e7))
+
+        from .utils import CANCEL, Cancelled
+        if CANCEL.is_set():
+            raise Cancelled("edge-tts")
+        asyncio.run(stream())
+        if CANCEL.is_set():
+            raise Cancelled("edge-tts")
+        if not path.exists() or path.stat().st_size == 0:
             raise RuntimeError("edge-tts returned no audio")
         return words
 
@@ -478,8 +491,20 @@ def synthesize_lines(lines: list[tuple[str, str]], out_dir: Path, settings: Sett
         return synthesize(text, out_dir / f"line{i:02d}", cfg[speaker])
 
     workers = 4 if settings.tts_engine in ("edge", "openai", "elevenlabs") else 1
+    from .utils import CANCEL, Cancelled
+    if CANCEL.is_set():
+        raise Cancelled("voice")
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
-        parts = list(ex.map(lambda a: one(*a), [(i, sp, t) for i, (sp, t) in enumerate(lines)]))
+        futures = [ex.submit(one, i, sp, text) for i, (sp, text) in enumerate(lines)]
+        parts = []
+        for future in futures:
+            if CANCEL.is_set():
+                for pending in futures:
+                    pending.cancel()
+                raise Cancelled("voice")
+            parts.append(future.result())
+    if CANCEL.is_set():
+        raise Cancelled("voice")
 
     # Normalise every line to the same PCM format and join them with a short pause in between.
     gap = out_dir / "gap.wav"

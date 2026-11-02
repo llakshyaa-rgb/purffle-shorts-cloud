@@ -54,17 +54,27 @@ def with_retries(
 ) -> T:
     """Call ``fn`` with exponential backoff + jitter. PermanentError is never retried."""
     for i in range(1, attempts + 1):
+        from .utils import CANCEL, Cancelled
+        if CANCEL.is_set():
+            raise Cancelled(label)
         try:
-            return fn()
+            result = fn()
+            if CANCEL.is_set():
+                raise Cancelled(label)
+            return result
+        except Cancelled:
+            raise
         except PermanentError:
             raise
         except retry_on as e:
+            if CANCEL.is_set():
+                raise Cancelled(label) from e
             if i == attempts:
                 log.error("%s failed after %d attempts: %s", label, attempts, redact(e))
                 raise
             wait = base_delay * (2 ** (i - 1)) + random.uniform(0, 0.5)
             log.warning("%s attempt %d/%d failed: %s — retrying in %.1fs", label, i, attempts, redact(e), wait)
-            time.sleep(wait)
+            if CANCEL.wait(wait):\n                raise Cancelled(label)
     raise RuntimeError("unreachable")
 
 
