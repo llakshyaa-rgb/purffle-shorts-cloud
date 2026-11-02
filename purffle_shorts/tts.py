@@ -98,17 +98,30 @@ def _edge(text: str, out: Path, settings: Settings) -> tuple[Path, list[Word], s
     path = out / "voice.mp3"
 
     def _do():
+        import asyncio
         words: list[Word] = []
         comm = edge_tts.Communicate(text, voice, rate=settings.tts_rate, boundary="WordBoundary",
                                     receive_timeout=60)
-        with open(path, "wb") as f:
-            for chunk in comm.stream_sync():
-                if chunk["type"] == "audio":
-                    f.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    start = chunk["offset"] / 1e7
-                    words.append(Word(chunk["text"], start, start + chunk["duration"] / 1e7))
-        if path.stat().st_size == 0:
+
+        async def stream():
+            with open(path, "wb") as f:
+                async for chunk in comm.stream():
+                    from .utils import CANCEL, Cancelled
+                    if CANCEL.is_set():
+                        raise Cancelled("edge-tts")
+                    if chunk["type"] == "audio":
+                        f.write(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        start = chunk["offset"] / 1e7
+                        words.append(Word(chunk["text"], start, start + chunk["duration"] / 1e7))
+
+        from .utils import CANCEL, Cancelled
+        if CANCEL.is_set():
+            raise Cancelled("edge-tts")
+        asyncio.run(stream())
+        if CANCEL.is_set():
+            raise Cancelled("edge-tts")
+        if not path.exists() or path.stat().st_size == 0:
             raise RuntimeError("edge-tts returned no audio")
         return words
 
