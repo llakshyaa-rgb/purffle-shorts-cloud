@@ -85,50 +85,75 @@ def kill_all() -> int:
 
 def run(args: list[str], *, label: str = "ffmpeg", cwd: str | Path | None = None, timeout: int = 1800,
         loglevel: str = "error", progress: Callable[[float], None] | None = None, duration: float = 0.0) -> str:
-    """Run ffmpeg and return what it wrote to stderr (with ``loglevel="info"`` that includes filter reports).
-
-    With ``progress`` and the output ``duration``, ffmpeg reports how far it has got and ``progress`` is
-    called with a 0..1 fraction about twice a second. A cancelled job stops the process at once."""
+    """Run ffmpeg, polling cancellation even when FFmpeg stops emitting progress."""
     from .utils import CANCEL, Cancelled
+    import queue
+
     watch = progress is not None and duration > 0
-    extra = ["-nostats", "-progress", "pipe:1"] if watch else []
+    extra = ["-nostdin", "-nostats", "-progress", "pipe:1"] if watch else ["-nostdin"]
     cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", loglevel, *extra, "-y", *args]
     log.debug("%s: %s", label, " ".join(cmd))
     if CANCEL.is_set():
         raise Cancelled(label)
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE if watch else subprocess.DEVNULL, stderr=subprocess.PIPE,
-                            text=True, encoding="utf-8", errors="replace", cwd=cwd)
+    proc = subprocess.Popen(
+        cmd, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE if watch else subprocess.DEVNULL,
+        stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", cwd=cwd
+    )
     with _procs_lock:
         _procs.add(proc)
     deadline = time.monotonic() + timeout
     stderr = ""
     try:
         if watch:
+            events: queue.Queue[str | None] = queue.Queue()
+
+            def read_progress() -> None:
+                try:
+                    for item in proc.stdout:
+                        events.put(item)
+                finally:
+                    events.put(None)
+
             err: list[str] = []
-            reader = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
-            reader.start()
-            for line in proc.stdout:
+            progress_reader = threading.Thread(target=read_progress, daemon=True)
+            error_reader = threading.Thread(target=lambda: err.append(proc.stderr.read()), daemon=True)
+            progress_reader.start()
+            error_reader.start()
+            stream_done = False
+            while proc.poll() is None or not stream_done:
+                if CANCEL.is_set() or time.monotonic() > deadline:
+                    proc.kill()
+                    break
+                try:
+                    line = events.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                if line is None:
+                    stream_done = True
+                    continue
                 key, _, value = line.strip().partition("=")
                 if key in ("out_time_us", "out_time_ms") and value.lstrip("-").isdigit():
                     try:
                         progress(max(0.0, min(1.0, int(value) / 1e6 / duration)))
-                    except Exception:  # a progress display must never break a render
+                    except Exception:
                         log.debug("progress callback failed", exc_info=True)
-                if CANCEL.is_set() or time.monotonic() > deadline:
-                    proc.kill()
             proc.wait()
-            reader.join(timeout=5)
+            progress_reader.join(timeout=1)
+            error_reader.join(timeout=2)
             stderr = "".join(err)
         else:
             while True:
                 try:
-                    stderr = proc.communicate(timeout=0.5)[1] or ""
+                    stderr = proc.communicate(timeout=0.1)[1] or ""
                     break
                 except subprocess.TimeoutExpired:
                     if CANCEL.is_set() or time.monotonic() > deadline:
                         proc.kill()
+                        proc.wait()
+                        break
     finally:
-        if proc.poll() is None:  # interrupted (Ctrl+C, an error above): don't leave ffmpeg running
+        if proc.poll() is None:
             proc.kill()
             proc.wait()
         with _procs_lock:
@@ -138,8 +163,8 @@ def run(args: list[str], *, label: str = "ffmpeg", cwd: str | Path | None = None
     if time.monotonic() > deadline and proc.returncode != 0:
         raise FFmpegError(f"{label} timed out after {timeout}s")
     if proc.returncode != 0:
-        tail = "\n".join(stderr.strip().splitlines()[-12:])
-        raise FFmpegError(f"{label} failed (exit {proc.returncode}):\n{tail}")
+        tail = "\\n".join(stderr.strip().splitlines()[-12:])
+        raise FFmpegError(f"{label} failed (exit {proc.returncode}):\\n{tail}")
     return stderr
 
 
