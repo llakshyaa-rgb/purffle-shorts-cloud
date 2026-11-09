@@ -869,7 +869,8 @@ def _score_of(data: dict) -> tuple[int | None, dict[str, int]]:
     return score, clean
 
 
-def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: list[str] | None = None) -> tuple[str, str]:
+def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: list[str] | None = None,
+                  channel_insights: str = "") -> tuple[str, str]:
     words, n_scenes = scene_plan(script.style, settings.target_seconds)
     lang = LANGUAGES.get(script.language, script.language)
     draft = {k: v for k, v in script.to_dict().items() if k not in ("style", "language", "score", "review", "rubric")}
@@ -877,6 +878,14 @@ def review_prompt(script: Script, settings: Settings, rewrite: bool, checks: lis
               "seconds and swipe away at any slow moment. You reply with a single JSON object and nothing else.")
     rubric = "\n".join(f"- {k}: {why}" for k, (_, why) in RUBRIC.items())
     found = ("Automatic checks already found:\n" + "\n".join(f"- {c}" for c in checks) + "\n") if checks else ""
+    learning = (
+        "CHANNEL PERFORMANCE EVIDENCE FROM THIS CREATOR'S OWN MATURE VIDEOS:\n"
+        + channel_insights.strip()
+        + "\nUse this as calibrated evidence, not a rigid formula. Prefer repeated patterns from comparable videos; "
+          "do not copy titles or hooks, do not assume correlation proves causation, and do not sacrifice accuracy "
+          "or existing format requirements.\n\n"
+        if channel_insights.strip() else ""
+    )
     task = (f"""Then rewrite it into the strongest version you can. Keep the same subject, format, language ({lang}),
 the same JSON structure and a narration length appropriate for the selected runtime (target about {words} words). Aim for {n_scenes} scenes, within {scene_count_bounds(script.style, settings.target_seconds)[0]}–{scene_count_bounds(script.style, settings.target_seconds)[1]}; preserve all useful narration while redistributing it into more distinct, visual beats when needed. Fix every issue and automatic finding. Do a complete rewrite where needed—not a cosmetic line edit. Rebuild weak structure, replace generic phrasing, strengthen cause-and-effect, improve spoken rhythm, ensure visuals match each beat, and make the payoff earn the opening. A call to action is optional and must never replace the final story beat. Put the rewritten script in "script".
 Creative-quality requirements:
@@ -920,7 +929,7 @@ Format rules to keep:
 {_format_rules(script.style, settings.target_seconds)}""" if rewrite else 'Return only "rubric" and "issues".')
     user = f"""Review this YouTube Short script ({STYLES[script.style]}).
 
-{json.dumps(draft, ensure_ascii=False, indent=1)}
+{learning}{json.dumps(draft, ensure_ascii=False, indent=1)}
 
 Grade it in "rubric" with a whole number from 0 to 10 for each of:
 {rubric}
@@ -930,17 +939,19 @@ List the concrete problems in "issues" (max 5, short sentences, most important f
     return system, user
 
 
-def _grade(llm, script: Script, settings: Settings) -> tuple[int | None, dict[str, int], list[str]]:
-    system, user = review_prompt(script, settings, rewrite=False, checks=lint_script(script, settings))
+def _grade(llm, script: Script, settings: Settings, channel_insights: str = "") -> tuple[int | None, dict[str, int], list[str]]:
+    system, user = review_prompt(script, settings, rewrite=False, checks=lint_script(script, settings),
+                                 channel_insights=channel_insights)
     data = llm.complete_json(system, user, SCORE_SCHEMA, max_tokens=2000, temperature=REVIEW_TEMPERATURE)
     score, rubric = _score_of(data)
     return score, rubric, [str(i).strip() for i in data.get("issues") or [] if str(i).strip()][:5]
 
 
-def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Script, int | None, dict[str, int], list[str]]:
+def _enforce_story_payoff(llm, script: Script, settings: Settings,
+                          channel_insights: str = "") -> tuple[Script, int | None, dict[str, int], list[str]]:
     """Run a dedicated ending check for narrative scripts; rewrite once if the payoff is weak."""
     try:
-        score, rubric, issues = _grade(llm, script, settings)
+        score, rubric, issues = _grade(llm, script, settings, channel_insights)
     except Exception as e:
         log.warning("Story payoff check skipped: %s", e)
         return script, script.score, script.rubric, list(script.review or [])
@@ -953,7 +964,8 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
     forced_checks = lint_script(script, settings) + [
         "STORY PAYOFF FAILED: rewrite the final two scenes so the reveal answers a question raised by the opening and shows a concrete consequence. Do not end on a new unexplained mystery."
     ]
-    system, user = review_prompt(script, settings, rewrite=True, checks=forced_checks)
+    system, user = review_prompt(script, settings, rewrite=True, checks=forced_checks,
+                                     channel_insights=channel_insights)
     try:
         data = llm.complete_json(system, user, REVIEW_SCHEMA, max_tokens=5000, temperature=REVIEW_TEMPERATURE)
         if not isinstance(data.get("script"), dict):
@@ -964,7 +976,7 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
         if not (0.75 * target <= count <= 1.25 * target):
             log.warning("Story payoff rewrite ignored: %d words for a %d-word target", count, target)
             return script, score, rubric, issues
-        new_score, new_rubric, new_issues = _grade(llm, candidate, settings)
+        new_score, new_rubric, new_issues = _grade(llm, candidate, settings, channel_insights)
         old_weakness = sum(rubric.get(key, 5) for key in quality_dimensions)
         new_weakness = sum(new_rubric.get(key, 5) for key in quality_dimensions)
         if new_weakness > old_weakness or (
@@ -979,7 +991,7 @@ def _enforce_story_payoff(llm, script: Script, settings: Settings) -> tuple[Scri
     return script, score, rubric, issues
 
 
-def review_script(llm, script: Script, settings: Settings) -> Script:
+def review_script(llm, script: Script, settings: Settings, insights: str = "") -> Script:
     """Score the script and (in rewrite mode) replace it with an improved version. The rewrite is graded
     again and only kept when it scores at least as well as the draft, so the stored score belongs to the
     script that is actually used (if that second grading fails, the rewrite is used with the draft's score).
@@ -989,7 +1001,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
     if llm is None or mode == "off":
         return script
     if mode == "score":
-        script, score, rubric, issues = _enforce_story_payoff(llm, script, settings)
+        script, score, rubric, issues = _enforce_story_payoff(llm, script, settings, insights)
         if score is None and not rubric:
             return script
         script.score, script.rubric, script.review = score, rubric, _with_checks(issues, script, settings)
@@ -999,7 +1011,8 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
     best, best_score, best_rubric, best_issues = script, None, {}, []
     target = scene_plan(script.style, settings.target_seconds)[0]
     for round_no in range(1, max(1, settings.script_review_rounds) + 1):
-        system, user = review_prompt(best, settings, rewrite=True, checks=lint_script(best, settings))
+        system, user = review_prompt(best, settings, rewrite=True, checks=lint_script(best, settings),
+                                     channel_insights=insights)
         try:
             data = llm.complete_json(system, user, REVIEW_SCHEMA, max_tokens=5000, temperature=REVIEW_TEMPERATURE)
         except Exception as e:
@@ -1023,7 +1036,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
         if better is None:
             break
         try:
-            new_score, new_rubric, new_issues = _grade(llm, better, settings)
+            new_score, new_rubric, new_issues = _grade(llm, better, settings, insights)
         except Exception as e:  # can't verify: trust the editor's rewrite, keep the draft's score
             log.warning("Script Doctor could not grade its rewrite (%s); using it", e)
             best = better
@@ -1047,7 +1060,7 @@ def review_script(llm, script: Script, settings: Settings) -> Script:
     # extra provider call fails, the already-graded rewrite and its score must remain intact.
     best.score, best.rubric, best.review = best_score, best_rubric, best_issues
     if best.style in {"story", "reddit", "chat"}:
-        best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings)
+        best, best_score, best_rubric, best_issues = _enforce_story_payoff(llm, best, settings, insights)
     best.score, best.rubric = best_score, best_rubric
     best.review = _with_checks(best_issues, best, settings)
     changed = "rewritten" if best is not script else "kept"
