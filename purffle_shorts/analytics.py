@@ -9,10 +9,12 @@ but neither metric provides the full second-by-second audience-retention curve.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import random
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from statistics import median
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -345,3 +347,118 @@ def _verdict(rho: float | None, n: int) -> str:
     if rho > -0.1:
         return "the score does not predict views on this channel yet"
     return "higher scores went with fewer views here: trust your own judgement over the score"
+
+
+# ------------------------------------------------------------------------------------------ creative diagnosis
+def _creative_evidence(history: History, row: dict) -> dict:
+    """Load the original script and render metadata for one mature video without requiring either file."""
+    record = history.get(int(row["id"])) or {}
+    folder = Path(record.get("folder") or "")
+    script_data: dict = {}
+    metadata: dict = {}
+    try:
+        candidate = folder / "script.json"
+        if candidate.is_file():
+            loaded = json.loads(candidate.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                script_data = loaded
+    except (OSError, ValueError, TypeError):
+        log.debug("Could not read saved script for video #%s", row.get("id"), exc_info=True)
+    try:
+        candidate = folder / "metadata.json"
+        if candidate.is_file():
+            loaded = json.loads(candidate.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                metadata = loaded
+    except (OSError, ValueError, TypeError):
+        log.debug("Could not read render metadata for video #%s", row.get("id"), exc_info=True)
+
+    scenes = script_data.get("scenes") if isinstance(script_data.get("scenes"), list) else []
+    narration = [str(scene.get("narration") or "").strip() for scene in scenes if isinstance(scene, dict)]
+    queries = [str(scene.get("search_query") or "").strip() for scene in scenes if isinstance(scene, dict)]
+    prompts = [str(scene.get("image_prompt") or "").strip() for scene in scenes if isinstance(scene, dict)]
+    visuals = metadata.get("visuals") if isinstance(metadata.get("visuals"), list) else []
+    sources = sorted({str(v.get("source") or "") for v in visuals if isinstance(v, dict) and v.get("source")})
+    return {
+        "hook": (narration[0] if narration else "")[:220],
+        "ending": (narration[-1] if narration else "")[:220],
+        "scene_count": len(narration),
+        "visual_queries": [q[:100] for q in queries[:4] if q],
+        "visual_prompts": [p[:130] for p in prompts[:2] if p],
+        "visual_coverage": metadata.get("visual_coverage_percent"),
+        "visual_sources": sources[:8],
+    }
+
+
+def creative_insights(history: History, limit: int = 3) -> str:
+    """Give the writer and Script Doctor evidence from the channel's actual scripts and mature-video results.
+
+    This deliberately analyses saved creative plans, not image pixels. YouTube's Analytics API does not
+    provide the Studio retention graph or a reliable swipe-away diagnosis here, so those are never invented.
+    """
+    rows = [r for r in history.results() if r.get("views") is not None]
+    if len(rows) < 3:
+        return ""
+
+    ranked = sorted(rows, key=_performance_signal, reverse=True)
+    best = ranked[:min(limit, max(1, len(ranked) // 2))]
+    best_ids = {r["id"] for r in best}
+    lower = [r for r in reversed(ranked) if r["id"] not in best_ids][:limit]
+
+    def describe(row: dict, label: str) -> str:
+        evidence = _creative_evidence(history, row)
+        views = max(0, int(row.get("views") or 0))
+        likes = max(0, int(row.get("likes") or 0))
+        comments = max(0, int(row.get("comments") or 0))
+        engagement = 100 * (likes + comments) / views if views else 0.0
+        duration = row.get("average_view_duration")
+        percentage = row.get("average_view_percentage")
+        if percentage is None:
+            retention = "average-view metrics unavailable"
+        else:
+            retention = f"avg viewed {float(percentage):.1f}%"
+            if duration is not None:
+                retention += f" ({float(duration):.1f}s average view)"
+            if float(percentage) >= 75:
+                retention += "; strong average consumption among viewers, but this does not prove a low swipe-away rate"
+            elif float(percentage) < 45:
+                retention += "; weak average consumption suggests investigating pacing and clarity, but does not locate the drop-off"
+        line = (
+            f'- {label}: "{row.get("title") or "Untitled"}" | format={row.get("style") or "unknown"} '
+            f'| topic={str(row.get("topic") or row.get("subject") or "unknown")[:90]} '
+            f'| {views:,} views | {engagement:.2f}% likes+comments per view | {retention}'
+        )
+        if evidence["hook"]:
+            line += f'\n  Opening: "{evidence["hook"]}"'
+        if evidence["ending"]:
+            line += f'\n  Ending: "{evidence["ending"]}"'
+        if evidence["scene_count"]:
+            line += f'\n  Saved creative plan: {evidence["scene_count"]} scenes'
+        if evidence["visual_coverage"] is not None:
+            line += f'; visual coverage {evidence["visual_coverage"]}%'
+        if evidence["visual_sources"]:
+            line += f'; asset sources={", ".join(evidence["visual_sources"])}'
+        if evidence["visual_queries"]:
+            line += f'\n  Visual search examples: {"; ".join(evidence["visual_queries"])}'
+        if evidence["visual_prompts"]:
+            line += f'\n  Visual prompt examples: {"; ".join(evidence["visual_prompts"])}'
+        return line
+
+    out = [
+        "CHANNEL CREATIVE EVIDENCE (mature videos with saved performance data):",
+        "Higher-performing examples by the existing channel performance signal:",
+    ]
+    out.extend(describe(row, "Higher performer") for row in best)
+    if lower:
+        out.append("Lower-performing examples for contrast:")
+        out.extend(describe(row, "Lower performer") for row in lower)
+    out.append(
+        "How to use this evidence: compare like with like (same format, topic family and similar runtime); "
+        "look for patterns repeated across multiple videos; use strong openings as craft examples, never copy "
+        "their wording or subject. A high average-view percentage with modest views makes title/packaging/first-frame "
+        "testing a hypothesis, not a proven swipe-away diagnosis. Low average-view percentage warrants checking "
+        "pacing, clarity and payoff, but only a Studio retention graph can identify the exact second viewers leave. "
+        "Visual evidence here is the saved scene search/prompt and asset-coverage metadata, not direct inspection "
+        "of image pixels. Treat one-video conclusions as hypotheses and preserve factual accuracy and novelty."
+    )
+    return "\n".join(out)
