@@ -154,7 +154,10 @@ def _performance_signal(v: dict) -> float:
 
 def insights(history: History, n: int = 5) -> str:
     """Evidence-backed prompt guidance from mature videos; empty until there is enough data."""
-    rows = [r for r in history.results() if r.get("views") is not None]
+    rows = sorted(
+        (r for r in history.results() if r.get("views") is not None),
+        key=lambda r: int(r.get("id") or 0), reverse=True,
+    )[:10]
     if len(rows) < 3:
         return ""
     best = sorted(rows, key=_performance_signal, reverse=True)[:n]
@@ -353,20 +356,21 @@ def _verdict(rho: float | None, n: int) -> str:
 def _creative_evidence(history: History, row: dict) -> dict:
     """Load the original script and render metadata for one mature video without requiring either file."""
     record = history.get(int(row["id"])) or {}
-    folder = Path(record.get("folder") or "")
+    folder_value = record.get("folder")
+    folder = Path(folder_value) if folder_value else None
     script_data: dict = {}
     metadata: dict = {}
     try:
-        candidate = folder / "script.json"
-        if candidate.is_file():
+        candidate = folder / "script.json" if folder else None
+        if candidate and candidate.is_file():
             loaded = json.loads(candidate.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 script_data = loaded
     except (OSError, ValueError, TypeError):
         log.debug("Could not read saved script for video #%s", row.get("id"), exc_info=True)
     try:
-        candidate = folder / "metadata.json"
-        if candidate.is_file():
+        candidate = folder / "metadata.json" if folder else None
+        if candidate and candidate.is_file():
             loaded = json.loads(candidate.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 metadata = loaded
@@ -390,7 +394,7 @@ def _creative_evidence(history: History, row: dict) -> dict:
     }
 
 
-def creative_insights(history: History, limit: int = 3) -> str:
+def creative_insights(history: History, limit: int = 5) -> str:
     """Give the writer and Script Doctor evidence from the channel's actual scripts and mature-video results.
 
     This deliberately analyses saved creative plans, not image pixels. YouTube's Analytics API does not
