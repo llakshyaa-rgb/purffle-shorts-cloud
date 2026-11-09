@@ -318,6 +318,10 @@ class Studio:
         try:
             self._step("script", pick.subject)
             insights = analytics.insights(self.history) if s.learn_from_stats else ""
+            if s.learn_from_stats:
+                creative_evidence = analytics.creative_insights(self.history)
+                if creative_evidence:
+                    insights = "\n\n".join(part for part in (insights, creative_evidence) if part)
             style = style or pick.style or None
             if (not style and s.learn_from_stats and s.style in ("", "auto")
                     and pick.source not in ("trending", "wikipedia", "reddit", "rss", "url", "document")):
@@ -333,7 +337,7 @@ class Studio:
                                   keywords=seo.keywords_block(pick.keywords), creative_brief=creative_brief)
             if self.llm is not None and s.script_review != "off":
                 self._step("review", "Script Doctor")
-                script = review_script(self.llm, script, s)
+                script = review_script(self.llm, script, s, insights=insights)
         except BaseException:
             if pick.idea_id:
                 self.history.release_idea(pick.idea_id)
