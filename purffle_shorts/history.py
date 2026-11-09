@@ -187,7 +187,7 @@ class History:
                                         timezone.utc).isoformat(timespec="seconds")
         return self._all(
             "SELECT id, title, subject, topic, style, score, views, likes, comments, publish_at, uploaded_at, "
-            "average_view_duration, average_view_percentage, estimated_minutes_watched FROM videos "
+            "average_view_duration, average_view_percentage, estimated_minutes_watched, folder, duration FROM videos "
             "WHERE views IS NOT NULL AND parent_id IS NULL AND COALESCE(publish_at, uploaded_at) <= ?", (cutoff,))
 
     # -- idea queue (planner) --
