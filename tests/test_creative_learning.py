@@ -69,3 +69,41 @@ def test_creative_insights_survives_missing_render_artifacts(tmp_path):
     report = creative_insights(history)
     assert "CHANNEL CREATIVE EVIDENCE" in report
     assert "average-view metrics unavailable" in report
+
+
+def test_script_doctor_receives_channel_evidence():
+    from purffle_shorts.config import Settings
+    from purffle_shorts.script import Scene, Script, review_prompt
+
+    script = Script(
+        topic="Ancient machines", title="The ancient computer", hook_text="A machine from 2,000 years ago.",
+        scenes=[
+            Scene("A machine from 2,000 years ago calculated eclipses.", "Antikythera mechanism gears",
+                  "Ancient bronze gears inside the Antikythera mechanism, macro museum shot."),
+            Scene("Its gears tracked the movements of the sky.", "Antikythera mechanism reconstruction",
+                  "Reconstructed bronze astronomical mechanism turning, close-up."),
+        ],
+        description="", style="facts", language="en",
+    )
+    evidence = "Higher performer: concrete discovery-first hooks held strong average view percentage."
+    _system, prompt = review_prompt(script, Settings(), rewrite=True, channel_insights=evidence)
+    assert "CHANNEL PERFORMANCE EVIDENCE" in prompt
+    assert evidence in prompt
+    assert "do not assume correlation proves causation" in prompt
+
+
+def test_script_doctor_remains_compatible_without_channel_evidence():
+    from purffle_shorts.config import Settings
+    from purffle_shorts.script import Scene, Script, review_prompt
+
+    script = Script(
+        topic="Space", title="A strange moon", hook_text="This moon rains diamonds.",
+        scenes=[
+            Scene("This moon may form diamond rain.", "Neptune diamond rain",
+                  "Scientific illustration of Neptune interior and carbon crystals."),
+        ],
+        description="", style="explainer", language="en",
+    )
+    _system, prompt = review_prompt(script, Settings(), rewrite=True)
+    assert "CHANNEL PERFORMANCE EVIDENCE" not in prompt
+    assert "Creative-quality requirements" in prompt
