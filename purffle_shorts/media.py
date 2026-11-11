@@ -995,8 +995,10 @@ class Visuals:
                 combined = {}
                 item = None
                 for search_query in queries[:2]:
+                    check_cancel()
                     try:
                         for candidate in self._search(source, search_query):
+                            check_cancel()
                             combined.setdefault(candidate.key, candidate)
                     except Cancelled:
                         raise
@@ -1014,6 +1016,8 @@ class Visuals:
             try:
                 self._fetch(item, dest_dir, idx)
                 check_cancel()
+            except Cancelled:
+                raise
             except Exception as e:
                 log.warning("Download failed for %s: %s", item.key, redact(e))
                 continue
