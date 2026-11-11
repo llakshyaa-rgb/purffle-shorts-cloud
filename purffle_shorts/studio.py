@@ -214,7 +214,9 @@ class StudioServer:
                 job.status, job.finished = "cancelled", time.time()
                 action = "queued"
             elif job and job.status == "running" and job is self.current:
-                job.message = "cancelling…"
+                if "cancel" in (job.message or "").casefold():
+                    return True
+                job.message = "Cancellation requested — stopping active work…"
                 action = "running"
             else:
                 return False
@@ -224,11 +226,14 @@ class StudioServer:
             return True
         CANCEL.set()
         ffmpeg.kill_all()
+        self._persist_jobs()
         self.changed()
         return True
 
     def _progress(self, job: Job):
+        from .utils import check_cancel
         def cb(stage: str, pct: int, message: str) -> None:
+            check_cancel()
             job.stage, job.pct = stage, max(job.pct, pct) if stage != "done" else 100
             job.message = message or job.message
             self.changed()
