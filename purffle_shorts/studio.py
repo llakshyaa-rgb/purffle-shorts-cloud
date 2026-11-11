@@ -83,6 +83,7 @@ class _JobLog(logging.Handler):
             return
         # One job runs at a time, so the worker's own thread pools (voices, footage, segments) belong to it.
         if record.threadName == "studio-worker" or record.threadName.startswith("ThreadPoolExecutor"):
+            job.last_activity = time.time()
             self.studio._append_job_log(job, self.format(record))
             self.studio.changed()
 
@@ -183,9 +184,9 @@ class StudioServer:
             path = self.log_dir / f"job-{job.id:06d}.log"
             try:
                 with path.open("a", encoding="utf-8") as stream:
-                    stream.write(line + "\\n")
+                    stream.write(line + "\n")
             except OSError:
-                log.exception("Could not write background log for job %d", job.id)
+                pass  # Logging must never recurse or interrupt the video job.
 
     def changed(self) -> None:
         with self._changed:
