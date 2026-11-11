@@ -83,8 +83,7 @@ class _JobLog(logging.Handler):
             return
         # One job runs at a time, so the worker's own thread pools (voices, footage, segments) belong to it.
         if record.threadName == "studio-worker" or record.threadName.startswith("ThreadPoolExecutor"):
-            job.log.append(self.format(record))
-            del job.log[:-400]
+            self.studio._append_job_log(job, self.format(record))
             self.studio.changed()
 
 
@@ -97,6 +96,9 @@ class StudioServer:
         from .pipeline import Studio
         self.settings = settings
         self.studio = Studio(settings)
+        self._log_lock = threading.Lock()
+        self.log_dir = settings.data_path / "logs"
+        self.log_dir.mkdir(parents=True, exist_ok=True)
         # STUDIO_TOKEN fixes the write token, so scripts and tools like n8n can call the API (see docs/api.md)
         self.token = os.getenv("STUDIO_TOKEN", "").strip() or secrets.token_urlsafe(24)
         self.jobs: dict[int, Job] = {}
@@ -170,6 +172,21 @@ class StudioServer:
         except Exception:
             log.warning("Could not restore Studio queue snapshot", exc_info=True)
 
+    def _append_job_log(self, job: Job, message: str) -> None:
+        """Persist a redacted job event independently of the browser's in-memory log view."""
+        from .utils import redact
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        line = f"{stamp} {redact(message)}"
+        with self._log_lock:
+            job.log.append(line)
+            del job.log[:-400]
+            path = self.log_dir / f"job-{job.id:06d}.log"
+            try:
+                with path.open("a", encoding="utf-8") as stream:
+                    stream.write(line + "\\n")
+            except OSError:
+                log.exception("Could not write background log for job %d", job.id)
+
     def changed(self) -> None:
         with self._changed:
             self.version += 1
@@ -234,8 +251,12 @@ class StudioServer:
         from .utils import check_cancel
         def cb(stage: str, pct: int, message: str) -> None:
             check_cancel()
+            previous = job.stage
             job.stage, job.pct = stage, max(job.pct, pct) if stage != "done" else 100
             job.message = message or job.message
+            job.last_activity = time.time()
+            if stage != previous:
+                self._append_job_log(job, f"STAGE {stage} ({job.pct}%) {message}".strip())
             self.changed()
         return cb
 
@@ -326,8 +347,23 @@ class StudioServer:
                     continue
                 CANCEL.clear()
                 self.current, job.status, job.started = job, "running", time.time()
+            job.last_activity = time.time()
+            self._append_job_log(job, f"JOB START kind={job.kind} label={job.label}")
             self._persist_jobs()
             self.changed()
+            heartbeat_stop = threading.Event()
+
+            def heartbeat() -> None:
+                while not heartbeat_stop.wait(15):
+                    if job.status != "running":
+                        return
+                    stage = job.stage or "initializing"
+                    silent_for = max(0, int(time.time() - (job.last_activity or job.started or time.time())))
+                    self._append_job_log(job, f"HEARTBEAT stage={stage} pct={job.pct} no_worker_log_for={silent_for}s")
+                    self.changed()
+
+            heartbeat_thread = threading.Thread(target=heartbeat, name=f"job-heartbeat-{job.id}", daemon=True)
+            heartbeat_thread.start()
             p = job.params
             try:
                 if job.kind == "upload":
@@ -378,9 +414,11 @@ class StudioServer:
                 job.status, job.result = "failed", {"error": str(e)}
                 log.exception("Studio job %d failed", job.id)
             finally:
+                heartbeat_stop.set()
                 job.finished, job.eta_fn = time.time(), None
                 if job.status == "done":
                     job.pct = 100
+                self._append_job_log(job, f"JOB END status={job.status} stage={job.stage or 'unknown'} elapsed={int(job.finished - (job.started or job.created))}s")
                 self.current = None
                 CANCEL.clear()
                 self._persist_jobs()
