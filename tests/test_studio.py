@@ -96,6 +96,9 @@ def test_offline_draft_job_runs_to_completion(server):
     assert job["status"] == "done", job
     assert job["result"]["script"]["style"] == "chat" and job["pct"] == 100
     assert job["label"] == "Demo video"
+    log_file = app.log_dir / f"job-{jid:06d}.log"
+    log_text = log_file.read_text(encoding="utf-8")
+    assert "JOB START kind=draft" in log_text and "JOB END status=done" in log_text
 
 
 def _job(port, jid, until=("done", "failed", "cancelled"), tries=600):
