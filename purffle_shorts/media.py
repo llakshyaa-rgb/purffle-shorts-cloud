@@ -19,7 +19,7 @@ from urllib.parse import quote
 
 from .asset_library import get_or_create_asset
 from .config import Settings
-from .utils import PermanentError, check_cancel, download, http, raise_for_status, redact, with_retries
+from .utils import Cancelled, PermanentError, check_cancel, download, http, raise_for_status, redact, with_retries
 from .visual_library import visual_type
 
 log = logging.getLogger("purffle")
@@ -794,6 +794,7 @@ class Visuals:
         return MediaItem(source, dest.name, "image", path=dest, width=s.width, height=s.height, query=prompt)
 
     def for_scene(self, idx: int, query: str, image_prompt: str, topic: str, need: float, dest_dir: Path) -> MediaItem:
+        check_cancel()
         # Use the built-in illustration/diagram library for a meaningful share of scenes.
         # Explanatory scenes prefer diagrams; atmospheric/story scenes use drawings often,
         # while a smaller share can still use real footage/photos for realism and variety.
@@ -973,12 +974,12 @@ class Visuals:
                 item = None
                 for search_query in search_queries[:2]:
                     check_cancel()
-                    check_cancel()
                     try:
                         for candidate in self._search(source, search_query):
                             check_cancel()
-                            check_cancel()
                             combined.setdefault(candidate.key, candidate)
+                    except Cancelled:
+                        raise
                     except Exception as e:
                         log.warning("Commons search failed for %r: %s", search_query, redact(e))
                     cand = [candidate for candidate in combined.values() if _strong_stock_match(candidate, query, directed_query, image_prompt)]
@@ -997,6 +998,8 @@ class Visuals:
                     try:
                         for candidate in self._search(source, search_query):
                             combined.setdefault(candidate.key, candidate)
+                    except Cancelled:
+                        raise
                     except Exception as e:
                         log.warning("%s search failed for %r: %s", source, search_query, redact(e))
                     cand = [candidate for candidate in combined.values() if ((candidate.source == "local" and candidate.extra.get("overlap", 0) > 0) or (candidate.source != "local" and _strong_stock_match(candidate, query, directed_query, image_prompt)))]
