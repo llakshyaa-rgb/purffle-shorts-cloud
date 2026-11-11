@@ -19,7 +19,7 @@ from urllib.parse import quote
 
 from .asset_library import get_or_create_asset
 from .config import Settings
-from .utils import PermanentError, download, http, raise_for_status, redact, with_retries
+from .utils import PermanentError, check_cancel, download, http, raise_for_status, redact, with_retries
 from .visual_library import visual_type
 
 log = logging.getLogger("purffle")
@@ -956,6 +956,7 @@ class Visuals:
                     "then restart the Studio. No other image provider will be used."
                 )
         for source in source_order:
+            check_cancel()
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
                 if item:
@@ -971,8 +972,12 @@ class Visuals:
                 combined = {}
                 item = None
                 for search_query in search_queries[:2]:
+                    check_cancel()
+                    check_cancel()
                     try:
                         for candidate in self._search(source, search_query):
+                            check_cancel()
+                            check_cancel()
                             combined.setdefault(candidate.key, candidate)
                     except Exception as e:
                         log.warning("Commons search failed for %r: %s", search_query, redact(e))
@@ -1002,8 +1007,10 @@ class Visuals:
                             break
                 if not item:
                     continue
+            check_cancel()
             try:
                 self._fetch(item, dest_dir, idx)
+                check_cancel()
             except Exception as e:
                 log.warning("Download failed for %s: %s", item.key, redact(e))
                 continue
@@ -1063,9 +1070,17 @@ class Visuals:
         the fraction of scenes that have their footage."""
         dest_dir.mkdir(parents=True, exist_ok=True)
         workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare") for s in self.sources) else 6
+        check_cancel()
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(self.for_scene, i, q, p, topic, need, dest_dir) for i, (q, p, need) in enumerate(jobs)]
-            for done, _ in enumerate(concurrent.futures.as_completed(futs), 1):
-                if progress:
-                    progress(done / len(futs))
-            return [f.result() for f in futs]
+            try:
+                for done, future in enumerate(concurrent.futures.as_completed(futs), 1):
+                    check_cancel()
+                    if progress:
+                        progress(done / len(futs))
+                check_cancel()
+                return [f.result() for f in futs]
+            except BaseException:
+                for future in futs:
+                    future.cancel()
+                raise
