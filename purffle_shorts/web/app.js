@@ -613,7 +613,19 @@ function drawLive() {
   const c = $("#live-close");
   if (c) c.onclick = () => { S.createJob = null; store.set("createJob", null); drawSide(); };
   const x = $("[data-cancel]", box);
-  if (x) x.onclick = () => post(`/api/jobs/${x.dataset.cancel}/cancel`).then(() => toast("Stopping…", "info", 2500)).catch(e => toast(esc(e.message), "bad"));
+  if (x) x.onclick = async () => {
+    x.disabled = true;
+    x.textContent = "Cancelling…";
+    try {
+      await post("/api/jobs/" + x.dataset.cancel + "/cancel");
+      toast("Cancellation requested — active work is being stopped.", "info", 3500);
+      await tick();
+    } catch (e) {
+      x.disabled = false;
+      x.textContent = "Cancel";
+      toast(esc(e.message), "bad");
+    }
+  };
 }
 
 function progressText(j) {
@@ -1074,7 +1086,19 @@ function drawJobs() {
       return;
     }
     const c = e.target.closest("[data-cancel]");
-    if (c) { await post(`/api/jobs/${c.dataset.cancel}/cancel`).catch(() => {}); tick(); }
+    if (c) {
+      c.disabled = true;
+      c.textContent = "Cancelling…";
+      try {
+        await post("/api/jobs/" + c.dataset.cancel + "/cancel");
+        toast("Cancellation requested — active work is being stopped.", "info", 3500);
+      } catch (error) {
+        c.disabled = false;
+        c.textContent = "Cancel";
+        toast(esc(error.message), "bad");
+      }
+      tick();
+    }
   };
 }
 
