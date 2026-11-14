@@ -36,6 +36,11 @@ def test_local_director_plans_every_scene_with_valid_choices():
     assert all(beat["visual_mode"] in {"illustration", "diagram", "footage", "photo", "symbolic", "gradient"}
                for beat in plan)
     assert all(beat["reason"] for beat in plan)
+    assert all(beat["framing"] in {"extreme_wide", "wide", "medium", "medium_close", "close_up",
+                                  "extreme_close_up", "over_shoulder", "two_shot", "top_down", "insert"}
+               for beat in plan)
+    assert all(beat["angle"] and beat["lens"] and beat["lighting"] and beat["emotion"]
+               and beat["continuity_anchor"] for beat in plan)
 
 
 def test_director_visual_prompts_are_applied_to_the_real_script():
@@ -58,6 +63,8 @@ def test_director_notes_are_concise_and_match_scene_count():
     assert "Scene 1" in notes and "Scene 2" in notes
     assert "not private chain-of-thought" in notes
     assert notes.count("**Why:**") == len(script.scenes)
+    assert notes.count("**Framing / angle / lens:**") == len(script.scenes)
+    assert notes.count("**Continuity anchor:**") == len(script.scenes)
 
 
 def test_director_marks_reusable_archetypes_for_the_asset_library():
