@@ -388,6 +388,46 @@ class AnthropicProvider(Provider):
             raise LLMError(f"{self}: empty reply (stop_reason={resp.stop_reason})")
         return text
 
+    def complete_vision(self, system, user, images, *, schema=None, temperature=0.2, max_tokens=6000) -> str:
+        """Claude vision request using the same configured Anthropic account and model."""
+        a = self._anthropic
+        content: list[dict[str, Any]] = [{"type": "text", "text": user}]
+        for item in images:
+            content.append({"type": "text", "text": f"Video frame at {float(item['timestamp']):.2f} seconds"})
+            content.append({"type": "image", "source": {
+                "type": "base64", "media_type": item.get("mime", "image/jpeg"), "data": item["data"]
+            }})
+        kwargs: dict[str, Any] = {
+            "model": self.model, "max_tokens": max(1024, int(max_tokens)),
+            "system": system, "messages": [{"role": "user", "content": content}],
+        }
+        output_config: dict[str, Any] = {}
+        if schema:
+            output_config["format"] = {"type": "json_schema", "schema": schema}
+        effort = self.effort or _CLAUDE_DEFAULT_EFFORT.get(self.model, "")
+        if effort:
+            output_config["effort"] = effort
+        if output_config:
+            kwargs["output_config"] = output_config
+        try:
+            if self.model in _CLAUDE_FALLBACK_MODELS:
+                resp = self.client.beta.messages.create(
+                    betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kwargs)
+            else:
+                resp = self.client.messages.create(**kwargs)
+        except (a.BadRequestError, a.AuthenticationError, a.PermissionDeniedError, a.NotFoundError) as exc:
+            raise PermanentError(f"{self} vision: {exc}") from exc
+        except (a.RateLimitError, a.APIStatusError, a.APIConnectionError) as exc:
+            raise LLMError(f"{self} vision: {exc}") from exc
+        if resp.stop_reason == "refusal":
+            raise PermanentError(f"{self}: visual analysis request declined")
+        if resp.stop_reason == "max_tokens":
+            raise LLMError(f"{self}: visual analysis reply was cut off")
+        result = "".join(block.text for block in resp.content if block.type == "text")
+        if not result.strip():
+            raise LLMError(f"{self}: empty visual analysis reply")
+        return result
+
 
 def build_provider(name: str, settings: Settings, model: str = "") -> Provider:
     preset = PRESETS[name]
