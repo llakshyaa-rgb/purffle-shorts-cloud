@@ -316,8 +316,10 @@ class OpenAICompatible(Provider):
         if self.name == "openrouter":
             headers["HTTP-Referer"] = "https://github.com/Chamanrajragu/purffle-shorts"
             headers["X-Title"] = "PurffleShorts"
-        timeout = 600 if self.preset.local else 45 if self.name == "openrouter" and
-                  ("/free" in self.model.lower() or self.model.lower().endswith(":free")) else 90
+        is_free_route = self.name == "openrouter" and (
+            "/free" in self.model.lower() or self.model.lower().endswith(":free")
+        )
+        timeout = 600 if self.preset.local else 45 if is_free_route else 90
         try:
             response = http().post(f"{self.base_url}/chat/completions", json=payload,
                                    headers=headers, timeout=timeout)
