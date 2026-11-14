@@ -213,6 +213,7 @@ def _snap(sents: list[Sentence], start: float, end: float, min_s: float, max_s: 
 
 def pick_clips(llm, sents: list[Sentence], settings: Settings, count: int, min_s: int = 20,
                max_s: int = 58, brief: str = "") -> list[ClipPlan]:
+    """Return up to count ranked candidate moments (not necessarily all rendered)."""
     if llm is None:  # offline: windows spread evenly over the whole video, each starting on a sentence
         plans, nxt = [], 0
         if not sents:
@@ -537,14 +538,21 @@ def render_clip(settings: Settings, source: Path, plan: ClipPlan, words: list[Wo
 
 
 def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload: bool | None = None,
-               min_seconds: int = 20, max_seconds: int = 58, brief: str = "") -> list:
+               min_seconds: int = 20, max_seconds: int = 58, brief: str = "",
+               idea_count: int = 10, jump_cuts: bool | None = None, zoom: bool | None = None) -> list:
     """Returns one pipeline.Result per clip. ``brief``: what to look for ("the funniest moments", "every
     tip about sleep"); without an LLM it is ignored."""
     from .history import now_iso
     from .pipeline import Result, final_description, final_title
 
     s = studio.s
+    # Studio controls must affect the renderer, not just the browser state.
+    s = replace(s,
+                clip_jump_cuts=s.clip_jump_cuts if jump_cuts is None else bool(jump_cuts),
+                clip_zoom=s.clip_zoom if zoom is None else bool(zoom))
     upload = s.upload if upload is None else upload
+    count = max(1, min(10, int(count)))
+    idea_count = max(count, min(10, int(idea_count)))
     crop = crop if crop in CROPS else "center"
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     src_name = Path(src).stem if not re.match(r"^https?://", src) else "video"
@@ -577,7 +585,8 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
         if brief and llm is None:
             log.warning("The clip brief needs an LLM to read the transcript; it is ignored")
         if sents:
-            plans = pick_clips(llm, sents, s, count, min_seconds, min(max_seconds, 170), brief)
+            # Build a ten-moment shortlist, then render only the requested number.
+            plans = pick_clips(llm, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
         else:
             # Visual-only fallback: usable even when the source is silent or ASR is unavailable.
             duration = float(info.get("duration") or 0)
@@ -589,7 +598,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                 raise RuntimeError("video is too short to clip")
             span = min(upper, max(lower, min(30.0, duration)))
             latest = max(0.0, duration - span)
-            n = min(count, max(1, int(duration // max(span * 0.55, 1)) + 1))
+            n = min(idea_count, max(1, int(duration // max(span * 0.55, 1)) + 1))
             starts = [latest * k / max(n - 1, 1) for k in range(n)]
             plans = [ClipPlan(round(start, 3), round(min(duration, start + span), 3),
                               f"Visual moment {i + 1}",
@@ -598,7 +607,14 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             log.warning("Using evenly distributed visual-only moments; speech-based AI ranking was unavailable.")
         if not plans:
             raise RuntimeError("no usable moments found")
-        log.info("Clipping %d moment(s) from %s", len(plans), src)
+        ideas = [{
+            "rank": i, "start": round(p.start, 2), "end": round(p.end, 2),
+            "duration": round(p.duration, 2), "title": p.title, "hook_text": p.hook_text,
+            "score": p.score, "reason": p.reason, "description": p.description,
+            "hashtags": p.hashtags or [], "tags": p.tags or [],
+        } for i, p in enumerate(plans[:idea_count], 1)]
+        plans = plans[:count]
+        log.info("Analyzed %d candidate moment(s); rendering the top %d from %s", len(ideas), len(plans), src)
         for n, plan in enumerate(plans, 1):
             studio._step("render", f"clip {n}/{len(plans)}")
             t0 = time.time()
@@ -616,7 +632,14 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                 cover_at = pick_cover(video, folder / "cover.jpg", folder / "work", total=dur, until=min(3.0, dur * 0.4))
                 (folder / "captions.srt").write_text(srt(chunks), encoding="utf-8")
                 title, description = final_title(script, s), final_description(script, set(), s)
+                (folder / "clip_ideas.json").write_text(
+                    json.dumps({"source": src, "analysis": "transcript-ranked" if llm and words else
+                                "transcript-fallback" if words else "visual-fallback",
+                                "rendered_count": count, "ideas": ideas}, indent=2, ensure_ascii=False),
+                    encoding="utf-8")
                 meta = {"title": title, "description": description, "tags": script.tags, "category_id": "24",
+                        "clip_ideas": ideas, "clip_analysis": "transcript-ranked" if llm and words else
+                        "transcript-fallback" if words else "visual-fallback",
                         "language": s.language, "source": "clip", "style": "clip", "clip_of": src,
                         "clip_start": round(plan.start, 2), "clip_end": round(plan.end, 2),
                         "score": plan.score, "review": [plan.reason] if plan.reason else [],
