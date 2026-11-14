@@ -299,9 +299,12 @@ class OpenAICompatible(Provider):
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
-            "temperature": temperature,
-            "max_tokens": max(512, int(max_tokens)),
         }
+        if self._is_reasoning_model():
+            payload["max_completion_tokens"] = max(512, int(max_tokens))
+        else:
+            payload["temperature"] = temperature
+            payload["max_tokens"] = max(512, int(max_tokens))
         if schema and self._schema_mode:
             payload["response_format"] = {"type": "json_schema",
                                           "json_schema": {"name": "reply", "schema": schema, "strict": True}}
@@ -313,7 +316,8 @@ class OpenAICompatible(Provider):
         if self.name == "openrouter":
             headers["HTTP-Referer"] = "https://github.com/Chamanrajragu/purffle-shorts"
             headers["X-Title"] = "PurffleShorts"
-        timeout = 600 if self.preset.local else 90
+        timeout = 600 if self.preset.local else 45 if self.name == "openrouter" and
+                  ("/free" in self.model.lower() or self.model.lower().endswith(":free")) else 90
         try:
             response = http().post(f"{self.base_url}/chat/completions", json=payload,
                                    headers=headers, timeout=timeout)
@@ -322,6 +326,8 @@ class OpenAICompatible(Provider):
             choice = data["choices"][0]
             message = choice["message"]
             result = message.get("content")
+            if isinstance(result, list):
+                result = "".join(str(part.get("text") or "") for part in result if isinstance(part, dict))
             if choice.get("finish_reason") == "length":
                 raise LLMError(f"{self}: visual analysis reply was truncated")
             if not result:
