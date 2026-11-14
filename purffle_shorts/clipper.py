@@ -101,7 +101,7 @@ def fetch_source(src: str, dest_dir: Path) -> Path:
                                  "(or download the video yourself and pass the file)") from e
         dest_dir.mkdir(parents=True, exist_ok=True)
         opts = {"outtmpl": str(dest_dir / "source.%(ext)s"), "quiet": True, "noprogress": True,
-                "format": "bv*[height<=1080]+ba/b[height<=1080]/b", "merge_output_format": "mp4"}
+                "format": "bv*+ba/b", "merge_output_format": "mp4"}
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([src])
         found = sorted(dest_dir.glob("source.*"), key=lambda p: p.stat().st_size, reverse=True)
@@ -483,7 +483,8 @@ def crop_filter(settings: Settings, mode: str, face: str | None = None) -> str:
 
 
 def render_clip(settings: Settings, source: Path, plan: ClipPlan, words: list[Word], folder: Path,
-                crop: str = "center", src_size: tuple[int, int] | None = None) -> tuple[Path, list, float]:
+                crop: str = "center", src_size: tuple[int, int] | None = None,
+                has_audio: bool = True) -> tuple[Path, list, float]:
     s = replace(settings, music_volume=0.0, transition="none", ken_burns=False)
     work = folder / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -521,9 +522,13 @@ def render_clip(settings: Settings, source: Path, plan: ClipPlan, words: list[Wo
                 "-vf", f"{crop_filter(s, crop, face)},fps={F}{picked}{zoom}", *_encode_args(s, final=False),
                 "-frames:v", str(max(2, round(dur * F))), str(seg)], label="clip video")
     voice = work / "voice.wav"
-    ffmpeg.run(["-ss", f"{plan.start:.3f}", "-i", str(source), "-t", f"{plan.duration + 0.25:.3f}", "-vn",
-                "-af", f"aresample=48000,{sound}aformat=channel_layouts=mono", "-ar", "48000", str(voice)],
-               label="clip audio")
+    if has_audio:
+        ffmpeg.run(["-ss", f"{plan.start:.3f}", "-i", str(source), "-t", f"{plan.duration + 0.25:.3f}", "-vn",
+                    "-af", f"aresample=48000,{sound}aformat=channel_layouts=mono", "-ar", "48000", str(voice)],
+                   label="clip audio")
+    else:
+        ffmpeg.run(["-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=48000",
+                    "-t", f"{dur:.3f}", "-ar", "48000", "-ac", "1", str(voice)], label="silent clip audio")
     chunks = caption_chunks(clip_words, s.caption_max_words, total=dur)
     overlay = build_overlays(s, chunks, dur, plan.hook_text, work)
     video = folder / ("short.mp4" if s.vertical else "video.mp4")
@@ -549,14 +554,20 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
         studio._step("topic", "reading the video")
         source = fetch_source(src, scratch)
         info = ffmpeg.probe(source)
-        if not info["has_video"] or not info["has_audio"]:
-            raise PermanentError(f"{src}: needs both a picture and sound")
-        studio._step("voice", "transcribing")
-        words = transcribe(source, scratch, s)
-        if not words:
-            raise RuntimeError("the transcript is empty (is there speech in this video?)")
-        sents = sentences(words)
-        studio._step("script", "finding the best moments")
+        if not info["has_video"]:
+            raise PermanentError(f"{src}: no video stream was found")
+        has_audio = bool(info.get("has_audio"))
+        words: list[Word] = []
+        if has_audio:
+            studio._step("voice", "transcribing audio (optional)")
+            try:
+                words = transcribe(source, scratch, s)
+            except Exception as e:
+                log.warning("Speech analysis unavailable; using visual-only clip selection: %s", str(e)[:180])
+        else:
+            log.info("Source has no audio; continuing with visual-only clipping")
+        sents = sentences(words) if words else []
+        studio._step("script", "finding usable moments")
         try:
             llm = studio.llm
         except LLMConfigError as e:
@@ -565,7 +576,26 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             llm = None
         if brief and llm is None:
             log.warning("The clip brief needs an LLM to read the transcript; it is ignored")
-        plans = pick_clips(llm, sents, s, count, min_seconds, min(max_seconds, 170), brief)
+        if sents:
+            plans = pick_clips(llm, sents, s, count, min_seconds, min(max_seconds, 170), brief)
+        else:
+            # Visual-only fallback: usable even when the source is silent or ASR is unavailable.
+            duration = float(info.get("duration") or 0)
+            if duration <= 0:
+                raise RuntimeError("could not determine the video's duration")
+            upper = min(float(max_seconds), duration)
+            lower = min(float(min_seconds), upper)
+            if upper < 1:
+                raise RuntimeError("video is too short to clip")
+            span = min(upper, max(lower, min(30.0, duration)))
+            latest = max(0.0, duration - span)
+            n = min(count, max(1, int(duration // max(span * 0.55, 1)) + 1))
+            starts = [latest * k / max(n - 1, 1) for k in range(n)]
+            plans = [ClipPlan(round(start, 3), round(min(duration, start + span), 3),
+                              f"Visual moment {i + 1}",
+                              reason="Visual-only fallback; transcript unavailable")
+                     for i, start in enumerate(starts)]
+            log.warning("Using evenly distributed visual-only moments; speech-based AI ranking was unavailable.")
         if not plans:
             raise RuntimeError("no usable moments found")
         log.info("Clipping %d moment(s) from %s", len(plans), src)
@@ -581,7 +611,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             folder.mkdir(parents=True, exist_ok=True)
             try:
                 video, chunks, dur = render_clip(s, source, plan, words, folder, crop,
-                                                 (info["width"], info["height"]))
+                                                 (info["width"], info["height"]), has_audio=has_audio)
                 out = ffmpeg.probe(video)
                 cover_at = pick_cover(video, folder / "cover.jpg", folder / "work", total=dur, until=min(3.0, dur * 0.4))
                 (folder / "captions.srt").write_text(srt(chunks), encoding="utf-8")
