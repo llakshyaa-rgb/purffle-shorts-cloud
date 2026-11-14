@@ -13,6 +13,7 @@ import re
 import shutil
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
@@ -330,6 +331,88 @@ def pollinations_image(prompt: str, dest: Path, width: int, height: int, key: st
     # use is limited to roughly one image every few minutes (HTTP 402 "payment required" otherwise).
     with _POLLINATIONS_LOCK:
         return download(url, dest, headers=headers, timeout=180, max_bytes=30 * 1024 * 1024)
+
+
+def topview_image(prompt: str, dest: Path, key: str, model: str, orientation: str = "portrait") -> Path:
+    """Generate an image through Topview's asynchronous model API."""
+    model_path = model.strip().strip("/")
+    if not re.fullmatch(r"[a-z0-9-]+/[a-z0-9.-]+", model_path):
+        raise ValueError("TOPVIEW_IMAGE_MODEL must look like provider/model")
+    ratio = {"portrait": "9:16", "landscape": "16:9"}.get(orientation, "1:1")
+    headers = {"Authorization": f"Bearer {key}", "Idempotency-Key": str(uuid.uuid4()),
+               "Content-Type": "application/json"}
+    endpoint = f"https://platform-backend.topview.ai/api/v1/models/{model_path}/text-to-image/predictions"
+    response = http().post(endpoint, headers=headers,
+                           json={"prompt": prompt[:4000], "aspect_ratio": ratio,
+                                 "resolution": "1k", "output_format": "png", "quality": "medium"},
+                           timeout=45)
+    raise_for_status(response, "Topview image submission")
+    data = response.json().get("data") or {}
+    task_id = data.get("id")
+    if not task_id:
+        raise RuntimeError("Topview did not return a prediction task ID")
+    result_url = ""
+    for _ in range(72):
+        check_cancel()
+        time.sleep(5)
+        status_response = http().get(f"https://platform-backend.topview.ai/api/v1/predictions/{quote(str(task_id), safe='')}",
+                                     headers={"Authorization": f"Bearer {key}"}, timeout=30)
+        raise_for_status(status_response, "Topview image status")
+        task = status_response.json().get("data") or {}
+        state = str(task.get("status") or "").lower()
+        if state == "completed":
+            outputs = task.get("outputs") or []
+            result_url = outputs[0] if outputs else ""
+            break
+        if state in {"failed", "payment_required"}:
+            raise RuntimeError(f"Topview image task {state}: {task.get('error') or 'check API balance and task history'}")
+    if not result_url:
+        raise TimeoutError("Topview image generation did not finish within 6 minutes")
+    download(result_url, dest, timeout=90, max_bytes=30 * 1024 * 1024)
+    return dest
+
+
+def vivago_image(prompt: str, dest: Path, token: str, version: str, orientation: str = "portrait") -> Path:
+    """Generate an image through Vivago's documented asynchronous text-to-image API."""
+    ratio = {"portrait": (768, 1365), "landscape": (1365, 768)}.get(orientation, (1024, 1024))
+    request_id = str(uuid.uuid4())
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    body = {"prompt": prompt[:1000], "negative_prompt": "text, watermark, logo",
+            "img_count": 1, "version": version, "resolution": f"{ratio[0]}*{ratio[1]}",
+            "request_id": request_id}
+    response = http().post("https://www.vivago.ai/api-pub/gw/v3/image/txt2img/async",
+                           headers=headers, json=body, timeout=45)
+    raise_for_status(response, "Vivago image submission")
+    payload = response.json()
+    if payload.get("code") != 0:
+        raise RuntimeError(f"Vivago image submission failed: {payload.get('message') or payload.get('code')}")
+    task_id = (payload.get("result") or {}).get("task_id")
+    if not task_id:
+        raise RuntimeError("Vivago did not return an image task ID")
+    image_url = ""
+    for _ in range(72):
+        check_cancel()
+        time.sleep(5)
+        poll = http().get("https://www.vivago.ai/api-pub/gw/v3/image/txt2img/async/results",
+                          headers={"Authorization": f"Bearer {token}"},
+                          params={"task_id": task_id, "request_id": str(uuid.uuid4())}, timeout=30)
+        raise_for_status(poll, "Vivago image status")
+        result = poll.json()
+        if result.get("code") != 0:
+            raise RuntimeError(f"Vivago image status failed: {result.get('message') or result.get('code')}")
+        entries = (result.get("result") or {}).get("sub_task_results") or []
+        if entries:
+            entry = entries[0]
+            state = int(entry.get("task_status", 0))
+            if state == 1:
+                image_url = entry.get("image") or ""
+                break
+            if state in (3, 4):
+                raise RuntimeError(f"Vivago image task failed or was rejected (status {state})")
+    if not image_url:
+        raise TimeoutError("Vivago image generation did not finish within 6 minutes")
+    download(image_url, dest, timeout=90, max_bytes=30 * 1024 * 1024)
+    return dest
 
 
 # ------------------------------------------------------------------------------------------ selection
@@ -747,6 +830,10 @@ class Visuals:
                     return None
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
+            elif source == "topview-images" and s.topview_api_key:
+                topview_image(full, dest, s.topview_api_key, s.topview_image_model, s.orientation)
+            elif source == "vivago-images" and s.vivago_api_token:
+                vivago_image(full, dest, s.vivago_api_token, s.vivago_image_version, s.orientation)
             elif source == "cloudflare" and s.cloudflare_account_id and s.cloudflare_api_token:
                 try:
                     cloudflare_image(full, dest, s.cloudflare_account_id, s.cloudflare_api_token)
