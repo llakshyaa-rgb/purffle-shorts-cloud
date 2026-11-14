@@ -843,7 +843,7 @@ async function openVideo(id) {
     <button class="btn ghost close" type="button" data-close aria-label="Close">${I.x}</button>
     <div class="player">${v.video ? `<video src="/files/${id}/${esc(v.video)}" controls playsinline preload="metadata"${v.has_cover ? ` poster="/files/${id}/cover.jpg"` : ""}></video>`
       : v.has_cover ? `<img src="/files/${id}/cover.jpg" alt="">` : empty("NO FILE", "The video file is gone", v.youtube_id ? "It lives on YouTube now." : "")}
-      <div class="actions">${v.video ? `<a class="btn sm" href="/files/${id}/${esc(v.video)}?download=1">${I.dl}MP4</a>` : ""}${v.has_srt ? `<a class="btn sm" href="/files/${id}/captions.srt?download=1">${I.dl}Captions</a>` : ""}</div>
+      <div class="actions">${v.video ? `<a class="btn sm" href="/files/${id}/${esc(v.video)}?download=1">${I.dl}MP4</a>` : ""}${v.has_srt ? `<a class="btn sm" href="/files/${id}/captions.srt?download=1">${I.dl}Captions</a>` : ""}${v.has_clip_ideas ? `<a class="btn sm" href="/files/${id}/clip_ideas.json?download=1">${I.dl}10 clip ideas</a>` : ""}</div>
     </div>
     <div>
       <p class="eyebrow"><b>#${String(id).padStart(3, "0")}</b>Video</p>
@@ -1164,10 +1164,10 @@ function viewClip() {
   const c = Object.assign({ source: "", count: 3, crop: "center", upload: false, brief: "", jump_cuts: true, zoom: true },
     store.get("clip", {}));
   $("#main").innerHTML = `
-  ${head("clip", "Clip a long video", "Turn a podcast, interview, talk or stream into Shorts of its best moments, edited and captioned.")}
+  ${head("clip", "Clip a long video", "Analyze a video, rank up to 10 candidate moments, then render the number you choose as edited, captioned Shorts.")}
   <div class="create">
     <section class="card">${sh("01", "Source and edit")}
-      <div class="field"><label>Video file or URL</label><input type="text" id="c-src" value="${esc(c.source)}" placeholder="/Users/me/Videos/podcast.mp4  or  https://…"><p class="hint">Local files work out of the box. URLs need <span class="mono">pip install yt-dlp</span>. Only clip videos you own or may reuse.</p></div>
+      <div class="field"><label>Video file or URL</label><input type="text" id="c-src" value="${esc(c.source)}" placeholder="/Users/me/Videos/podcast.mp4  or  https://…"><p class="hint">Use a local video path or a supported public video URL (yt-dlp). Private, DRM-protected or restricted streams may not work. Only clip videos you own or may reuse.</p></div>
       <div class="grid2">
         <div class="field"><label>Clips</label><div class="range-row"><input type="range" id="c-n" min="1" max="10" value="${c.count}"><output id="c-out">${c.count}</output></div></div>
         <div class="field"><label>Framing</label>${seg("crop", [["center", "Fill (crop)"], ["face", "Follow face"], ["blur", "Fit + blur"]], c.crop)}</div>
@@ -1182,7 +1182,7 @@ function viewClip() {
     </section>
     <section class="card">${sh("02", "How it works")}<ol class="steps">
       <li><div><b>Transcribe</b><small>Word-level timing with faster-whisper (free, on this computer) or OpenAI.</small></div></li>
-      <li><div><b>The AI picks the moments</b><small>Self-contained, 20–58 s, a hook in the first line and a payoff at the end. Each gets a title and a virality score with the reason.</small></div></li>
+      <li><div><b>Analyze and rank 10 moments</b><small>When transcription and an AI model are available, the model ranks self-contained moments by hook, payoff and relevance. The report is saved with each rendered clip. Without AI/transcription, Purffle uses a clearly labeled fallback.</small></div></li>
       <li><div><b>Edited, vertical, captioned</b><small>Pauses and ums cut, punch-in zoom, face-following or blurred-fit 9:16, word-by-word captions, loudness at −14 LUFS.</small></div></li>
     </ol></section>
   </div>`;
