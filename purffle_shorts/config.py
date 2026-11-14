@@ -233,6 +233,9 @@ class Settings:
     cloudflare_api_token: str = ""
     topview_api_key: str = ""
     topview_image_model: str = "openai/gpt-image-2.5-flare"
+    topview_video_enabled: bool = False
+    topview_video_model: str = "alibaba/wan-3.0"
+    topview_video_resolution: str = "480P"
     vivago_api_token: str = ""
     vivago_image_version: str = "v1.0-fast"
 
@@ -404,6 +407,9 @@ class Settings:
             cloudflare_api_token=_env("CLOUDFLARE_API_TOKEN"),
             topview_api_key=_env("TOPVIEW_API_PLATFORM_KEY"),
             topview_image_model=_env("TOPVIEW_IMAGE_MODEL", d.topview_image_model),
+            topview_video_enabled=_bool(_env("TOPVIEW_VIDEO_ENABLED", "false")),
+            topview_video_model=_env("TOPVIEW_VIDEO_MODEL", d.topview_video_model),
+            topview_video_resolution=_env("TOPVIEW_VIDEO_RESOLUTION", d.topview_video_resolution).upper(),
             vivago_api_token=_env("VIVAGO_API_TOKEN"),
             vivago_image_version=_env("VIVAGO_IMAGE_VERSION", d.vivago_image_version),
             youtube_api_key=_env("YOUTUBE_API_KEY"),
@@ -413,6 +419,8 @@ class Settings:
             s.visual_sources.append("cloudflare")
         if s.topview_api_key and "topview-images" not in s.visual_sources:
             s.visual_sources.append("topview-images")
+        if s.topview_api_key and s.topview_video_enabled and "topview-video" not in s.visual_sources:
+            s.visual_sources.append("topview-video")
         if s.vivago_api_token and "vivago-images" not in s.visual_sources:
             s.visual_sources.append("vivago-images")
         from .crosspost import PLATFORMS, TIKTOK_PRIVACY
