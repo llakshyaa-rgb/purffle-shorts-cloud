@@ -13,7 +13,6 @@ import re
 import shutil
 import threading
 import time
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
@@ -331,137 +330,6 @@ def pollinations_image(prompt: str, dest: Path, width: int, height: int, key: st
     # use is limited to roughly one image every few minutes (HTTP 402 "payment required" otherwise).
     with _POLLINATIONS_LOCK:
         return download(url, dest, headers=headers, timeout=180, max_bytes=30 * 1024 * 1024)
-
-
-def topview_image(prompt: str, dest: Path, key: str, model: str, orientation: str = "portrait") -> Path:
-    """Generate an image through Topview's asynchronous model API."""
-    model_path = model.strip().strip("/")
-    if not re.fullmatch(r"[a-z0-9-]+/[a-z0-9.-]+", model_path):
-        raise ValueError("TOPVIEW_IMAGE_MODEL must look like provider/model")
-    ratio = {"portrait": "9:16", "landscape": "16:9"}.get(orientation, "1:1")
-    headers = {"Authorization": f"Bearer {key}", "Idempotency-Key": str(uuid.uuid4()),
-               "Content-Type": "application/json"}
-    endpoint = f"https://platform-backend.topview.ai/api/v1/models/{model_path}/text-to-image/predictions"
-    response = http().post(endpoint, headers=headers,
-                           json={"prompt": prompt[:4000], "aspect_ratio": ratio,
-                                 "resolution": "1k", "output_format": "png", "quality": "medium"},
-                           timeout=45)
-    raise_for_status(response, "Topview image submission")
-    data = response.json().get("data") or {}
-    task_id = data.get("id")
-    if not task_id:
-        raise RuntimeError("Topview did not return a prediction task ID")
-    result_url = ""
-    for _ in range(72):
-        check_cancel()
-        time.sleep(5)
-        status_response = http().get(f"https://platform-backend.topview.ai/api/v1/predictions/{quote(str(task_id), safe='')}",
-                                     headers={"Authorization": f"Bearer {key}"}, timeout=30)
-        raise_for_status(status_response, "Topview image status")
-        task = status_response.json().get("data") or {}
-        state = str(task.get("status") or "").lower()
-        if state == "completed":
-            outputs = task.get("outputs") or []
-            result_url = outputs[0] if outputs else ""
-            break
-        if state in {"failed", "payment_required"}:
-            raise RuntimeError(f"Topview image task {state}: {task.get('error') or 'check API balance and task history'}")
-    if not result_url:
-        raise TimeoutError("Topview image generation did not finish within 6 minutes")
-    download(result_url, dest, timeout=90, max_bytes=30 * 1024 * 1024)
-    return dest
-
-
-def topview_video(prompt: str, dest: Path, key: str, model: str, orientation: str,
-                  duration: float, resolution: str = "480P") -> Path:
-    """Generate one short scene through Topview's documented Alibaba WAN 3.0 video API."""
-    model_path = model.strip().strip("/")
-    if not re.fullmatch(r"[a-z0-9-]+/[a-z0-9.-]+", model_path):
-        raise ValueError("TOPVIEW_VIDEO_MODEL must look like provider/model")
-    ratio = {"portrait": "9:16", "landscape": "16:9"}.get(orientation, "1:1")
-    seconds = max(2, min(30, int(round(duration))))
-    quality = resolution.upper()
-    if quality not in {"480P", "720P", "1080P"}:
-        raise ValueError("TOPVIEW_VIDEO_RESOLUTION must be 480P, 720P, or 1080P")
-    headers = {"Authorization": f"Bearer {key}", "Idempotency-Key": str(uuid.uuid4()),
-               "Content-Type": "application/json"}
-    endpoint = f"https://platform-backend.topview.ai/api/v1/models/{model_path}/text-to-video/predictions"
-    response = http().post(
-        endpoint, headers=headers,
-        json={"input": {"prompt": prompt[:10000]},
-              "parameters": {"duration": seconds, "resolution": quality, "ratio": ratio,
-                             "audio": False, "prompt_extend": True, "watermark": False}},
-        timeout=45,
-    )
-    raise_for_status(response, "Topview WAN video submission")
-    data = response.json().get("data") or {}
-    task_id = data.get("id")
-    if not task_id:
-        raise RuntimeError("Topview did not return a WAN video task ID")
-    result_url = ""
-    for _ in range(180):
-        check_cancel()
-        time.sleep(5)
-        status_response = http().get(
-            f"https://platform-backend.topview.ai/api/v1/predictions/{quote(str(task_id), safe='')}",
-            headers={"Authorization": f"Bearer {key}"}, timeout=30,
-        )
-        raise_for_status(status_response, "Topview WAN video status")
-        task = status_response.json().get("data") or {}
-        state = str(task.get("status") or "").lower()
-        if state == "completed":
-            outputs = task.get("outputs") or []
-            result_url = outputs[0] if outputs else ""
-            break
-        if state in {"failed", "payment_required"}:
-            raise RuntimeError(f"Topview WAN video task {state}: {task.get('error') or 'check API balance and task history'}")
-    if not result_url:
-        raise TimeoutError("Topview WAN video generation did not finish within 15 minutes")
-    download(result_url, dest, timeout=180, max_bytes=250 * 1024 * 1024)
-    return dest
-
-
-def vivago_image(prompt: str, dest: Path, token: str, version: str, orientation: str = "portrait") -> Path:
-    """Generate an image through Vivago's documented asynchronous text-to-image API."""
-    ratio = {"portrait": (832, 1248), "landscape": (1248, 832)}.get(orientation, (1024, 1024))
-    request_id = str(uuid.uuid4())
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    body = {"prompt": prompt[:1000], "negative_prompt": "text, watermark, logo",
-            "img_count": 1, "version": version, "resolution": f"{ratio[0]}*{ratio[1]}",
-            "request_id": request_id}
-    response = http().post("https://www.vivago.ai/api-pub/gw/v3/image/txt2img/async",
-                           headers=headers, json=body, timeout=45)
-    raise_for_status(response, "Vivago image submission")
-    payload = response.json()
-    if payload.get("code") != 0:
-        raise RuntimeError(f"Vivago image submission failed: {payload.get('message') or payload.get('code')}")
-    task_id = (payload.get("result") or {}).get("task_id")
-    if not task_id:
-        raise RuntimeError("Vivago did not return an image task ID")
-    image_url = ""
-    for _ in range(72):
-        check_cancel()
-        time.sleep(5)
-        poll = http().get("https://www.vivago.ai/api-pub/gw/v3/image/txt2img/async/results",
-                          headers={"Authorization": f"Bearer {token}"},
-                          params={"task_id": task_id, "request_id": str(uuid.uuid4())}, timeout=30)
-        raise_for_status(poll, "Vivago image status")
-        result = poll.json()
-        if result.get("code") != 0:
-            raise RuntimeError(f"Vivago image status failed: {result.get('message') or result.get('code')}")
-        entries = (result.get("result") or {}).get("sub_task_results") or []
-        if entries:
-            entry = entries[0]
-            state = int(entry.get("task_status", 0))
-            if state == 1:
-                image_url = entry.get("image") or ""
-                break
-            if state in (3, 4):
-                raise RuntimeError(f"Vivago image task failed or was rejected (status {state})")
-    if not image_url:
-        raise TimeoutError("Vivago image generation did not finish within 6 minutes")
-    download(image_url, dest, timeout=90, max_bytes=30 * 1024 * 1024)
-    return dest
 
 
 # ------------------------------------------------------------------------------------------ selection
@@ -1030,7 +898,7 @@ class Visuals:
             if not ref_path.is_file():
                 ref_prompt = "ORIGINAL FICTIONAL CHARACTER REFERENCE SHEET. Character design: " + style_key
                 for provider in self.sources:
-                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare", "topview-images", "vivago-images"):
+                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                         made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
                         if made and made.path and made.path.is_file():
                             try:
@@ -1094,29 +962,7 @@ class Visuals:
                 )
         for source in source_order:
             check_cancel()
-            if source == "topview-video":
-                if not (self.s.topview_api_key and self.s.topview_video_enabled):
-                    log.warning("Topview WAN video is disabled; set TOPVIEW_VIDEO_ENABLED=true to opt in.")
-                    continue
-                try:
-                    video_path = dest_dir / f"scene{idx:02d}_wan.mp4"
-                    topview_video(fantasy_prompt, video_path, self.s.topview_api_key,
-                                  self.s.topview_video_model, self.s.orientation, need,
-                                  self.s.topview_video_resolution)
-                    info = __import__("purffle_shorts.ffmpeg", fromlist=["probe"]).probe(video_path)
-                    if not info.get("has_video"):
-                        raise RuntimeError("Topview WAN returned a file without a video stream")
-                    log.info("Scene %d: Topview WAN video generated (%ss)", idx + 1, round(info.get("duration") or need, 1))
-                    return MediaItem("topview-wan", video_path.name, "video", path=video_path,
-                                     width=info.get("width", self.s.width), height=info.get("height", self.s.height),
-                                     duration=info.get("duration") or need, query=query)
-                except Cancelled:
-                    raise
-                except Exception as e:
-                    log.warning("Topview WAN video failed for scene %d: %s; trying next visual source",
-                                idx + 1, redact(e))
-                continue
-            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare", "topview-images", "vivago-images"):
+            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
                 if item:
                     return item
