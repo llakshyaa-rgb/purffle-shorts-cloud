@@ -28,6 +28,7 @@ GRADES = {
     "warm": "colorbalance=rs=0.06:gs=0.02:bs=-0.05,eq=saturation=1.10",
     "cool": "colorbalance=rs=-0.05:bs=0.07,eq=saturation=1.05",
     "bw": "hue=s=0,eq=contrast=1.15",
+    "manga": "hue=s=0,eq=contrast=1.38:brightness=0.02,unsharp=5:5:0.8",
 }
 TRANSITIONS = ["fade", "smoothleft", "smoothup", "slideleft", "slideup", "circleopen", "wipeleft",
                "zoomin", "dissolve", "radial", "hblur", "fadeblack", "squeezeh"]
