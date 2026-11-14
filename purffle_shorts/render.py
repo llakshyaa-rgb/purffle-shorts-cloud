@@ -512,7 +512,7 @@ def render_video(settings: Settings, media: list[MediaItem], scene_durations: li
     workers = max(1, min(2, len(media)))  # mobile-safe: concurrent FFmpeg processes can exhaust native memory and crash
     # FFmpeg's -progress stream reports encoded media time while each shot is being built.
     # Aggregate the concurrent shot fractions so the Studio bar moves during long individual shots.
-    progress_lock = __import__("threading").Lock()
+    progress_lock = threading.Lock()
     segment_progress = [0.0] * (len(media) + (1 if background is not None else 0))
     def segment_update(slot: int, frac: float) -> None:
         with progress_lock:
