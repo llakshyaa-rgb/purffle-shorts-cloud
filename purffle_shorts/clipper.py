@@ -182,6 +182,113 @@ def sample_visual_frames(source: Path, duration: float, work: Path, limit: int =
     return out
 
 
+def native_visual_features(source: Path, duration: float, work: Path, *, sample_every: float = 1.5,
+                           max_samples: int = 240) -> list[dict]:
+    """Extract lightweight, model-free visual signals with FFmpeg + Pillow.
+
+    Measures scene changes, frame-to-frame change, luminance, colour spread and edge density.
+    This is genuine pixel analysis, not semantic object recognition; it works without an LLM/API.
+    """
+    try:
+        from PIL import Image, ImageChops, ImageStat
+    except ImportError:
+        log.warning("Native visual analysis needs Pillow; install the core Purffle dependencies")
+        return []
+    if duration <= 0:
+        return []
+    every = max(sample_every, duration / max_samples)
+    folder = work / "native-vision"
+    folder.mkdir(parents=True, exist_ok=True)
+    pattern = folder / "frame-%04d.jpg"
+    ffmpeg.run(["-i", str(source), "-vf",
+                f"fps={1.0 / every:.6f},scale=96:54:flags=area,format=rgb24",
+                "-frames:v", str(max_samples), "-q:v", "8", str(pattern)],
+               label="native visual feature scan")
+    frames = []
+    previous = None
+    for index, path in enumerate(sorted(folder.glob("frame-*.jpg"))):
+        try:
+            with Image.open(path) as image:
+                image = image.convert("RGB")
+                gray = image.convert("L")
+                stat = ImageStat.Stat(gray)
+                luminance = float(stat.mean[0]) / 255.0
+                contrast = min(1.0, float(stat.stddev[0]) / 96.0)
+                # Edge density from neighbouring pixel differences; no neural model required.
+                pixels = list(gray.getdata())
+                width, height = gray.size
+                horizontal = sum(abs(pixels[y * width + x] - pixels[y * width + x + 1])
+                                 for y in range(height) for x in range(width - 1))
+                vertical = sum(abs(pixels[y * width + x] - pixels[(y + 1) * width + x])
+                               for y in range(height - 1) for x in range(width))
+                edge = min(1.0, (horizontal + vertical) / (2 * width * height * 255 * 0.22))
+                hist = image.histogram()
+                total = max(1, sum(hist))
+                colour_spread = min(1.0, sum(1 for value in hist if value > total * 0.002) / 96.0)
+                change = 0.0
+                if previous is not None:
+                    diff = ImageChops.difference(gray, previous)
+                    change = min(1.0, float(ImageStat.Stat(diff).mean[0]) / 64.0)
+                frames.append({"time": min(duration, index * every), "luminance": luminance,
+                               "contrast": contrast, "edge": edge, "colour": colour_spread,
+                               "change": change})
+                previous = gray.copy()
+        except Exception as exc:
+            log.debug("Skipping native vision frame %s: %s", path, exc)
+    return frames
+
+
+def rank_native_visual_moments(features: list[dict], duration: float, count: int,
+                               min_seconds: int, max_seconds: int) -> list[ClipPlan]:
+    """Rank non-overlapping moments using measurable visual activity and scene diversity."""
+    if len(features) < 2 or duration <= 0:
+        return []
+    span = min(float(max_seconds), duration)
+    if span < min(1, min_seconds):
+        return []
+    span = max(min(float(min_seconds), duration), min(span, max(float(min_seconds), 32.0)))
+    step = max(5.0, span * 0.45)
+    starts = []
+    cursor = 0.0
+    while cursor + span <= duration + 0.01 and len(starts) < 240:
+        starts.append(cursor)
+        cursor += step
+    if not starts:
+        starts = [max(0.0, (duration - span) / 2)]
+    plans = []
+    for start in starts:
+        end = min(duration, start + span)
+        inside = [f for f in features if start <= f["time"] <= end]
+        if len(inside) < 2:
+            continue
+        changes = [f["change"] for f in inside[1:]]
+        # Reward scene transitions, movement, detail and varied composition; avoid blank/static stretches.
+        scene_events = sum(1 for value in changes if value >= 0.34)
+        motion = sum(changes) / max(1, len(changes))
+        visual_detail = sum(f["edge"] for f in inside) / len(inside)
+        contrast = sum(f["contrast"] for f in inside) / len(inside)
+        colour = sum(f["colour"] for f in inside) / len(inside)
+        score = int(max(0, min(100, 100 * (
+            0.34 * min(1.0, scene_events / 3.0) +
+            0.28 * min(1.0, motion * 2.2) +
+            0.18 * visual_detail + 0.12 * contrast + 0.08 * colour))))
+        if score < 1:
+            continue
+        plans.append(ClipPlan(start, end, f"Visual activity moment ({_ts(start)}–{_ts(end)})",
+                              reason=f"Native pixel analysis: {scene_events} strong visual changes; "
+                                     f"motion {motion:.2f}, detail {visual_detail:.2f}",
+                              score=score))
+    plans.sort(key=lambda plan: plan.score or 0, reverse=True)
+    selected = []
+    for plan in plans:
+        if any(plan.start < chosen.end and plan.end > chosen.start for chosen in selected):
+            continue
+        selected.append(plan)
+        if len(selected) >= count:
+            break
+    return selected
+
+
 def pick_visual_clips(llm, images: list[dict], duration: float, sents: list[Sentence],
                       settings: Settings, count: int, min_s: int, max_s: int,
                       brief: str = "") -> list[ClipPlan]:
@@ -655,6 +762,15 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
         if duration <= 0:
             raise RuntimeError("could not determine the video's duration")
         studio._step("script", "analyzing scenes and finding usable moments")
+        native_features = []
+        try:
+            native_features = native_visual_features(source, duration, scratch)
+            if native_features:
+                strong_changes = sum(1 for frame in native_features if frame["change"] >= 0.34)
+                log.info("Native vision scanned %d frames: %d strong visual changes; no model/API required",
+                         len(native_features), strong_changes)
+        except Exception as e:
+            log.warning("Native visual feature scan unavailable; continuing with other analysis: %s", str(e)[:180])
         try:
             llm = studio.llm
         except LLMConfigError as e:
@@ -674,6 +790,12 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                                  len(plans), len(visual_frames), " and transcript" if sents else "")
             except Exception as e:
                 log.warning("Visual AI analysis unavailable; falling back to transcript analysis: %s", str(e)[:220])
+        if not plans and native_features:
+            plans = rank_native_visual_moments(native_features, duration, idea_count,
+                                               min_seconds, min(max_seconds, 170))
+            if plans:
+                analysis_mode = "native-pixel-ranked"
+                log.info("Native pixel analysis ranked %d visual moments without an AI model", len(plans))
         if not plans and sents:
             try:
                 plans = pick_clips(llm, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
