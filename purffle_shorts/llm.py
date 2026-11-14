@@ -287,6 +287,49 @@ class OpenAICompatible(Provider):
             raise LLMError(f"{self}: empty reply (finish_reason={finish_reason})")
         return content
 
+    def complete_vision(self, system, user, images, *, schema=None, temperature=0.2, max_tokens=5000) -> str:
+        """OpenAI-compatible multimodal request; images are small base64 JPEG samples."""
+        content: list[dict[str, Any]] = [{"type": "text", "text": user}]
+        for item in images:
+            content.append({"type": "text", "text": f"Video frame at {float(item['timestamp']):.2f} seconds"})
+            content.append({"type": "image_url", "image_url": {
+                "url": f"data:{item.get('mime', 'image/jpeg')};base64,{item['data']}",
+                "detail": "low",
+            }})
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
+            "temperature": temperature,
+            "max_tokens": max(512, int(max_tokens)),
+        }
+        if schema and self._schema_mode:
+            payload["response_format"] = {"type": "json_schema",
+                                          "json_schema": {"name": "reply", "schema": schema, "strict": True}}
+        elif schema is not None and self._json_mode:
+            payload["response_format"] = {"type": "json_object"}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.name == "openrouter":
+            headers["HTTP-Referer"] = "https://github.com/Chamanrajragu/purffle-shorts"
+            headers["X-Title"] = "PurffleShorts"
+        timeout = 600 if self.preset.local else 90
+        try:
+            response = http().post(f"{self.base_url}/chat/completions", json=payload,
+                                   headers=headers, timeout=timeout)
+            raise_for_status(response, f"{self} vision")
+            data = response.json()
+            choice = data["choices"][0]
+            message = choice["message"]
+            result = message.get("content")
+            if choice.get("finish_reason") == "length":
+                raise LLMError(f"{self}: visual analysis reply was truncated")
+            if not result:
+                raise LLMError(f"{self}: empty visual analysis reply")
+            return result
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError(f"{self}: unexpected vision response") from exc
+
 
 class AnthropicProvider(Provider):
     """Native Claude via the official Anthropic SDK (structured JSON output + refusal fallbacks)."""
@@ -386,6 +429,23 @@ class LLM:
     @property
     def label(self) -> str:
         return str(self.providers[0])
+
+    def complete_vision_json(self, system: str, user: str, images: list[dict], schema: dict | None = None,
+                             max_tokens: int = 5000, temperature: float = 0.2) -> dict[str, Any]:
+        """Try configured OpenAI-compatible providers that accept image inputs; caller can fall back to text."""
+        errors = []
+        for provider in self.providers:
+            method = getattr(provider, "complete_vision", None)
+            if not callable(method):
+                continue
+            try:
+                raw = method(system, user, images, schema=schema, max_tokens=max_tokens, temperature=temperature)
+                return extract_json(raw)
+            except Exception as exc:
+                errors.append(f"{provider}: {exc}")
+                log.warning("Visual analysis provider %s unavailable: %s", provider, exc)
+        raise LLMError("No configured provider completed visual analysis: " + "; ".join(errors or
+                       ["the selected provider has no multimodal endpoint"]))
 
     def complete_json(self, system: str, user: str, schema: dict | None = None,
                       max_tokens: int = 4000, temperature: float | None = None) -> dict[str, Any]:
