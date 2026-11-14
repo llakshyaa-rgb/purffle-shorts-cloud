@@ -18,6 +18,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import time
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -288,6 +289,120 @@ def rank_native_visual_moments(features: list[dict], duration: float, count: int
             break
     return selected
 
+
+
+def enrich_native_visual_context(source: Path, duration: float, work: Path,
+                                 features: list[dict], *, every: float = 2.0,
+                                 max_samples: int = 180) -> dict:
+    """Optional local CV/OCR pass: face/eye presence, rough track continuity and on-screen text.
+
+    OpenCV and Tesseract are opportunistic local tools. If absent, the core pixel analyser still works.
+    Face tracks are anonymous shot-local tracks, never biometric identity recognition.
+    """
+    result = {"face_frames": 0, "eye_frames": 0, "face_tracks": 0, "ocr_frames": 0,
+              "texts": [], "animation_like_frames": 0, "scene_changes": 0}
+    if not features or duration <= 0:
+        return result
+    # Mark hard visual transitions from the already-computed frame differences.
+    for frame in features:
+        frame["scene_cut"] = bool(frame.get("change", 0.0) >= 0.42)
+    result["scene_changes"] = sum(1 for frame in features if frame.get("scene_cut"))
+    try:
+        import cv2
+    except ImportError:
+        cv2 = None
+    folder = work / "native-context"
+    folder.mkdir(parents=True, exist_ok=True)
+    interval = max(every, duration / max_samples)
+    pattern = folder / "context-%04d.jpg"
+    try:
+        ffmpeg.run(["-i", str(source), "-vf",
+                    f"fps={1.0 / interval:.6f},scale=320:180:flags=area",
+                    "-frames:v", str(max_samples), "-q:v", "7", str(pattern)],
+                   label="native face and text scan")
+    except Exception as exc:
+        log.warning("Native context frame extraction failed: %s", str(exc)[:160])
+        return result
+    face_cascade = eye_cascade = None
+    if cv2 is not None and hasattr(cv2, "CascadeClassifier"):
+        try:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+            eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye_tree_eyeglasses.xml")
+            if face_cascade.empty():
+                face_cascade = None
+            if eye_cascade.empty():
+                eye_cascade = None
+        except Exception:
+            face_cascade = eye_cascade = None
+    tracks = []
+    for index, path in enumerate(sorted(folder.glob("context-*.jpg"))):
+        timestamp = min(duration, index * interval)
+        frame = next((item for item in features if abs(item["time"] - timestamp) <= interval * 0.8), None)
+        image = None
+        if cv2 is not None and face_cascade is not None:
+            image = cv2.imread(str(path))
+            if image is not None:
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.12, minNeighbors=4,
+                                                      minSize=(22, 22))
+                if len(faces):
+                    result["face_frames"] += 1
+                    result["face_frames"] = min(result["face_frames"], max_samples)
+                    for (x, y, width, height) in faces[:5]:
+                        centre = ((x + width / 2) / max(1, image.shape[1]),
+                                  (y + height / 2) / max(1, image.shape[0]))
+                        match = next((track for track in tracks
+                                      if timestamp - track["last"] <= 5.0 and
+                                      ((track["centre"][0] - centre[0]) ** 2 +
+                                       (track["centre"][1] - centre[1]) ** 2) ** 0.5 < 0.22), None)
+                        if match is None:
+                            tracks.append({"first": timestamp, "last": timestamp, "centre": centre, "hits": 1})
+                        else:
+                            match["last"] = timestamp
+                            match["centre"] = centre
+                            match["hits"] += 1
+                        if eye_cascade is not None:
+                            roi = gray[y:y + height, x:x + width]
+                            eyes = eye_cascade.detectMultiScale(roi, scaleFactor=1.1, minNeighbors=3,
+                                                                minSize=(5, 5))
+                            if len(eyes) >= 1:
+                                result["eye_frames"] += 1
+                # Animation-like is a visual texture heuristic, not a content classifier.
+                if frame and frame.get("edge", 0) > 0.42 and frame.get("colour", 0) > 0.42:
+                    result["animation_like_frames"] += 1
+        # OCR is optional and stays on-device. Bound calls to keep mobile processing practical.
+        if shutil.which("tesseract") and index % 3 == 0:
+            try:
+                proc = subprocess.run(["tesseract", str(path), "stdout", "--psm", "11"],
+                                      capture_output=True, text=True, timeout=5, check=False)
+                detected = " ".join(proc.stdout.split())
+                if len(detected) >= 4 and detected not in result["texts"]:
+                    result["texts"].append(detected[:160])
+                    result["ocr_frames"] += 1
+                    if len(result["texts"]) >= 20:
+                        break
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+    result["face_tracks"] = sum(1 for track in tracks if track["hits"] >= 2)
+    result["face_track_spans"] = [
+        {"start": round(track["first"], 2), "end": round(track["last"], 2), "observations": track["hits"]}
+        for track in tracks if track["hits"] >= 2
+    ][:30]
+    result["texts"] = result["texts"][:20]
+    return result
+
+
+def apply_visual_context_scores(features: list[dict], context: dict) -> None:
+    """Fold local face/eye, scene-cut and animation-texture signals into moment-ranking features."""
+    if not features:
+        return
+    face_density = min(1.0, context.get("face_frames", 0) / max(1, len(features)))
+    eye_density = min(1.0, context.get("eye_frames", 0) / max(1, len(features)))
+    animation_density = min(1.0, context.get("animation_like_frames", 0) / max(1, len(features)))
+    for frame in features:
+        frame["face_signal"] = face_density
+        frame["eye_signal"] = eye_density
+        frame["animation_texture"] = animation_density
 
 def pick_visual_clips(llm, images: list[dict], duration: float, sents: list[Sentence],
                       settings: Settings, count: int, min_s: int, max_s: int,
@@ -763,12 +878,16 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             raise RuntimeError("could not determine the video's duration")
         studio._step("script", "analyzing scenes and finding usable moments")
         native_features = []
+        native_context = {}
         try:
             native_features = native_visual_features(source, duration, scratch)
             if native_features:
+                native_context = enrich_native_visual_context(source, duration, scratch, native_features)
+                apply_visual_context_scores(native_features, native_context)
                 strong_changes = sum(1 for frame in native_features if frame["change"] >= 0.34)
-                log.info("Native vision scanned %d frames: %d strong visual changes; no model/API required",
-                         len(native_features), strong_changes)
+                log.info("Native vision scanned %d frames: %d strong changes, %d face frames, %d repeated face tracks, %d OCR frames",
+                         len(native_features), strong_changes, native_context.get("face_frames", 0),
+                         native_context.get("face_tracks", 0), native_context.get("ocr_frames", 0))
         except Exception as e:
             log.warning("Native visual feature scan unavailable; continuing with other analysis: %s", str(e)[:180])
         try:
