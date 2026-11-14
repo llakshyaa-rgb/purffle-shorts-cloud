@@ -747,10 +747,6 @@ class Visuals:
                     return None
                 pollinations_image(full, dest.with_suffix(".jpg"), s.width, s.height, s.pollinations_api_key)
                 dest = dest.with_suffix(".jpg")
-            elif source == "topview-images" and s.topview_api_key:
-                topview_image(full, dest, s.topview_api_key, s.topview_image_model, s.orientation)
-            elif source == "vivago-images" and s.vivago_api_token:
-                vivago_image(full, dest, s.vivago_api_token, s.vivago_image_version, s.orientation)
             elif source == "cloudflare" and s.cloudflare_account_id and s.cloudflare_api_token:
                 try:
                     cloudflare_image(full, dest, s.cloudflare_account_id, s.cloudflare_api_token)
@@ -1080,7 +1076,7 @@ class Visuals:
         """jobs: [(search_query, image_prompt, seconds_needed)] -> one MediaItem per scene. ``progress`` gets
         the fraction of scenes that have their footage."""
         dest_dir.mkdir(parents=True, exist_ok=True)
-        workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare", "topview-images", "vivago-images", "topview-video") for s in self.sources) else 6
+        workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare", ) for s in self.sources) else 6
         check_cancel()
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(self.for_scene, i, q, p, topic, need, dest_dir) for i, (q, p, need) in enumerate(jobs)]
