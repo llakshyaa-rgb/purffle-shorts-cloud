@@ -504,6 +504,7 @@ class StudioServer:
         data["video"] = video.name if video and video.exists() else None
         data["has_cover"] = bool(folder and (folder / "cover.jpg").exists())
         data["has_srt"] = bool(folder and (folder / "captions.srt").exists())
+        data["has_clip_ideas"] = bool(folder and (folder / "clip_ideas.json").exists())
         data["has_director_notes"] = bool(folder and (folder / "director_notes.md").exists())
         return data
 
