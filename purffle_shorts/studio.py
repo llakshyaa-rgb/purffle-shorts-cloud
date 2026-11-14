@@ -448,7 +448,8 @@ class StudioServer:
                                  min_seconds=int(p.get("min_seconds") or 20), max_seconds=int(p.get("max_seconds") or 58),
                                  brief=str(p.get("brief") or "")[:500], idea_count=10,
                                  jump_cuts=bool(p.get("jump_cuts", s.clip_jump_cuts)),
-                                 zoom=bool(p.get("zoom", s.clip_zoom)))
+                                 zoom=bool(p.get("zoom", s.clip_zoom)),
+                                 edit_style=str(p.get("edit_style") or "auto"))
             job.result = {"clips": [_result(r) for r in results]}
             return any(r.ok for r in results)
         # make
