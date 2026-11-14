@@ -1182,7 +1182,7 @@ function viewClip() {
     </section>
     <section class="card">${sh("02", "How it works")}<ol class="steps">
       <li><div><b>Transcribe</b><small>Word-level timing with faster-whisper (free, on this computer) or OpenAI.</small></div></li>
-      <li><div><b>Analyze and rank 10 moments</b><small>When transcription and an AI model are available, the model ranks self-contained moments by hook, payoff and relevance. The report is saved with each rendered clip. Without AI/transcription, Purffle uses a clearly labeled fallback.</small></div></li>
+      <li><div><b>Analyze and rank 10 moments</b><small>A vision-capable configured model analyzes sampled frames (plus the transcript when available) and ranks moments by hook, action and payoff. Text-only models can rank transcript moments. The report is saved with each rendered clip; if analysis is unavailable, Purffle labels its fallback clearly.</small></div></li>
       <li><div><b>Edited, vertical, captioned</b><small>Pauses and ums cut, punch-in zoom, face-following or blurred-fit 9:16, word-by-word captions, loudness at −14 LUFS.</small></div></li>
     </ol></section>
   </div>`;
