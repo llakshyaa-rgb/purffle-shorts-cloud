@@ -355,6 +355,12 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 seed = sum((index + 1) * ord(char) for index, char in enumerate(seed_text))
                 look = looks[seed % len(looks)]
                 fantasy_refs[name] = f"original fictional character; {look}; cinematic live-action fantasy realism; exact same face, costume, colors and props in every shot"
+    animation_style, animation_prompt = _animation_style(script)
+    cast_identity = {}
+    if script.style != "fantasy":
+        for cast_name in script.cast[:6]:
+            cast_identity[cast_name] = _character_bible(script, cast_name, animation_prompt)
+
     for scene, beat in zip(script.scenes, plan):
         prompt = str(beat.get("visual_prompt", "")).strip()
         mode = str(beat.get("visual_mode", "illustration")).strip().lower()
@@ -411,8 +417,65 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                     "No unrelated people, extra faces, or stock-photo substitutions."
                 )
             elif character in CHARACTERS and character != "none":
-                character_note = f"\nREUSABLE CHARACTER: {character}"
-            scene.image_prompt = ((prefix + character_note) if script.style == "fantasy" else (prefix + prompt + character_note)) + shot_notes
+                identity = cast_identity.get(character) or _character_bible(script, character, animation_prompt)
+                character_note = f"\nREUSABLE CHARACTER: {character} — {identity}"
+            elif script.cast and script.style not in ("facts", "explainer", "news", "quiz", "myth"):
+                raw_speaker = str(getattr(scene, "speaker", "A")).upper()
+                speaker_index = ord(raw_speaker) - ord("A") if len(raw_speaker) == 1 and raw_speaker in "ABCDEF" else 0
+                visible_name = script.cast[speaker_index] if speaker_index < len(script.cast) else script.cast[0]
+                identity = cast_identity.get(visible_name) or _character_bible(script, visible_name, animation_prompt)
+                character_note = f"\nREUSABLE CHARACTER: {visible_name} — {identity}"
+            style_note = (
+                f"\nANIMATION STYLE LOCK: {animation_style}. {animation_prompt}. "
+                "Keep line weight, shading, facial construction, palette and proportions consistent in every shot. "
+                "Use original designs, not copies of a named franchise. Make poses animation-ready with readable "
+                "silhouettes, hands and expressions; vary the action pose between consecutive shots."
+            )
+            scene.image_prompt = ((prefix + character_note) if script.style == "fantasy" else (prefix + prompt + character_note)) + style_note + shot_notes
+
+
+
+def _animation_style(script: Script) -> tuple[str, str]:
+    """Infer an original animation language from the brief; no vendor API required."""
+    text = " ".join([script.topic, script.title, *(s.image_prompt for s in script.scenes)]).casefold()
+    presets = (
+        (("anime", "japanese animation", "anime edit", "shonen", "shojo", "seinen"), "anime",
+         "premium 2D Japanese anime key art, clean expressive linework, deliberate cel shading, rich controlled color design, dynamic perspective, expressive eyes and readable silhouettes"),
+        (("manga", "manga style"), "manga",
+         "high-contrast manga illustration, confident ink lines, screentone texture, expressive composition and dramatic speed lines"),
+        (("chibi", "super deformed"), "chibi",
+         "polished chibi 2D animation design, compact proportions, expressive face and consistent costume"),
+        (("3d animation", "3d animated", "stylized 3d"), "stylized_3d",
+         "high-quality stylized 3D animated film look, appealing original character design, expressive posing and cinematic lighting"),
+        (("stop motion", "claymation", "clay animation"), "stop_motion",
+         "crafted stop-motion puppet animation aesthetic, tactile miniature sets and practical lighting"),
+        (("pixel art", "pixel animation", "8-bit", "16-bit"), "pixel",
+         "coherent pixel-art animation design, limited palette, crisp pixel clusters and readable silhouettes"),
+        (("cartoon", "2d animation", "western animation"), "2d_cartoon",
+         "polished original 2D cartoon animation, strong shape language, clean contour lines and expressive poses"),
+    )
+    for terms, key, prompt in presets:
+        if any(term in text for term in terms):
+            return key, prompt
+    if script.style in ("fantasy", "story", "reddit", "chat"):
+        return "cinematic_illustration", "cinematic illustrated animation concept art, expressive acting and painterly depth"
+    return "documentary_motion", "documentary visual treatment, realistic subject detail and restrained motion graphics"
+
+
+def _character_bible(script: Script, character: str, style_prompt: str) -> str:
+    """Stable original character identity for every shot in one episode."""
+    import hashlib
+    seed = hashlib.sha256(f"{script.topic}|{character}|{style_prompt}".casefold().encode("utf-8")).digest()
+    palettes = ("midnight blue and copper", "jade green and warm ivory", "plum and antique gold",
+                "charcoal and vermilion", "teal and silver", "ochre and deep violet")
+    hair = ("short tousled dark hair", "long braided auburn hair", "silver undercut",
+            "curly black hair", "dark hair tied in a high knot", "shoulder-length ash-brown hair")
+    details = ("small star-shaped hair clip", "single geometric earring", "distinctive scarf clasp",
+               "thin cheek scar", "round glasses", "embroidered sleeve insignia")
+    return (f"original fictional character, {hair[seed[0] % len(hair)]}, "
+            f"{palettes[seed[1] % len(palettes)]} signature palette, "
+            f"{details[seed[2] % len(details)]}; fixed face, hairstyle, proportions, costume and palette "
+            f"across every scene; only pose, expression and action may change; {style_prompt}")
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
