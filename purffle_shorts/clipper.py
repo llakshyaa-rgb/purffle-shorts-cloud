@@ -169,7 +169,7 @@ def sample_visual_frames(source: Path, duration: float, work: Path, limit: int =
     frames = work / "visual-samples"
     frames.mkdir(parents=True, exist_ok=True)
     interval = max(1.0, duration / max(1, limit))
-    ffmpeg.run(["-i", str(source), "-vf", f"fps=1/{interval:.4f},scale=384:-2:flags=fast_bilinear",
+    ffmpeg.run(["-i", str(source), "-vf", f"fps={1.0 / interval:.6f},scale=384:-2:flags=fast_bilinear",
                 "-frames:v", str(limit), "-q:v", "7", str(frames / "frame-%02d.jpg")],
                label="sample visual storyboard")
     out = []
