@@ -672,8 +672,14 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             except Exception as e:
                 log.warning("Visual AI analysis unavailable; falling back to transcript analysis: %s", str(e)[:220])
         if not plans and sents:
-            plans = pick_clips(llm, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
-            analysis_mode = "transcript-ranked" if llm is not None else "transcript-fallback"
+            try:
+                plans = pick_clips(llm, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
+                analysis_mode = "transcript-ranked" if llm is not None else "transcript-fallback"
+            except Exception as e:
+                log.warning("Transcript AI ranking failed; using evenly spaced transcript moments: %s",
+                            str(e)[:220])
+                plans = pick_clips(None, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
+                analysis_mode = "transcript-fallback"
         if not plans:
             # Non-AI fallback: still creates usable cuts, but never labels them as AI-selected.
             upper = min(float(max_seconds), duration)
