@@ -255,6 +255,31 @@ def pixabay_photos(query: str, key: str, orientation: str = "portrait") -> list[
 
 
 # ------------------------------------------------------------------------------------------ AI images
+def character_rendering_prompt(prompt: str, has_reference: bool = False) -> str:
+    """Add production constraints that make generated people read as coherent human characters."""
+    reference = (
+        "Use the supplied character model sheet as the identity source. Match the same person's face, "
+        "age presentation, skin tone, hairline, hairstyle, eye shape, body proportions, costume and "
+        "signature details. Do not redesign, recast, blend identities or add duplicate versions."
+        if has_reference else
+        "Design one clearly identifiable original fictional person and keep the exact identity description "
+        "stable. Avoid generic mannequin faces or interchangeable stock-photo people."
+    )
+    return (
+        prompt.rstrip() + "\n\nHUMAN CHARACTER QUALITY AND CONTINUITY:\n" + reference + " "
+        "Anatomically coherent human body with natural adult human proportions, correctly attached limbs, "
+        "two arms and two legs when visible, believable shoulders, elbows, wrists, hips, knees and hands. "
+        "Natural facial symmetry with realistic eye placement, aligned pupils looking at the intended target, "
+        "coherent nose and mouth, expressive but physically plausible facial muscles. Hands must have five "
+        "correctly formed fingers when visible. Keep both feet grounded when standing; preserve consistent "
+        "screen direction, eyeline, height and spatial position from the shot description. "
+        "One person unless the prompt explicitly names multiple cast members. Clearly separate foreground "
+        "characters; no merged bodies, duplicated heads, extra limbs, fused fingers, floating props, "
+        "distorted anatomy, accidental text, collage panels or character-sheet layout in the final scene. "
+        "Compose a readable cinematic frame with the face and important action unobstructed."
+    )
+
+
 def openai_image(prompt: str, dest: Path, key: str, model: str, orientation: str = "portrait",
                  reference_path: Path | None = None) -> Path:
     body = {"model": model, "prompt": prompt, "n": 1}
@@ -729,6 +754,11 @@ class Visuals:
     def _ai(self, source: str, prompt: str, dest_dir: Path, idx: int, reference_path: Path | None = None) -> MediaItem | None:
         s = self.s
         full = f"{prompt}. {s.visual_style}. No text, no letters, no watermark."
+        if "REUSABLE CHARACTER:" in prompt.upper():
+            full = character_rendering_prompt(
+                full,
+                has_reference=bool(reference_path and reference_path.is_file()),
+            )
         dest = dest_dir / f"scene{idx:02d}_ai.png"
         try:
             if source in ("openai-images", "ai", "dalle", "gpt-image") and s.openai_api_key:
@@ -814,7 +844,7 @@ class Visuals:
             # original reference sheet, then prefer AI generation for every scene.
             ref_root = Path(self.s.media_dir) / ".purffle_assets" / "character_references"
             ref_root.mkdir(parents=True, exist_ok=True)
-            ref_key = __import__("hashlib").sha256(style_key.casefold().encode("utf-8")).hexdigest()[:20]
+            ref_key = __import__("hashlib").sha256(("character-sheet-v2|" + style_key.casefold()).encode("utf-8")).hexdigest()[:20]
             ref_path = ref_root / f"{ref_key}.png"
             character_reference_path = ref_path
             # Only create a reference sheet when the configured image endpoint can actually
@@ -830,10 +860,15 @@ class Visuals:
             )
             if can_reuse_reference and not ref_path.is_file():
                 ref_prompt = (
-                    "ORIGINAL FICTIONAL FANTASY CHARACTER MODEL SHEET, one character only, clean neutral "
-                    "background, one clear face portrait and one full-body view of the SAME design, "
-                    "distinctive silhouette, readable eyes and expression, consistent costume and colors. "
-                    "No text, logos, watermarks or other characters. Character identity: " + style_key
+                    "ORIGINAL FICTIONAL CHARACTER DESIGN REFERENCE BOARD for one person only. "
+                    "Show the EXACT SAME individual in three aligned views: front full-body neutral standing "
+                    "pose, side-profile full-body view, and a large three-quarter face close-up. Keep the "
+                    "same head size, facial structure, eye spacing, nose, mouth, hairstyle, skin tone, body "
+                    "proportions, costume seams, accessories and color palette in all three views. "
+                    "Natural human anatomy, believable hands and feet, realistic joints, clean silhouette, "
+                    "neutral studio lighting, plain uncluttered light background, no perspective distortion. "
+                    "This is a production model sheet, not three different people. No labels, text, logos, "
+                    "watermarks, extra characters or decorative borders. Character identity: " + style_key
                 )
                 made = self._ai("openai-images", ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
                 if made and made.path and made.path.is_file():
