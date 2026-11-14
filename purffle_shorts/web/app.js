@@ -1161,7 +1161,7 @@ async function refreshInfo() { try { S.info = await get("/api/info"); status(); 
 
 // ------------------------------------------------------------------ CLIP
 function viewClip() {
-  const c = Object.assign({ source: "", count: 3, crop: "center", upload: false, brief: "", jump_cuts: true, zoom: true },
+  const c = Object.assign({ source: "", count: 3, crop: "center", edit_style: "auto", upload: false, brief: "", jump_cuts: true, zoom: true },
     store.get("clip", {}));
   $("#main").innerHTML = `
   ${head("clip", "Clip a long video", "Analyze a video, rank up to 10 candidate moments, then render the number you choose as edited, captioned Shorts.")}
@@ -1172,6 +1172,7 @@ function viewClip() {
         <div class="field"><label>Clips</label><div class="range-row"><input type="range" id="c-n" min="1" max="10" value="${c.count}"><output id="c-out">${c.count}</output></div></div>
         <div class="field"><label>Framing</label>${seg("crop", [["center", "Fill (crop)"], ["face", "Follow face"], ["blur", "Fit + blur"]], c.crop)}</div>
       </div>
+      <div class="field"><label>Output look</label>${seg("edit_style", [["auto", "Auto mix"], ["cinematic", "Cinematic"], ["hype", "Hype edit"], ["manga", "Manga ink"]], c.edit_style)}<p class="hint">Auto mix rotates looks across the rendered clips.</p></div>
       <div class="field"><label>What to look for <span class="muted">(optional)</span></label><input type="text" id="c-brief" value="${esc(c.brief)}" placeholder="e.g. the funniest moments, or every tip about sleep"><p class="hint">The AI only picks moments that fit. Needs an AI model.</p></div>
       <div class="grid2">
         <label class="switch"><input type="checkbox" id="c-cuts"${c.jump_cuts ? " checked" : ""}><span>Cut pauses and ums<small>Tighter pacing, lips stay in sync</small></span></label>
@@ -1183,7 +1184,7 @@ function viewClip() {
     <section class="card">${sh("02", "How it works")}<ol class="steps">
       <li><div><b>Transcribe</b><small>Word-level timing with faster-whisper (free, on this computer) or OpenAI.</small></div></li>
       <li><div><b>Analyze and rank 10 moments</b><small>A vision-capable configured model analyzes sampled frames (plus the transcript when available) and ranks moments by hook, action and payoff. Text-only models can rank transcript moments. The report is saved with each rendered clip; if analysis is unavailable, Purffle labels its fallback clearly.</small></div></li>
-      <li><div><b>Edited, vertical, captioned</b><small>Pauses and ums cut, punch-in zoom, face-following or blurred-fit 9:16, word-by-word captions, loudness at −14 LUFS.</small></div></li>
+      <li><div><b>Edited in different looks</b><small>Auto mix rotates cinematic, punchy karaoke-caption and high-contrast manga-ink treatments. Choose one look or keep the mix.</small></div></li>
     </ol></section>
   </div>`;
   const save = () => store.set("clip", c);
@@ -1194,12 +1195,17 @@ function viewClip() {
   $("#c-cuts").onchange = e => { c.jump_cuts = e.target.checked; save(); };
   $("#c-zoom").onchange = e => { c.zoom = e.target.checked; save(); };
   $("#main").addEventListener("click", e => {
-    const b = e.target.closest("[data-seg=crop]");
-    if (b) { c.crop = b.dataset.v; $$("[data-seg=crop]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === c.crop))); save(); }
+    const b = e.target.closest("[data-seg]");
+    if (!b || !["crop", "edit_style"].includes(b.dataset.seg)) return;
+    const key = b.dataset.seg;
+    c[key] = b.dataset.v;
+    $("[data-seg]").filter(x => x.dataset.seg === key).forEach(x =>
+      x.setAttribute("aria-pressed", String(x.dataset.v === c[key])));
+    save();
   });
   $("#c-go").onclick = async () => {
     if (!c.source.trim()) return toast("Give a video file path or URL.", "bad");
-    try { await post("/api/clip", { source: c.source.trim(), count: c.count, crop: c.crop, upload: c.upload, brief: c.brief.trim(), jump_cuts: c.jump_cuts, zoom: c.zoom }); toast("Clipping… follow it in Queue.", "info"); tick(); }
+    try { await post("/api/clip", { source: c.source.trim(), count: c.count, crop: c.crop, edit_style: c.edit_style, upload: c.upload, brief: c.brief.trim(), jump_cuts: c.jump_cuts, zoom: c.zoom }); toast("Clipping… follow it in Queue.", "info"); tick(); }
     catch (e) { toast(esc(e.message), "bad"); }
   };
 }
