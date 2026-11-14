@@ -987,6 +987,13 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                     encoding="utf-8")
                 meta = {"title": title, "description": description, "tags": script.tags, "category_id": "24",
                         "clip_ideas": ideas, "clip_analysis": analysis_mode, "edit_style": chosen_style,
+                        "native_vision": {"frames_scanned": len(native_features),
+                                          "scene_changes": native_context.get("scene_changes", 0),
+                                          "face_frames": native_context.get("face_frames", 0),
+                                          "face_tracks": native_context.get("face_tracks", 0),
+                                          "eye_frames": native_context.get("eye_frames", 0),
+                                          "ocr_frames": native_context.get("ocr_frames", 0),
+                                          "detected_text": native_context.get("texts", [])},
                         "language": s.language, "source": "clip", "style": "clip", "clip_of": src,
                         "clip_start": round(plan.start, 2), "clip_end": round(plan.end, 2),
                         "score": plan.score, "review": [plan.reason] if plan.reason else [],
