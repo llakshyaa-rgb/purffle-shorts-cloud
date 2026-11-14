@@ -231,6 +231,10 @@ class Settings:
     pollinations_api_key: str = ""
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
+    topview_api_key: str = ""
+    topview_image_model: str = "openai/gpt-image-2.5-flare"
+    vivago_api_token: str = ""
+    vivago_image_version: str = "v1.0-fast"
 
     offline: bool = False             # demo mode: no network LLM, generated visuals
 
@@ -398,11 +402,19 @@ class Settings:
             pollinations_api_key=_env("POLLINATIONS_API_KEY"),
             cloudflare_account_id=_env("CLOUDFLARE_ACCOUNT_ID"),
             cloudflare_api_token=_env("CLOUDFLARE_API_TOKEN"),
+            topview_api_key=_env("TOPVIEW_API_PLATFORM_KEY"),
+            topview_image_model=_env("TOPVIEW_IMAGE_MODEL", d.topview_image_model),
+            vivago_api_token=_env("VIVAGO_API_TOKEN"),
+            vivago_image_version=_env("VIVAGO_IMAGE_VERSION", d.vivago_image_version),
             youtube_api_key=_env("YOUTUBE_API_KEY"),
             notify_webhook=_env("NOTIFY_WEBHOOK"),
         )
         if s.cloudflare_account_id and s.cloudflare_api_token and "cloudflare" not in s.visual_sources:
             s.visual_sources.append("cloudflare")
+        if s.topview_api_key and "topview-images" not in s.visual_sources:
+            s.visual_sources.append("topview-images")
+        if s.vivago_api_token and "vivago-images" not in s.visual_sources:
+            s.visual_sources.append("vivago-images")
         from .crosspost import PLATFORMS, TIKTOK_PRIVACY
         bad = [p for p in s.publish_to if p not in PLATFORMS]
         if bad:
