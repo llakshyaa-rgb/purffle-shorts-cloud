@@ -269,15 +269,21 @@ def rank_native_visual_moments(features: list[dict], duration: float, count: int
         visual_detail = sum(f["edge"] for f in inside) / len(inside)
         contrast = sum(f["contrast"] for f in inside) / len(inside)
         colour = sum(f["colour"] for f in inside) / len(inside)
+        faces = sum(f.get("face_signal", 0.0) for f in inside) / len(inside)
+        eyes = sum(f.get("eye_signal", 0.0) for f in inside) / len(inside)
+        animation = sum(f.get("animation_texture", 0.0) for f in inside) / len(inside)
+        cuts = sum(1 for f in inside if f.get("scene_cut"))
         score = int(max(0, min(100, 100 * (
-            0.34 * min(1.0, scene_events / 3.0) +
-            0.28 * min(1.0, motion * 2.2) +
-            0.18 * visual_detail + 0.12 * contrast + 0.08 * colour))))
+            0.30 * min(1.0, scene_events / 3.0) +
+            0.25 * min(1.0, motion * 2.2) +
+            0.16 * visual_detail + 0.10 * contrast + 0.07 * colour +
+            0.06 * faces + 0.02 * eyes + 0.04 * animation))))
         if score < 1:
             continue
         plans.append(ClipPlan(start, end, f"Visual activity moment ({_ts(start)}–{_ts(end)})",
-                              reason=f"Native pixel analysis: {scene_events} strong visual changes; "
-                                     f"motion {motion:.2f}, detail {visual_detail:.2f}",
+                              reason=f"Native visual analysis: {scene_events} activity spikes, {cuts} scene cuts; "
+                                     f"motion {motion:.2f}, detail {visual_detail:.2f}, "
+                                     f"face signal {faces:.2f}, animation texture {animation:.2f}",
                               score=score))
     plans.sort(key=lambda plan: plan.score or 0, reverse=True)
     selected = []
