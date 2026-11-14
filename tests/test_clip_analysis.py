@@ -41,3 +41,25 @@ def test_manga_edit_grade_is_high_contrast_monochrome():
 
     assert "hue=s=0" in GRADES["manga"]
     assert "unsharp" in GRADES["manga"]
+
+
+def test_native_visual_ranker_prefers_active_frames_without_an_llm():
+    from purffle_shorts.clipper import rank_native_visual_moments
+
+    features = []
+    for second in range(0, 121, 2):
+        active = 20 <= second <= 62
+        features.append({
+            "time": float(second),
+            "change": 0.75 if active and second % 6 == 0 else (0.38 if active else 0.02),
+            "edge": 0.8 if active else 0.15,
+            "contrast": 0.75 if active else 0.2,
+            "colour": 0.8 if active else 0.25,
+        })
+    plans = rank_native_visual_moments(features, 120, 5, 20, 40)
+    assert plans
+    assert plans[0].score is not None
+    assert "Native pixel analysis" in plans[0].reason
+    assert all(plan.end - plan.start >= 20 for plan in plans)
+    assert all(not (a.start < b.end and a.end > b.start)
+               for i, a in enumerate(plans) for b in plans[i + 1:])
