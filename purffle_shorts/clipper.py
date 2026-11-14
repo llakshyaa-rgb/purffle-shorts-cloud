@@ -12,6 +12,7 @@ Only clip videos you own or have permission to reuse.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -159,6 +160,78 @@ def transcript_block(sents: list[Sentence]) -> str:
             break
         lines.append(line)
     return "\n".join(lines)
+
+
+def sample_visual_frames(source: Path, duration: float, work: Path, limit: int = 12) -> list[dict]:
+    """Extract a small, evenly spaced visual storyboard for multimodal moment analysis."""
+    if duration <= 0:
+        return []
+    frames = work / "visual-samples"
+    frames.mkdir(parents=True, exist_ok=True)
+    interval = max(1.0, duration / max(1, limit))
+    ffmpeg.run(["-i", str(source), "-vf", f"fps=1/{interval:.4f},scale=384:-2:flags=fast_bilinear",
+                "-frames:v", str(limit), "-q:v", "7", str(frames / "frame-%02d.jpg")],
+               label="sample visual storyboard")
+    out = []
+    for i, path in enumerate(sorted(frames.glob("frame-*.jpg"))):
+        try:
+            data = base64.b64encode(path.read_bytes()).decode("ascii")
+        except OSError:
+            continue
+        out.append({"timestamp": round(i * interval, 2), "mime": "image/jpeg", "data": data})
+    return out
+
+
+def pick_visual_clips(llm, images: list[dict], duration: float, sents: list[Sentence],
+                      settings: Settings, count: int, min_s: int, max_s: int,
+                      brief: str = "") -> list[ClipPlan]:
+    """Use sampled frames plus any transcript to rank moments; falls back cleanly if the model lacks vision."""
+    if not images or not callable(getattr(llm, "complete_vision_json", None)):
+        return []
+    transcript = transcript_block(sents) if sents else "(No transcript was available; use visual evidence only.)"
+    ask = f"Creator brief: {brief.strip()}\n" if brief.strip() else ""
+    system = ("You are an expert short-form video editor and visual story analyst. Return one JSON object only. "
+              "Do not invent events not visible in the supplied frames or stated in the transcript.")
+    user = f"""Analyze this video storyboard. Each attached frame is labeled with its timestamp in seconds.
+{ask}Transcript with timestamps (when available):
+{transcript}
+
+Find up to {count} distinct candidate moments for short vertical edits.
+Each moment must be {min_s}-{max_s} seconds, fit inside the full video duration ({duration:.1f}s),
+avoid overlap, and have a clear hook, visual change/action or meaningful spoken beat, and payoff.
+Use the frame timestamps to ground the start/end estimates. If a transcript exists, align boundaries to
+complete thoughts and use the visuals to judge context. If no transcript exists, choose moments from visible
+scene changes/actions only; do not pretend speech was analyzed.
+Return title, hook_text, description, hashtags, tags, score 0-100 and a concise reason for every candidate.
+Return JSON matching the supplied schema."""
+    data = llm.complete_vision_json(system, user, images, CLIP_SCHEMA, max_tokens=6000, temperature=0.2)
+    plans: list[ClipPlan] = []
+    for item in data.get("clips") or []:
+        try:
+            start, end = float(item["start"]), float(item["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if sents:
+            snapped = _snap(sents, start, end, min_s, max_s)
+            if not snapped:
+                continue
+            start, end = snapped
+        else:
+            start, end = max(0.0, start), min(duration, end)
+            if end - start < min_s or end - start > max_s:
+                continue
+        if start < 0 or end > duration or end <= start:
+            continue
+        if any(start < p.end and end > p.start for p in plans):
+            continue
+        plans.append(ClipPlan(start, end, str(item.get("title") or "Visual moment").strip(),
+                              str(item.get("hook_text") or "").strip(),
+                              str(item.get("description") or "").strip(),
+                              list(item.get("hashtags") or []), list(item.get("tags") or []),
+                              max(0, min(100, int(item.get("score") or 0))),
+                              str(item.get("reason") or "Visual and transcript analysis")))
+    plans.sort(key=lambda p: p.score or 0, reverse=True)
+    return plans[:count]
 
 
 # ------------------------------------------------------------------------------------------ choosing moments
@@ -575,23 +648,34 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
         else:
             log.info("Source has no audio; continuing with visual-only clipping")
         sents = sentences(words) if words else []
-        studio._step("script", "finding usable moments")
+        duration = float(info.get("duration") or 0)
+        if duration <= 0:
+            raise RuntimeError("could not determine the video's duration")
+        studio._step("script", "analyzing scenes and finding usable moments")
         try:
             llm = studio.llm
         except LLMConfigError as e:
-            log.warning("No LLM is configured, so the clips are evenly spaced moments instead of the best ones "
-                        "(%s)", str(e).split(".")[0])
+            log.warning("No LLM is configured; using non-AI fallback moments (%s)", str(e).split(".")[0])
             llm = None
-        if brief and llm is None:
-            log.warning("The clip brief needs an LLM to read the transcript; it is ignored")
-        if sents:
-            # Build a ten-moment shortlist, then render only the requested number.
+        analysis_mode = "visual-fallback"
+        plans = []
+        if llm is not None:
+            try:
+                visual_frames = sample_visual_frames(source, duration, scratch, limit=12)
+                if visual_frames:
+                    plans = pick_visual_clips(llm, visual_frames, duration, sents, s, idea_count,
+                                              min_seconds, min(max_seconds, 170), brief)
+                    if plans:
+                        analysis_mode = "multimodal-ranked"
+                        log.info("Vision model ranked %d moments using %d sampled frames%s",
+                                 len(plans), len(visual_frames), " and transcript" if sents else "")
+            except Exception as e:
+                log.warning("Visual AI analysis unavailable; falling back to transcript analysis: %s", str(e)[:220])
+        if not plans and sents:
             plans = pick_clips(llm, sents, s, idea_count, min_seconds, min(max_seconds, 170), brief)
-        else:
-            # Visual-only fallback: usable even when the source is silent or ASR is unavailable.
-            duration = float(info.get("duration") or 0)
-            if duration <= 0:
-                raise RuntimeError("could not determine the video's duration")
+            analysis_mode = "transcript-ranked" if llm is not None else "transcript-fallback"
+        if not plans:
+            # Non-AI fallback: still creates usable cuts, but never labels them as AI-selected.
             upper = min(float(max_seconds), duration)
             lower = min(float(min_seconds), upper)
             if upper < 1:
@@ -602,9 +686,10 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             starts = [latest * k / max(n - 1, 1) for k in range(n)]
             plans = [ClipPlan(round(start, 3), round(min(duration, start + span), 3),
                               f"Visual moment {i + 1}",
-                              reason="Visual-only fallback; transcript unavailable")
+                              reason="Non-AI evenly spaced fallback; visual understanding unavailable")
                      for i, start in enumerate(starts)]
-            log.warning("Using evenly distributed visual-only moments; speech-based AI ranking was unavailable.")
+            analysis_mode = "visual-fallback"
+            log.warning("Using evenly distributed fallback moments; no visual or transcript ranking was available.")
         if not plans:
             raise RuntimeError("no usable moments found")
         ideas = [{
@@ -633,13 +718,11 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                 (folder / "captions.srt").write_text(srt(chunks), encoding="utf-8")
                 title, description = final_title(script, s), final_description(script, set(), s)
                 (folder / "clip_ideas.json").write_text(
-                    json.dumps({"source": src, "analysis": "transcript-ranked" if llm and words else
-                                "transcript-fallback" if words else "visual-fallback",
-                                "rendered_count": count, "ideas": ideas}, indent=2, ensure_ascii=False),
+                    json.dumps({"source": src, "analysis": analysis_mode,
+                                "rendered_count": len(plans), "ideas": ideas}, indent=2, ensure_ascii=False),
                     encoding="utf-8")
                 meta = {"title": title, "description": description, "tags": script.tags, "category_id": "24",
-                        "clip_ideas": ideas, "clip_analysis": "transcript-ranked" if llm and words else
-                        "transcript-fallback" if words else "visual-fallback",
+                        "clip_ideas": ideas, "clip_analysis": analysis_mode,
                         "language": s.language, "source": "clip", "style": "clip", "clip_of": src,
                         "clip_start": round(plan.start, 2), "clip_end": round(plan.end, 2),
                         "score": plan.score, "review": [plan.reason] if plan.reason else [],
