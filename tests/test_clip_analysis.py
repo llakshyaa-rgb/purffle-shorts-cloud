@@ -34,3 +34,10 @@ def test_clip_analysis_respects_requested_shortlist_size():
     sents = [Sentence(i * 7.0, i * 7.0 + 6.0, f"Sentence {i + 1}.") for i in range(10)]
     plans = pick_clips(FakeClipLLM(), sents, Settings(), 4, min_s=5, max_s=8)
     assert len(plans) == 4
+
+
+def test_manga_edit_grade_is_high_contrast_monochrome():
+    from purffle_shorts.render import GRADES
+
+    assert "hue=s=0" in GRADES["manga"]
+    assert "unsharp" in GRADES["manga"]
