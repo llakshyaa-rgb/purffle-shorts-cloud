@@ -33,7 +33,7 @@ from .config import ASPECTS, Settings, aspect_resolution
 log = logging.getLogger("purffle")
 
 WEB = Path(__file__).parent / "web"
-FILES = ("short.mp4", "video.mp4", "cover.jpg", "captions.srt", "metadata.json", "script.json", "director.json", "director_notes.md")
+FILES = ("short.mp4", "video.mp4", "cover.jpg", "captions.srt", "metadata.json", "script.json", "director.json", "director_notes.md", "clip_ideas.json")
 STATIC = {"app.js": "text/javascript; charset=utf-8", "app.css": "text/css; charset=utf-8",
           "icon.svg": "image/svg+xml"}
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -446,7 +446,9 @@ class StudioServer:
             results = make_clips(studio, str(p.get("source") or ""), count=int(p.get("count") or 3),
                                  crop=p.get("crop") or "center", upload=bool(p.get("upload")) and s.upload,
                                  min_seconds=int(p.get("min_seconds") or 20), max_seconds=int(p.get("max_seconds") or 58),
-                                 brief=str(p.get("brief") or "")[:500])
+                                 brief=str(p.get("brief") or "")[:500], idea_count=10,
+                                 jump_cuts=bool(p.get("jump_cuts", s.clip_jump_cuts)),
+                                 zoom=bool(p.get("zoom", s.clip_zoom)))
             job.result = {"clips": [_result(r) for r in results]}
             return any(r.ok for r in results)
         # make
