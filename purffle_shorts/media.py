@@ -981,7 +981,7 @@ class Visuals:
             if not ref_path.is_file():
                 ref_prompt = "ORIGINAL FICTIONAL CHARACTER REFERENCE SHEET. Character design: " + style_key
                 for provider in self.sources:
-                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
+                    if provider in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare", "topview-images", "vivago-images"):
                         made = self._ai(provider, ref_prompt, ref_root, int(ref_key[:6], 16) % 100000)
                         if made and made.path and made.path.is_file():
                             try:
@@ -1045,7 +1045,7 @@ class Visuals:
                 )
         for source in source_order:
             check_cancel()
-            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
+            if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare", "topview-images", "vivago-images"):
                 item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
                 if item:
                     return item
