@@ -63,3 +63,13 @@ def test_native_visual_ranker_prefers_active_frames_without_an_llm():
     assert all(plan.end - plan.start >= 20 for plan in plans)
     assert all(not (a.start < b.end and a.end > b.start)
                for i, a in enumerate(plans) for b in plans[i + 1:])
+
+
+def test_visual_context_scoring_adds_face_eye_and_animation_signals():
+    from purffle_shorts.clipper import apply_visual_context_scores
+
+    frames = [{"time": 0.0, "change": 0.1}, {"time": 2.0, "change": 0.5}]
+    apply_visual_context_scores(frames, {"face_frames": 1, "eye_frames": 1, "animation_like_frames": 1})
+    assert frames[0]["face_signal"] == 0.5
+    assert frames[0]["eye_signal"] == 0.5
+    assert frames[0]["animation_texture"] == 0.5
