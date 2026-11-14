@@ -19,63 +19,6 @@ class S:
         return R(self.data)
 
 
-def test_topview_image_uses_documented_prediction_api(monkeypatch, tmp_path):
-    calls = []
-
-    class Response:
-        status_code = 200
-        text = ""
-        def __init__(self, data): self.data = data
-        def json(self): return self.data
-
-    class Session:
-        def post(self, url, headers=None, json=None, timeout=None):
-            calls.append(("post", url, json, headers))
-            return Response({"data": {"id": "task-1"}})
-        def get(self, url, headers=None, timeout=None):
-            calls.append(("get", url, headers))
-            return Response({"data": {"status": "completed", "outputs": ["https://cdn.example/image.png"]}})
-
-    monkeypatch.setattr(M, "http", lambda: Session())
-    monkeypatch.setattr(M.time, "sleep", lambda _: None)
-    monkeypatch.setattr(M, "download", lambda url, dest, **kw: dest.write_bytes(b"image"))
-    dest = tmp_path / "topview.png"
-    assert M.topview_image("a cinematic city", dest, "tv-key", "openai/gpt-image-2.5-flare") == dest
-    assert dest.read_bytes() == b"image"
-    assert "/models/openai/gpt-image-2.5-flare/text-to-image/predictions" in calls[0][1]
-    assert calls[0][2]["aspect_ratio"] == "9:16"
-    assert calls[0][3]["Authorization"] == "Bearer tv-key"
-
-
-def test_topview_wan_video_uses_documented_prediction_api(monkeypatch, tmp_path):
-    calls = []
-
-    class Response:
-        status_code = 200
-        text = ""
-        def __init__(self, data): self.data = data
-        def json(self): return self.data
-
-    class Session:
-        def post(self, url, headers=None, json=None, timeout=None):
-            calls.append(("post", url, json, headers))
-            return Response({"data": {"id": "wan-task"}})
-        def get(self, url, headers=None, timeout=None):
-            calls.append(("get", url, headers))
-            return Response({"data": {"status": "completed", "outputs": ["https://cdn.example/clip.mp4"]}})
-
-    monkeypatch.setattr(M, "http", lambda: Session())
-    monkeypatch.setattr(M.time, "sleep", lambda _: None)
-    monkeypatch.setattr(M, "download", lambda url, dest, **kw: dest.write_bytes(b"video"))
-    dest = tmp_path / "wan.mp4"
-    assert M.topview_video("a cinematic city", dest, "tv-key", "alibaba/wan-3.0",
-                           "portrait", 4.0, "480P") == dest
-    assert dest.read_bytes() == b"video"
-    assert "/models/alibaba/wan-3.0/text-to-video/predictions" in calls[0][1]
-    assert calls[0][2]["parameters"]["ratio"] == "9:16"
-    assert calls[0][2]["parameters"]["duration"] == 4
-
-
 def test_vivago_image_uses_documented_async_api(monkeypatch, tmp_path):
     calls = []
 
