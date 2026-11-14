@@ -717,7 +717,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             style_settings = {
                 "cinematic": {"color_grade": "cinematic", "caption_style": "clean"},
                 "hype": {"color_grade": "vivid", "caption_style": "karaoke"},
-                "manga": {"color_grade": "bw", "caption_style": "neon"},
+                "manga": {"color_grade": "manga", "caption_style": "boxed"},
             }[chosen_style]
             clip_settings = replace(s, **style_settings)
             text = " ".join(w.text.strip() for w in words if plan.start <= w.start < plan.end)
