@@ -360,7 +360,7 @@ class StudioServer:
                         return
                     stage = job.stage or "initializing"
                     silent_for = max(0, int(time.time() - (job.last_activity or job.started or time.time())))
-                    self._append_job_log(job, f"HEARTBEAT stage={stage} pct={job.pct} no_worker_log_for={silent_for}s")
+                    self._append_job_log(job, f"HEARTBEAT stage={stage} pct={job.pct} no_progress_for={silent_for}s")
                     self.changed()
 
             heartbeat_thread = threading.Thread(target=heartbeat, name=f"job-heartbeat-{job.id}", daemon=True)
