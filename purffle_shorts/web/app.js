@@ -1182,7 +1182,7 @@ function viewClip() {
       <div class="go-row"><span></span><button class="btn rec" id="c-go" type="button"><span class="dot"></span>Find the best moments</button></div>
     </section>
     <section class="card">${sh("02", "How it works")}<ol class="steps">
-      <li><div><b>Transcribe</b><small>Word-level timing with faster-whisper (free, on this computer) or OpenAI.</small></div></li>
+      <li><div><b>Read the video</b><small>Samples visual frames and uses word-level transcription when faster-whisper or OpenAI is available.</small></div></li>
       <li><div><b>Analyze and rank 10 moments</b><small>A vision-capable configured model analyzes sampled frames (plus the transcript when available) and ranks moments by hook, action and payoff. Text-only models can rank transcript moments. The report is saved with each rendered clip; if analysis is unavailable, Purffle labels its fallback clearly.</small></div></li>
       <li><div><b>Edited in different looks</b><small>Auto mix rotates cinematic, punchy karaoke-caption and high-contrast manga-ink treatments. Choose one look or keep the mix.</small></div></li>
     </ol></section>
