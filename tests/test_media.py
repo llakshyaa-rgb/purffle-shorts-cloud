@@ -19,6 +19,64 @@ class S:
         return R(self.data)
 
 
+def test_topview_image_uses_documented_prediction_api(monkeypatch, tmp_path):
+    calls = []
+
+    class Response:
+        status_code = 200
+        text = ""
+        def __init__(self, data): self.data = data
+        def json(self): return self.data
+
+    class Session:
+        def post(self, url, headers=None, json=None, timeout=None):
+            calls.append(("post", url, json, headers))
+            return Response({"data": {"id": "task-1"}})
+        def get(self, url, headers=None, timeout=None):
+            calls.append(("get", url, headers))
+            return Response({"data": {"status": "completed", "outputs": ["https://cdn.example/image.png"]}})
+
+    monkeypatch.setattr(M, "http", lambda: Session())
+    monkeypatch.setattr(M.time, "sleep", lambda _: None)
+    monkeypatch.setattr(M, "download", lambda url, dest, **kw: dest.write_bytes(b"image"))
+    dest = tmp_path / "topview.png"
+    assert M.topview_image("a cinematic city", dest, "tv-key", "openai/gpt-image-2.5-flare") == dest
+    assert dest.read_bytes() == b"image"
+    assert "/models/openai/gpt-image-2.5-flare/text-to-image/predictions" in calls[0][1]
+    assert calls[0][2]["aspect_ratio"] == "9:16"
+    assert calls[0][3]["Authorization"] == "Bearer tv-key"
+
+
+def test_vivago_image_uses_documented_async_api(monkeypatch, tmp_path):
+    calls = []
+
+    class Response:
+        status_code = 200
+        text = ""
+        def __init__(self, data): self.data = data
+        def json(self): return self.data
+
+    class Session:
+        def post(self, url, headers=None, json=None, timeout=None):
+            calls.append(("post", url, json, headers))
+            return Response({"code": 0, "result": {"task_id": "task-2"}})
+        def get(self, url, headers=None, params=None, timeout=None):
+            calls.append(("get", url, params, headers))
+            return Response({"code": 0, "result": {"sub_task_results": [
+                {"task_status": 1, "task_completion": 1.0, "image": "https://cdn.example/vivago.jpg"}
+            ]}})
+
+    monkeypatch.setattr(M, "http", lambda: Session())
+    monkeypatch.setattr(M.time, "sleep", lambda _: None)
+    monkeypatch.setattr(M, "download", lambda url, dest, **kw: dest.write_bytes(b"image"))
+    dest = tmp_path / "vivago.png"
+    assert M.vivago_image("a cinematic city", dest, "viva-token", "v1.0-fast") == dest
+    assert dest.read_bytes() == b"image"
+    assert calls[0][2]["resolution"] == "832*1248"
+    assert calls[0][3]["Authorization"] == "Bearer viva-token"
+    assert calls[1][2]["task_id"] == "task-2"
+
+
 def test_pexels_file_choice_prefers_1080_not_4k():
     files = [
         {"link": "u4k", "width": 2160, "height": 3840, "file_type": "video/mp4"},
