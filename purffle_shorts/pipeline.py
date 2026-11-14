@@ -653,6 +653,11 @@ class Studio:
                     item.extra["director_camera"] = beat.get("camera", "push_in")
                     item.extra["director_visual_mode"] = beat.get("visual_mode", "illustration")
                     item.extra["director_transition"] = beat.get("transition", "cut")
+                    # Keep the complete native shot brief attached to the media item so
+                    # render/review/export tools can inspect it without reparsing prompts.
+                    for key in ("framing", "angle", "lens", "lighting", "emotion", "continuity_anchor", "character"):
+                        if beat.get(key):
+                            item.extra[f"director_{key}"] = beat[key]
             by_scene = {(st.index, st.part): m for st, m in zip(shots, media)}
 
             self._step("captions")
