@@ -57,7 +57,8 @@ def _encode_args(settings: Settings, final: bool) -> list[str]:
             "-pix_fmt", "yuv420p", "-g", str(settings.fps * 2), "-threads", "2"]
 
 
-def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Settings, work: Path) -> Path:
+def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Settings, work: Path,
+                    progress: Callable[[float], None] | None = None) -> Path:
     W, H, F = settings.width, settings.height, settings.fps
     out = work / f"seg{idx:02d}.mp4"
     seconds = max(seconds, 2.0 / F)
@@ -90,7 +91,7 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
                     f"crop={W}:{H}:x='{float_x}':y='{float_y}',setsar=1,fps={F}{grade}")
         ffmpeg.run([*pre, "-i", str(item.path), "-t", f"{seconds:.3f}", "-an",
                     "-vf", float_vf, *enc, "-frames:v", str(frames), str(out)],
-                   label=f"segment {idx} (camera float)")
+                   label=f"segment {idx} (camera float)", progress=progress, duration=seconds)
         return out
 
     if item.kind == "image" and item.path:
@@ -123,10 +124,10 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
             vf = (f"scale={2 * W}:{2 * H}:force_original_aspect_ratio=increase,crop={2 * W}:{2 * H},"
                   f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={F},setsar=1{grade}")
             ffmpeg.run(["-i", str(item.path), "-vf", vf, *enc, "-frames:v", str(frames), str(out)],
-                       label=f"segment {idx} (ken burns)")
+                       label=f"segment {idx} (ken burns)", progress=progress, duration=seconds)
         else:
             ffmpeg.run(["-loop", "1", "-framerate", str(F), "-i", str(item.path), "-vf", f"{cover}{grade}",
-                        *enc, "-frames:v", str(frames), str(out)], label=f"segment {idx} (still)")
+                        *enc, "-frames:v", str(frames), str(out)], label=f"segment {idx} (still)", progress=progress, duration=seconds)
         return out
 
     # Generated animated background (no footage found / offline demo). A gradient has no detail, so it is drawn
@@ -139,7 +140,7 @@ def prepare_segment(item: MediaItem, seconds: float, idx: int, settings: Setting
     else:
         src = f"color=c={c0}:s={gw}x{gh}:r={F}:d={seconds:.3f}"
     ffmpeg.run(["-f", "lavfi", "-i", src, "-vf", f"scale={W}:{H}:flags=bicubic,setsar=1,format=yuv420p", *enc,
-                "-frames:v", str(frames), str(out)], label=f"segment {idx} (generated)")
+                "-frames:v", str(frames), str(out)], label=f"segment {idx} (generated)", progress=progress, duration=seconds)
     return out
 
 
@@ -509,16 +510,28 @@ def render_video(settings: Settings, media: list[MediaItem], scene_durations: li
     if background is not None:
         top = replace(settings, resolution=split_sizes(settings)[0])
     workers = max(1, min(2, len(media)))  # mobile-safe: concurrent FFmpeg processes can exhaust native memory and crash
+    # FFmpeg's -progress stream reports encoded media time while each shot is being built.
+    # Aggregate the concurrent shot fractions so the Studio bar moves during long individual shots.
+    progress_lock = __import__("threading").Lock()
+    segment_progress = [0.0] * (len(media) + (1 if background is not None else 0))
+    def segment_update(slot: int, frac: float) -> None:
+        with progress_lock:
+            segment_progress[slot] = max(segment_progress[slot], min(1.0, frac))
+            current = sum(segment_progress) / max(1, len(segment_progress))
+        report(SEGMENT_SHARE * current)
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
-        futs = [ex.submit(prepare_segment, m, L, i, top, work) for i, (m, L) in enumerate(zip(media, lengths))]
+        futs = [ex.submit(prepare_segment, m, L, i, top, work,
+                          lambda frac, slot=i: segment_update(slot, frac))
+                for i, (m, L) in enumerate(zip(media, lengths))]
         bg_fut = None
         if background is not None:
             bottom = replace(settings, resolution=split_sizes(settings)[1])
-            bg_fut = ex.submit(prepare_segment, background, total, 99, bottom, work)
-        for done, _ in enumerate(concurrent.futures.as_completed(futs), 1):
-            report(SEGMENT_SHARE * done / len(futs))
+            slot = len(media)
+            bg_fut = ex.submit(prepare_segment, background, total, 99, bottom, work,
+                               lambda frac: segment_update(slot, frac))
         segments = [fu.result() for fu in futs]
         bg_seg = bg_fut.result() if bg_fut else None
+    report(SEGMENT_SHARE)
     music = pick_music(settings)
     if music:
         log.info("Music: %s", music.name)
