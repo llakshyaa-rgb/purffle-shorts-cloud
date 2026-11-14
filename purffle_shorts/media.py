@@ -959,7 +959,11 @@ class Visuals:
         for source in source_order:
             check_cancel()
             if source in ("openai-images", "ai", "dalle", "gpt-image", "pollinations", "cloudflare"):
-                item = self._ai(source, fantasy_prompt, dest_dir, idx, reference_path=character_reference_path if fantasy_mode else None)
+                item = self._ai(
+                    source, (fantasy_prompt if fantasy_mode else image_prompt or query),
+                    dest_dir, idx,
+                    reference_path=character_reference_path if (fantasy_mode or character_mode) else None,
+                )
                 if item:
                     return item
                 continue
