@@ -374,7 +374,7 @@ def topview_image(prompt: str, dest: Path, key: str, model: str, orientation: st
 
 def vivago_image(prompt: str, dest: Path, token: str, version: str, orientation: str = "portrait") -> Path:
     """Generate an image through Vivago's documented asynchronous text-to-image API."""
-    ratio = {"portrait": (768, 1365), "landscape": (1365, 768)}.get(orientation, (1024, 1024))
+    ratio = {"portrait": (832, 1248), "landscape": (1248, 832)}.get(orientation, (1024, 1024))
     request_id = str(uuid.uuid4())
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     body = {"prompt": prompt[:1000], "negative_prompt": "text, watermark, logo",
