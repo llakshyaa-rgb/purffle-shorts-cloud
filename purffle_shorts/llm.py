@@ -335,6 +335,19 @@ class OpenAICompatible(Provider):
             if not result:
                 raise LLMError(f"{self}: empty visual analysis reply")
             return result
+        except PermanentError as exc:
+            fmt = payload.get("response_format", {}).get("type")
+            message_text = str(exc).lower()
+            named = any(term in message_text for term in ("response_format", "json_schema", "schema", "structured"))
+            generic = fmt == "json_schema" and ("http 400" in message_text or "http 422" in message_text)
+            if fmt and (named or generic):
+                if fmt == "json_schema":
+                    self._schema_mode = False
+                else:
+                    self._json_mode = False
+                return self.complete_vision(system, user, images, schema=schema,
+                                            temperature=temperature, max_tokens=max_tokens)
+            raise
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"{self}: unexpected vision response") from exc
 
