@@ -1234,7 +1234,7 @@ class Visuals:
         """jobs: [(search_query, image_prompt, seconds_needed)] -> one MediaItem per scene. ``progress`` gets
         the fraction of scenes that have their footage."""
         dest_dir.mkdir(parents=True, exist_ok=True)
-        workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare") for s in self.sources) else 6
+        workers = 2 if any(s in ("openai-images", "ai", "pollinations", "cloudflare", "topview-images", "vivago-images", "topview-video") for s in self.sources) else 6
         check_cancel()
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(self.for_scene, i, q, p, topic, need, dest_dir) for i, (q, p, need) in enumerate(jobs)]
