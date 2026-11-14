@@ -33,8 +33,14 @@ DIRECTOR_SCHEMA = {
                     "sound": {"type": "string", "enum": ["none", "whoosh", "pop", "hit"]},
                     "reason": {"type": "string"},
                     "character": {"type": "string", "enum": ["none", "purffle_narrator", "purffle_detective", "purffle_scientist", "purffle_explorer", "purffle_mystery"]},
+                    "framing": {"type": "string", "enum": ["extreme_wide", "wide", "medium", "medium_close", "close_up", "extreme_close_up", "over_shoulder", "two_shot", "top_down", "insert"]},
+                    "angle": {"type": "string", "enum": ["eye_level", "low", "high", "dutch", "profile", "three_quarter", "top_down"]},
+                    "lens": {"type": "string", "enum": ["wide_24mm", "standard_35mm", "natural_50mm", "portrait_85mm", "macro_100mm"]},
+                    "lighting": {"type": "string"},
+                    "emotion": {"type": "string"},
+                    "continuity_anchor": {"type": "string"},
                 },
-                "required": ["scene", "purpose", "visual_mode", "visual_prompt", "camera", "transition", "sound", "reason", "character"],
+                "required": ["scene", "purpose", "visual_mode", "visual_prompt", "camera", "transition", "sound", "reason", "character", "framing", "angle", "lens", "lighting", "emotion", "continuity_anchor"],
                 "additionalProperties": False,
             },
         }
@@ -153,6 +159,12 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "sound": sound,
         "reason": f"Use {mode} to make the narrated beat immediately legible; {camera.replace('_', ' ')} keeps the shot alive without distracting from the words.",
         "character": _character_for(text, style),
+        "framing": ("close_up" if any(w in text for w in ("detail", "eye", "hand", "key", "clue")) else "wide" if index == 0 else "medium"),
+        "angle": ("low" if any(w in text for w in ("tower", "king", "power", "towering")) else "high" if any(w in text for w in ("small", "below", "overhead", "map")) else "eye_level"),
+        "lens": ("macro_100mm" if any(w in text for w in ("detail", "texture", "tiny", "micro")) else "wide_24mm" if index == 0 else "natural_50mm"),
+        "lighting": ("hard directional cinematic light with motivated practical sources" if style in ("story", "fantasy", "reddit", "chat") else "clear documentary lighting with readable subject separation"),
+        "emotion": ("tension and anticipation" if any(w in text for w in ("fear", "danger", "mystery", "threat", "reveal")) else "curiosity and discovery"),
+        "continuity_anchor": (query or narration)[:180],
     }
 
 
@@ -269,11 +281,18 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                 if isinstance(value, str) and value.strip():
                     clean[key] = value.strip()[:1800 if key == "visual_prompt" else 240]
             for key, allowed in (("visual_mode", MODES), ("camera", CAMERAS),
-                                 ("transition", TRANSITIONS), ("sound", SOUNDS)):
+                                 ("transition", TRANSITIONS), ("sound", SOUNDS),
+                                 ("framing", ("extreme_wide", "wide", "medium", "medium_close", "close_up", "extreme_close_up", "over_shoulder", "two_shot", "top_down", "insert")),
+                                 ("angle", ("eye_level", "low", "high", "dutch", "profile", "three_quarter", "top_down")),
+                                 ("lens", ("wide_24mm", "standard_35mm", "natural_50mm", "portrait_85mm", "macro_100mm"))):
                 if row.get(key) in allowed:
                     clean[key] = row[key]
             if row.get("character") in CHARACTERS:
                 clean["character"] = row["character"]
+            for key, limit in (("lighting", 180), ("emotion", 120), ("continuity_anchor", 240)):
+                value = row.get(key)
+                if isinstance(value, str) and value.strip():
+                    clean[key] = value.strip()[:limit]
             # Enforce the abstract-beat rule after LLM merging too: model output must not
             # turn a connective sentence into a random stock photo or human subject.
             source_scene = script.scenes[i - 1]
@@ -351,8 +370,15 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
             prefix = "FANTASY CINEMATIC FOOTAGE: "
             prompt = prompt.removeprefix("FANTASY CINEMATIC FOOTAGE: ").strip()
         if prompt:
+            shot_notes = (f" Shot direction: {beat.get('framing', 'medium').replace('_', ' ')} framing, "
+                          f"{beat.get('angle', 'eye_level').replace('_', ' ')} angle, "
+                          f"{beat.get('lens', 'natural_50mm').replace('_', ' ')}, "
+                          f"camera {beat.get('camera', 'static').replace('_', ' ')}. "
+                          f"Lighting: {beat.get('lighting', 'motivated cinematic lighting')}. "
+                          f"Emotional beat: {beat.get('emotion', 'curiosity')}. "
+                          f"Continuity anchor: {beat.get('continuity_anchor', '')}.")
             if mode == "gradient":
-                scene.image_prompt = prefix + prompt
+                scene.image_prompt = prefix + prompt + shot_notes
                 continue
             character = str(beat.get("character", "none")).strip().lower()
             character_note = ""
@@ -386,7 +412,7 @@ def apply_to_script(script: Script, plan: list[dict[str, Any]]) -> None:
                 )
             elif character in CHARACTERS and character != "none":
                 character_note = f"\nREUSABLE CHARACTER: {character}"
-            scene.image_prompt = (prefix + character_note) if script.style == "fantasy" else (prefix + prompt + character_note)
+            scene.image_prompt = ((prefix + character_note) if script.style == "fantasy" else (prefix + prompt + character_note)) + shot_notes
 
 
 def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
@@ -400,6 +426,10 @@ def notes_markdown(script: Script, plan: list[dict[str, Any]]) -> str:
             f"- **Visual:** {beat.get('visual_mode', 'illustration').title()} — {beat.get('visual_prompt', '')}",
             f"- **Reusable character:** {beat.get('character', 'none')}",
             f"- **Camera:** {beat.get('camera', 'static').replace('_', ' ').title()}",
+            f"- **Framing / angle / lens:** {beat.get('framing', 'medium').replace('_', ' ').title()} / {beat.get('angle', 'eye_level').replace('_', ' ').title()} / {beat.get('lens', 'natural_50mm').replace('_', ' ')}",
+            f"- **Lighting:** {beat.get('lighting', '')}",
+            f"- **Emotional beat:** {beat.get('emotion', '')}",
+            f"- **Continuity anchor:** {beat.get('continuity_anchor', '')}",
             f"- **Transition:** {beat.get('transition', 'cut').replace('_', ' ').title()}",
             f"- **Sound accent:** {beat.get('sound', 'none').title()}",
             f"- **Why:** {beat.get('reason', '')}",
