@@ -28,7 +28,7 @@ from . import ffmpeg, tts
 from .config import Settings
 from .llm import LLMConfigError
 from .overlays import build_overlays
-from .render import _encode_args, compose, pick_cover
+from .render import _encode_args, _grade, compose, pick_cover
 from .script import normalize
 from .timing import Word, caption_chunks, srt
 from .utils import PermanentError, download, slugify
@@ -591,9 +591,10 @@ def render_clip(settings: Settings, source: Path, plan: ClipPlan, words: list[Wo
         log.info("Jump cuts: %d cut(s), %.1fs -> %.1fs", len(keep) - 1 + (keep[0][0] > 0), dur, new_dur)
         dur = new_dur
     zoom = zoom_filter(s, zoom_plan(clip_words, dur)) if s.clip_zoom and crop != "blur" else ""
+    grade = _grade(s)
     seg = work / "seg00.mp4"
     ffmpeg.run(["-ss", f"{plan.start:.3f}", "-i", str(source), "-t", f"{plan.duration + 0.25:.3f}", "-an",
-                "-vf", f"{crop_filter(s, crop, face)},fps={F}{picked}{zoom}", *_encode_args(s, final=False),
+                "-vf", f"{crop_filter(s, crop, face)},fps={F}{grade}{picked}{zoom}", *_encode_args(s, final=False),
                 "-frames:v", str(max(2, round(dur * F))), str(seg)], label="clip video")
     voice = work / "voice.wav"
     if has_audio:
@@ -612,7 +613,8 @@ def render_clip(settings: Settings, source: Path, plan: ClipPlan, words: list[Wo
 
 def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload: bool | None = None,
                min_seconds: int = 20, max_seconds: int = 58, brief: str = "",
-               idea_count: int = 10, jump_cuts: bool | None = None, zoom: bool | None = None) -> list:
+               idea_count: int = 10, jump_cuts: bool | None = None, zoom: bool | None = None,
+               edit_style: str = "auto") -> list:
     """Returns one pipeline.Result per clip. ``brief``: what to look for ("the funniest moments", "every
     tip about sleep"); without an LLM it is ignored."""
     from .history import now_iso
@@ -626,6 +628,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
     upload = s.upload if upload is None else upload
     count = max(1, min(10, int(count)))
     idea_count = max(count, min(10, int(idea_count)))
+    edit_style = edit_style if edit_style in {"auto", "cinematic", "hype", "manga"} else "auto"
     crop = crop if crop in CROPS else "center"
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     src_name = Path(src).stem if not re.match(r"^https?://", src) else "video"
@@ -706,9 +709,17 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
         } for i, p in enumerate(plans[:idea_count], 1)]
         plans = plans[:count]
         log.info("Analyzed %d candidate moment(s); rendering the top %d from %s", len(ideas), len(plans), src)
+        style_cycle = ("cinematic", "hype", "manga")
         for n, plan in enumerate(plans, 1):
             studio._step("render", f"clip {n}/{len(plans)}")
             t0 = time.time()
+            chosen_style = style_cycle[(n - 1) % len(style_cycle)] if edit_style == "auto" else edit_style
+            style_settings = {
+                "cinematic": {"color_grade": "cinematic", "caption_style": "clean"},
+                "hype": {"color_grade": "vivid", "caption_style": "karaoke"},
+                "manga": {"color_grade": "bw", "caption_style": "neon"},
+            }[chosen_style]
+            clip_settings = replace(s, **style_settings)
             text = " ".join(w.text.strip() for w in words if plan.start <= w.start < plan.end)
             script = normalize({"title": plan.title, "hook_text": plan.hook_text, "description": plan.description,
                                 "hashtags": plan.hashtags or [], "tags": plan.tags or [], "category": "entertainment",
@@ -717,7 +728,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
             folder = (s.out_path / f"{stamp}_{slugify(script.title)}-{n}").resolve()
             folder.mkdir(parents=True, exist_ok=True)
             try:
-                video, chunks, dur = render_clip(s, source, plan, words, folder, crop,
+                video, chunks, dur = render_clip(clip_settings, source, plan, words, folder, crop,
                                                  (info["width"], info["height"]), has_audio=has_audio)
                 out = ffmpeg.probe(video)
                 cover_at = pick_cover(video, folder / "cover.jpg", folder / "work", total=dur, until=min(3.0, dur * 0.4))
@@ -728,7 +739,7 @@ def make_clips(studio, src: str, *, count: int = 3, crop: str = "center", upload
                                 "rendered_count": len(plans), "ideas": ideas}, indent=2, ensure_ascii=False),
                     encoding="utf-8")
                 meta = {"title": title, "description": description, "tags": script.tags, "category_id": "24",
-                        "clip_ideas": ideas, "clip_analysis": analysis_mode,
+                        "clip_ideas": ideas, "clip_analysis": analysis_mode, "edit_style": chosen_style,
                         "language": s.language, "source": "clip", "style": "clip", "clip_of": src,
                         "clip_start": round(plan.start, 2), "clip_end": round(plan.end, 2),
                         "score": plan.score, "review": [plan.reason] if plan.reason else [],
