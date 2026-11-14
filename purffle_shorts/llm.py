@@ -398,7 +398,7 @@ class AnthropicProvider(Provider):
                 "type": "base64", "media_type": item.get("mime", "image/jpeg"), "data": item["data"]
             }})
         kwargs: dict[str, Any] = {
-            "model": self.model, "max_tokens": max(1024, int(max_tokens)),
+            "model": self.model, "max_tokens": max(16000, int(max_tokens)),
             "system": system, "messages": [{"role": "user", "content": content}],
         }
         output_config: dict[str, Any] = {}
@@ -480,7 +480,7 @@ class LLM:
 
     def complete_vision_json(self, system: str, user: str, images: list[dict], schema: dict | None = None,
                              max_tokens: int = 5000, temperature: float = 0.2) -> dict[str, Any]:
-        """Try configured OpenAI-compatible providers that accept image inputs; caller can fall back to text."""
+        """Try configured multimodal providers; caller can fall back to transcript-only analysis."""
         errors = []
         for provider in self.providers:
             method = getattr(provider, "complete_vision", None)
