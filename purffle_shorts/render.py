@@ -407,6 +407,21 @@ def compose(settings: Settings, segments: list[Path], lengths: list[float], voic
         overlay(label, f"x={px}:y={py}:enable='between(t,{start:.3f},{end:.3f})':eof_action=pass",
                 f"vcreatorpanel{pi}")
         idx += 1
+    # Listicle step badges: one numbered cue at the start of each point, above the caption band.
+    for bi, (png, px, py, start, end) in enumerate(plan.badges):
+        if end <= start:
+            continue
+        still(png, end - start)
+        label = f"numberbadge{bi}"
+        f.append(
+            f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS+{start:.3f}/TB,"
+            f"fade=t=in:st=0:d=0.12:alpha=1,"
+            f"fade=t=out:st={max(0.0, end-start-0.16):.3f}:d=0.16:alpha=1[{label}]"
+        )
+        overlay(label, f"x={px}:y={py}:enable='between(t,{start:.3f},{end:.3f})':eof_action=pass",
+                f"vnumberbadge{bi}")
+        idx += 1
+
     # Transparent recurring narrator: locally drawn RGBA sprites, no external image service.
     # NARRATOR_ENABLED=false disables it without changing the existing render pipeline.
     if os.getenv("NARRATOR_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}:
