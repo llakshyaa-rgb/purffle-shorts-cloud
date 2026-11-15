@@ -443,7 +443,9 @@ class Studio:
             speech = self._speak(script, work, s)
             duration_before = speech.duration
             trim_trailing_voice_silence(speech, work)
-            total = round(speech.duration + END_PAD, 3)
+            # Reserve a real, silent closing beat for the CTA instead of laying it over narration.
+            end_pad = max(END_PAD, 1.8 if s.end_cta.strip() else END_PAD)
+            total = round(speech.duration + end_pad, 3)
 
             # Bounded, measured duration repair. Allow up to four attempts because a model
             # can miss a word budget once; keep the best measured candidate and never trade
@@ -521,7 +523,7 @@ class Studio:
                             )
                             continue
                         candidate_speech = self._speak(candidate, work, s)
-                        candidate_total = round(candidate_speech.duration + END_PAD, 3)
+                        candidate_total = round(candidate_speech.duration + end_pad, 3)
                         if abs(candidate_total - target) < abs(best_total - target):
                             script, speech, total = candidate, candidate_speech, candidate_total
                             best_script, best_speech, best_total = script, speech, total
