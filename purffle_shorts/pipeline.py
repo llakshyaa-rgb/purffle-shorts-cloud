@@ -713,6 +713,13 @@ class Studio:
                 if sc.emoji and not chat and not (card and k == 0):
                     emoji.append((tm.start + 0.05, min(tm.end, tm.start + 1.65), sc.emoji))
             creator_panels = []
+            number_badges = []
+            if script.style == "listicle" and not chat and not card:
+                for scene_time in timeline:
+                    start = scene_time.start + 0.05
+                    end = min(scene_time.end, start + 1.8)
+                    if end > start + 0.2:
+                        number_badges.append((start, end, scene_time.index + 1))
             chosen_treatment = director_plan[0].get("visual_treatment", "kinetic_typography") if director_plan else "kinetic_typography"
             if chosen_treatment == "floating_panels" and not chat and not card:
                 for panel_i, (scene, scene_time) in enumerate(zip(script.scenes, timeline)):
@@ -735,7 +742,7 @@ class Studio:
             plan = build_overlays(s, on_screen, total, script.hook_text, work, labels=labels, chat=messages,
                                   contact=script.speaker_name("A"), card=card, card_until=card_until,
                                   emphasis={k for sc in script.scenes for k in sc.emphasis}, emoji=emoji,
-                                  creator_panels=creator_panels)
+                                  creator_panels=creator_panels, number_badges=number_badges)
 
             self._step("render", f"{s.width}x{s.height}")
             video = folder / ("short.mp4" if s.vertical else "video.mp4")
