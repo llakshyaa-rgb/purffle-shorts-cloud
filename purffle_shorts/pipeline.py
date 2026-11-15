@@ -49,6 +49,36 @@ log = logging.getLogger("purffle")
 END_PAD = 0.6          # seconds of breathing room after the last word
 DURATION_TOLERANCE_SECONDS = 5.0  # requested runtime may vary by at most five seconds
 
+def trimmed_voice_duration(duration: float, silences: list[tuple[float, float]], *,
+                           min_tail: float = 0.35, keep_tail: float = 0.10) -> float:
+    """Remove only a detected trailing silence; preserve a short natural breath after the final word."""
+    if duration <= 0 or not silences:
+        return duration
+    start, end = max(silences, key=lambda span: span[1])
+    if end < duration - 0.12 or duration - start < min_tail:
+        return duration
+    return max(0.0, min(duration, start + keep_tail))
+
+
+def trim_trailing_voice_silence(speech: tts.Speech, work: Path) -> None:
+    """Trim long encoder/TTS tail silence so the visual ending follows the final spoken word."""
+    if not speech.words or speech.duration <= 0:
+        return
+    try:
+        pauses = ffmpeg.silences(speech.audio, noise_db=-42.0, min_seconds=0.35)
+        cut = trimmed_voice_duration(speech.duration, pauses)
+        if cut >= speech.duration - 0.20:
+            return
+        out = work / "voice-trimmed.wav"
+        ffmpeg.run(["-i", str(speech.audio), "-af", f"atrim=end={cut:.3f},asetpts=PTS-STARTPTS",
+                    "-c:a", "pcm_s16le", str(out)], label="trim trailing narration silence")
+        speech.audio = out
+        speech.duration = ffmpeg.duration(out)
+        log.info("Removed %.2fs of trailing narration silence", max(0.0, duration_before - speech.duration))
+    except Exception as exc:
+        log.debug("Trailing silence trim skipped: %s", exc)
+
+
 
 def _can_adaptively_reuse(item: MediaItem) -> bool:
     """Only replace failed generated placeholders; preserve deliberate gradient art direction."""
@@ -410,6 +440,8 @@ class Studio:
         try:
             self._step("voice", f"{s.tts_engine} voice")
             speech = self._speak(script, work, s)
+            duration_before = speech.duration
+            trim_trailing_voice_silence(speech, work)
             total = round(speech.duration + END_PAD, 3)
 
             # Bounded, measured duration repair. Allow up to four attempts because a model
