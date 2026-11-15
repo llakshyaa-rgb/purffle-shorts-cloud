@@ -441,7 +441,6 @@ class Studio:
         try:
             self._step("voice", f"{s.tts_engine} voice")
             speech = self._speak(script, work, s)
-            duration_before = speech.duration
             trim_trailing_voice_silence(speech, work)
             # Reserve a real, silent closing beat for the CTA instead of laying it over narration.
             end_pad = max(END_PAD, 1.8 if s.end_cta.strip() else END_PAD)
