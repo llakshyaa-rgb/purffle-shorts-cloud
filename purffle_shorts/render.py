@@ -227,12 +227,12 @@ def mix_audio(settings: Settings, voice: Path, total: float, music: Path | None,
     if music:
         inputs += ["-stream_loop", "-1", "-i", str(Path(music).resolve())]
         fade_out = max(0.0, total - 1.5)
-        graph.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,volume={settings.music_volume:.3f},"
+        graph.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,volume={settings.music_volume * 0.75:.3f},"
                      f"afade=t=in:d=0.8,afade=t=out:st={fade_out:.3f}:d=1.5,atrim=0:{total:.3f}[mus]")
         k += 1
         if settings.music_ducking:  # music dips automatically whenever the voice speaks
             graph.append("[v0]asplit=2[voice][sc]")
-            graph.append("[mus][sc]sidechaincompress=threshold=0.015:ratio=8:attack=15:release=350:makeup=1[duck]")
+            graph.append("[mus][sc]sidechaincompress=threshold=0.020:ratio=4:attack=20:release=280:makeup=1[duck]")
             beds.append("duck")
         else:
             graph.append("[v0]anull[voice]")
