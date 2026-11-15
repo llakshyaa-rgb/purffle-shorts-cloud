@@ -183,7 +183,7 @@ def is_emphasised(word: str, keys: set[str] | frozenset[str]) -> bool:
 SPEAKER_B = {"active": "#4FC3F7", "box": "#0EA5E9", "tag": "#4FC3F7"}
 SPEAKER_A_TAG = "#FFE11A"
 POP_SCALES = (0.78, 1.07)
-CENTER_Y = {"upper": 0.30, "center": 0.56, "lower": 0.68, "bottom": 0.84}
+CENTER_Y = {"upper": 0.30, "center": 0.50, "lower": 0.58, "bottom": 0.62}
 
 
 def _rgba(hex_color: str, alpha: int = 255) -> tuple[int, int, int, int]:
@@ -444,7 +444,7 @@ def hook_png(settings: Settings, font_path: Path | None, text: str, dest: Path,
 
 def cta_png(settings: Settings, font_path: Path | None, text: str, dest: Path,
             y_ratio: float = 0.30) -> tuple[Path, int]:
-    img = _text_box(settings, font_path, text, size_ratio=0.062, fill="#FFFFFF", box="#FF0033", box_alpha=235,
+    img = _text_box(settings, font_path, text, size_ratio=0.062, fill="#FFFFFF", box="#151923", box_alpha=248,
                     max_lines=2)
     img.save(dest)
     return dest, int(settings.height * y_ratio)
@@ -1045,7 +1045,7 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     cta_text = settings.end_cta.strip()
     # Keep the CTA as an ending beat, not an interruption in the middle of a story.
     # For short clips it gets the final ~2.6 seconds; for longer clips it starts no earlier than 82%.
-    cta_from = max(total - 2.6, total * 0.82) if cta_text else 0.0
+    cta_from = max(total - 1.6, total * 0.92) if cta_text else 0.0
     hook_y = 0.09 if chat else 0.15
     chat_plan = None
     if chat:
@@ -1070,7 +1070,7 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
         ass = write_ass(settings, style, family, chunks, total, work / "captions.ass",
                         hook=hook_text if hook_until else "", hook_until=hook_until,
                         cta=cta_text, cta_from=cta_from, watermark="",
-                        hook_y=hook_y, cta_y=0.10 if chat else 0.30, labels=labels, emphasis=emphasis)
+                        hook_y=hook_y, cta_y=0.10 if chat else 0.18, labels=labels, emphasis=emphasis)
         log.info("Captions: libass renderer (%s, font %s)", settings.language, family)
         return OverlayPlan("ass", ass=ass, fonts_dir=fonts, chat=chat_plan, card=card_plan,
                            card_until=card_until if card_plan else 0.0, emoji=emoji_plan)
@@ -1088,6 +1088,6 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     # No watermark is burned into exported videos.
     if cta_text:
         # Chat stories keep the conversation readable: the call-to-action takes the hook's place above it.
-        plan.cta = cta_png(settings, ui_font, cta_text, work / "cta.png", y_ratio=0.10 if chat else 0.30)
+        plan.cta = cta_png(settings, ui_font, cta_text, work / "cta.png", y_ratio=0.10 if chat else 0.18)
         plan.cta_from = cta_from
     return plan
