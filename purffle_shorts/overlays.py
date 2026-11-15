@@ -965,6 +965,23 @@ def creator_panel_png(settings: Settings, font_path: Path | None, kicker: str, t
     return dest, (W-cw)//2, int(H*0.235)
 
 
+def number_badge_png(settings: Settings, number: int, dest: Path) -> tuple[Path, int, int]:
+    """A compact, high-contrast list-step badge that stays clear of captions and mobile UI."""
+    size = max(72, int(settings.unit * 0.145)) // 2 * 2
+    img = Image.new("RGBA", (size + 18, size + 18), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx = cy = (size + 18) // 2
+    d.ellipse((cx-size//2+4, cy-size//2+7, cx+size//2+4, cy+size//2+7), fill=(0, 0, 0, 105))
+    d.ellipse((cx-size//2, cy-size//2, cx+size//2, cy+size//2),
+              fill=(18, 24, 35, 245), outline=(255, 214, 10, 255), width=max(3, size//24))
+    font = load_font(None, int(size * 0.54), 900)
+    d.text((cx, cy-1), str(max(1, number)), font=font, anchor="mm", fill=(255, 225, 26, 255),
+           stroke_width=max(1, size//90), stroke_fill=(0, 0, 0, 255))
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest, compress_level=1)
+    return dest, int(settings.width * 0.075), int(settings.height * 0.22)
+
+
 # ------------------------------------------------------------------------------------------ plan
 @dataclass
 class OverlayPlan:
@@ -983,6 +1000,7 @@ class OverlayPlan:
     card_until: float = 0.0
     emoji: tuple[Path, int, int] | None = None  # (ffconcat playlist, x, y) emoji popping up above the captions
     panels: list[tuple[Path, int, int, float, float]] = field(default_factory=list)  # timed creator cards
+    badges: list[tuple[Path, int, int, float, float]] = field(default_factory=list)  # timed list-step badges
 
 
 def _auto_caption_style(settings: Settings, chunks: list[Chunk], chat: list[ChatMessage] | None = None) -> str:
@@ -1017,7 +1035,8 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
                    contact: str = "", card: tuple[str, str, str] | None = None,
                    card_until: float = 0.0, emphasis: set[str] | None = None,
                    emoji: list[tuple[float, float, str]] | None = None,
-                   creator_panels: list[tuple[float, float, str, str, str]] | None = None) -> OverlayPlan:
+                   creator_panels: list[tuple[float, float, str, str, str]] | None = None,
+                   number_badges: list[tuple[float, float, int]] | None = None) -> OverlayPlan:
     """labels: speaker name tags over the captions (dialogue). chat: render a text-message screen
     instead of captions (the messages are the captions). card: (community, poster, title) of a post card
     shown until ``card_until`` in place of the hook title (pass captions that start after it).
@@ -1026,6 +1045,11 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
     emphasis = (set(emphasis or ()) if settings.caption_emphasis else None)
     emoji_plan = emoji_pops(settings, emoji, total, work / "emoji") if emoji and settings.caption_emoji else None
     panel_plan = []
+    badge_plan = []
+    if number_badges:
+        for bi, (start, end, number) in enumerate(number_badges[:12]):
+            png, px, py = number_badge_png(settings, number, work / "number_badges" / f"badge{bi:02d}.png")
+            badge_plan.append((png, px, py, max(0.0, start), min(total, end)))
     if creator_panels:
         panel_font, _ = resolve_font(settings, "sans")
         for pi, (start, end, kicker, title, body) in enumerate(creator_panels[:8]):
@@ -1073,10 +1097,10 @@ def build_overlays(settings: Settings, chunks: list[Chunk], total: float, hook_t
                         hook_y=hook_y, cta_y=0.10 if chat else 0.18, labels=labels, emphasis=emphasis)
         log.info("Captions: libass renderer (%s, font %s)", settings.language, family)
         return OverlayPlan("ass", ass=ass, fonts_dir=fonts, chat=chat_plan, card=card_plan,
-                           card_until=card_until if card_plan else 0.0, emoji=emoji_plan)
+                           card_until=card_until if card_plan else 0.0, emoji=emoji_plan, badges=badge_plan)
 
     plan = OverlayPlan("pillow", chat=chat_plan, card=card_plan, card_until=card_until if card_plan else 0.0,
-                       emoji=emoji_plan)
+                       emoji=emoji_plan, badges=badge_plan)
     if chunks:
         caps = PillowCaptions(settings, style, font_path, labels, emphasis)
         plan.captions, plan.captions_y = caps.build(chunks, total, work / "captions"), caps.band_y
