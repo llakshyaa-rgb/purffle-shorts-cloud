@@ -64,6 +64,7 @@ def trim_trailing_voice_silence(speech: tts.Speech, work: Path) -> None:
     """Trim long encoder/TTS tail silence so the visual ending follows the final spoken word."""
     if not speech.words or speech.duration <= 0:
         return
+    duration_before = speech.duration
     try:
         pauses = ffmpeg.silences(speech.audio, noise_db=-42.0, min_seconds=0.35)
         cut = trimmed_voice_duration(speech.duration, pauses)
