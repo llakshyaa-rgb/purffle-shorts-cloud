@@ -303,6 +303,17 @@ def direct(script: Script, llm: Any = None) -> list[dict[str, Any]]:
                     "Abstract animated gradient transition, deep cinematic color, subtle slow light movement, "
                     "clean negative space for captions; no people, no stock photo, no icons, no collage."
                 )
+            if i == 1 and script.style not in ("fantasy", "dialogue", "chat", "reddit") and clean["visual_mode"] != "gradient":
+                # Start on the subject/evidence, not a slow establishing shot. The first second must
+                # communicate the premise even before the viewer has processed the narration.
+                clean["camera"] = "push_in"
+                clean["framing"] = "close_up"
+                clean["lens"] = "macro_100mm"
+                clean["visual_prompt"] = (
+                    "OPENING HOOK FRAME: begin immediately on the most striking relevant subject detail "
+                    "or the action already happening; no fade-in, empty establishing shot, or delayed reveal. "
+                    + clean.get("visual_prompt", "")
+                )[:1800]
             if script.style == "fantasy":
                 clean["visual_mode"] = "footage"
                 prompt = clean.get("visual_prompt", "").strip()
