@@ -149,6 +149,9 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "photo": "cinematic editorial photograph, realistic lighting and a single focal subject",
         "symbolic": "visual metaphor with one unmistakable central symbol, cinematic composition",
     }[mode]
+    if index == 0 and mode != "gradient":
+        prompt = ("OPENING HOOK FRAME: begin immediately on the clearest, most surprising relevant detail "
+                  "or action already in progress; no fade-in or empty establishing shot. " + prompt)
     return {
         "scene": index + 1,
         "purpose": "hook" if index == 0 else ("payoff" if any(w in text for w in ("therefore", "because", "finally", "the truth", "so that")) else "evidence"),
@@ -159,9 +162,9 @@ def _fallback(scene: Any, index: int, style: str) -> dict[str, Any]:
         "sound": sound,
         "reason": f"Use {mode} to make the narrated beat immediately legible; {camera.replace('_', ' ')} keeps the shot alive without distracting from the words.",
         "character": _character_for(text, style),
-        "framing": ("close_up" if any(w in text for w in ("detail", "eye", "hand", "key", "clue")) else "wide" if index == 0 else "medium"),
+        "framing": ("close_up" if (index == 0 and mode != "gradient") or any(w in text for w in ("detail", "eye", "hand", "key", "clue")) else "wide" if index == 0 else "medium"),
         "angle": ("low" if any(w in text for w in ("tower", "king", "power", "towering")) else "high" if any(w in text for w in ("small", "below", "overhead", "map")) else "eye_level"),
-        "lens": ("macro_100mm" if any(w in text for w in ("detail", "texture", "tiny", "micro")) else "wide_24mm" if index == 0 else "natural_50mm"),
+        "lens": ("macro_100mm" if (index == 0 and mode != "gradient") or any(w in text for w in ("detail", "texture", "tiny", "micro")) else "wide_24mm" if index == 0 else "natural_50mm"),
         "lighting": ("hard directional cinematic light with motivated practical sources" if style in ("story", "fantasy", "reddit", "chat") else "clear documentary lighting with readable subject separation"),
         "emotion": ("tension and anticipation" if any(w in text for w in ("fear", "danger", "mystery", "threat", "reveal")) else "curiosity and discovery"),
         "continuity_anchor": (query or narration)[:180],
